@@ -3,6 +3,7 @@
 *.lo
 *.o
 *.obj
+*.d
 
 # Precompiled Headers
 *.gch
@@ -26,3 +27,7 @@
 *.exe
 *.out
 *.app
+run
+
+wolf3dware.sublime-project
+wolf3dware.sublime-workspace
