@@ -26,12 +26,12 @@ TEST_CASE( "Process and parse gcodes", "[GCodeProcessor]" ) {
 		REQUIRE( gcodes.size() == 1);
 		for(auto i : gcodes) {
 			INFO( "dump is " << i );
-			REQUIRE(i.has_g());
-			REQUIRE(i.get_code() == 0);
-			REQUIRE(i.has_arg('X')); REQUIRE(i.get_arg('X') == 1);
-			REQUIRE(i.has_arg('Y')); REQUIRE(i.get_arg('Y') == 2);
-			REQUIRE_FALSE(i.has_arg('Z'));
-			REQUIRE_THROWS(	i.get_arg('Z') );
+			REQUIRE(i.hasG());
+			REQUIRE(i.getCode() == 0);
+			REQUIRE(i.hasArg('X')); REQUIRE(i.getArg('X') == 1);
+			REQUIRE(i.hasArg('Y')); REQUIRE(i.getArg('Y') == 2);
+			REQUIRE_FALSE(i.hasArg('Z'));
+			REQUIRE_THROWS(	i.getArg('Z') );
 		}
 	}
 
@@ -42,17 +42,17 @@ TEST_CASE( "Process and parse gcodes", "[GCodeProcessor]" ) {
 		REQUIRE( gcodes.size() == 2);
 		auto a= gcodes[0];
 		INFO( "gcode[0] is " << a);
-		REQUIRE(a.has_m());
-		REQUIRE(a.get_code() == 123);
-		REQUIRE(a.has_arg('X')); REQUIRE(a.get_arg('X') == 1);
-		REQUIRE(a.has_arg('Y')); REQUIRE(a.get_arg('Y') == 2);
+		REQUIRE(a.hasM());
+		REQUIRE(a.getCode() == 123);
+		REQUIRE(a.hasArg('X')); REQUIRE(a.getArg('X') == 1);
+		REQUIRE(a.hasArg('Y')); REQUIRE(a.getArg('Y') == 2);
 		auto b= gcodes[1];
 		INFO( "gcode[1] is " << b);
-		REQUIRE(b.has_g());
-		REQUIRE(b.get_code() == 1);
-		REQUIRE(b.has_arg('X')); REQUIRE(b.get_arg('X') == 10);
-		REQUIRE(b.has_arg('Y')); REQUIRE(b.get_arg('Y') == 20);
-		REQUIRE(b.has_arg('Z')); REQUIRE(b.get_arg('Z') == 0.634f);
+		REQUIRE(b.hasG());
+		REQUIRE(b.getCode() == 1);
+		REQUIRE(b.hasArg('X')); REQUIRE(b.getArg('X') == 10);
+		REQUIRE(b.hasArg('Y')); REQUIRE(b.getArg('Y') == 20);
+		REQUIRE(b.hasArg('Z')); REQUIRE(b.getArg('Z') == 0.634f);
 	}
 
 	SECTION( "Modal G1 and comments" ) {
@@ -63,11 +63,11 @@ TEST_CASE( "Process and parse gcodes", "[GCodeProcessor]" ) {
 		REQUIRE( gcodes.size() == 1);
 		auto a = gcodes[0];
 		INFO( "gcode[0] is " << a);
-		REQUIRE(a.has_g());
-		REQUIRE(a.get_code() == 1);
-		REQUIRE(a.has_arg('X'));
-		REQUIRE(a.has_arg('Y'));
-		REQUIRE_FALSE(a.has_arg('Z'));
+		REQUIRE(a.hasG());
+		REQUIRE(a.getCode() == 1);
+		REQUIRE(a.hasArg('X'));
+		REQUIRE(a.hasArg('Y'));
+		REQUIRE_FALSE(a.hasArg('Z'));
 	}
 }
 
@@ -86,10 +86,10 @@ TEST_CASE( "Dispatch GCodes", "[Dispatcher]" ) {
 	cb1= false;
 	cb2= false;
 	cb3= false;
-	THEDISPATCHER.clear_handlers();
-	THEDISPATCHER.add_handler(Dispatcher::GCODE_HANDLER, 1, fnc1);
-	THEDISPATCHER.add_handler(Dispatcher::MCODE_HANDLER, 1, fnc2);
-	auto h3= THEDISPATCHER.add_handler(Dispatcher::GCODE_HANDLER, 1, fnc3);
+	THEDISPATCHER.clearHandlers();
+	THEDISPATCHER.addHandler(Dispatcher::GCODE_HANDLER, 1, fnc1);
+	THEDISPATCHER.addHandler(Dispatcher::MCODE_HANDLER, 1, fnc2);
+	auto h3= THEDISPATCHER.addHandler(Dispatcher::GCODE_HANDLER, 1, fnc3);
 
 	REQUIRE_FALSE(cb1);
 	REQUIRE_FALSE(cb2);
@@ -105,7 +105,7 @@ TEST_CASE( "Dispatch GCodes", "[Dispatcher]" ) {
 	}
 
 	SECTION( "Remove second G1 handler" ) {
-		THEDISPATCHER.remove_handler(Dispatcher::GCODE_HANDLER, h3);
+		THEDISPATCHER.removeHandler(Dispatcher::GCODE_HANDLER, h3);
 		REQUIRE( THEDISPATCHER.dispatch(gcodes[0]) );
 		REQUIRE ( cb1 );
 		REQUIRE_FALSE ( cb3 );

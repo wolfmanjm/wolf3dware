@@ -21,10 +21,10 @@ public:
 	using Handlers_t = std::multimap<uint16_t,Handler_t>;
 	enum HANDLER_NAME { GCODE_HANDLER, MCODE_HANDLER };
 
-	Handlers_t::iterator add_handler(HANDLER_NAME gcode, uint16_t code, Handler_t fnc);
-	void remove_handler(HANDLER_NAME gcode, Handlers_t::iterator);
+	Handlers_t::iterator addHandler(HANDLER_NAME gcode, uint16_t code, Handler_t fnc);
+	void removeHandler(HANDLER_NAME gcode, Handlers_t::iterator);
 	bool dispatch(GCode& gc);
-	void clear_handlers();
+	void clearHandlers();
 
 private:
 	Dispatcher(){};

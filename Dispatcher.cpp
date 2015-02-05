@@ -7,20 +7,24 @@
 
 using namespace std;
 
+#define LOG_WARNING printf
+
 bool Dispatcher::dispatch(GCode& gc)
 {
-	auto& handler= gc.has_g() ? gcode_handlers : mcode_handlers;
-	const auto& f= handler.equal_range(gc.get_code());
+	auto& handler= gc.hasG() ? gcode_handlers : mcode_handlers;
+	const auto& f= handler.equal_range(gc.getCode());
 	bool ret= false;
 	for (auto it=f.first; it!=f.second; ++it) {
-		it->second(gc);
+		if(!it->second(gc)) {
+			LOG_WARNING("handler did not handle %c%d\n", gc.hasG() ? 'G':'M', gc.getCode());
+		}
 		ret= true;
 	}
 
 	return ret;
 }
 
-Dispatcher::Handlers_t::iterator Dispatcher::add_handler(HANDLER_NAME gcode, uint16_t code, Handler_t fnc)
+Dispatcher::Handlers_t::iterator Dispatcher::addHandler(HANDLER_NAME gcode, uint16_t code, Handler_t fnc)
 {
 	Handlers_t::iterator ret;
 	switch(gcode) {
@@ -30,7 +34,7 @@ Dispatcher::Handlers_t::iterator Dispatcher::add_handler(HANDLER_NAME gcode, uin
 	return ret;
 }
 
-void Dispatcher::remove_handler(HANDLER_NAME gcode, Handlers_t::iterator i)
+void Dispatcher::removeHandler(HANDLER_NAME gcode, Handlers_t::iterator i)
 {
 	switch(gcode) {
 		case GCODE_HANDLER: gcode_handlers.erase(i); break;
@@ -39,7 +43,7 @@ void Dispatcher::remove_handler(HANDLER_NAME gcode, Handlers_t::iterator i)
 }
 
 // mainly used for testing
-void Dispatcher::clear_handlers()
+void Dispatcher::clearHandlers()
 {
 	gcode_handlers.clear();
 	mcode_handlers.clear();
