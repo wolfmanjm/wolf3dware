@@ -2,6 +2,7 @@
 
 #include <vector>
 #include <map>
+#include <bitset>
 #include <stdint.h>
 
 class GCode;
@@ -16,7 +17,10 @@ public:
 	void initialize();
 	void resetAxisPositions();
 	void resetAxisPosition(char, float);
-	void addActuator(Actuator *, char);
+	void addActuator(Actuator&, char, bool);
+	char getActuatorAxis(uint8_t i) const { return actuator_axis_lut[i]; }
+	uint8_t getAxisActuator(char a) const { return axis_actuator_map.at(a); }
+	bool isPrimaryAxis(uint8_t i) const { return primary_axis[i]; }
 
 private:
 	bool handleG0G1(GCode&);
@@ -25,16 +29,18 @@ private:
 	bool handleSetSpeedOverride(GCode& gc);
 
 	float toMillimeters( float value ){ return this->inch_mode ? value * 25.4F : value; }
-	float fromMillimeters( float value){ return this->inch_mode ? value/25.4F : value; }
+	float fromMillimeters(float value){ return this->inch_mode ? value / 25.4F : value; }
 
 	float seek_rate, feed_rate;
-	float seconds_per_minute{0.0F};
+	float seconds_per_minute{60.0F};
 
 	Planner *planner;
 
-	std::vector<Actuator*> actuators;
+	std::vector<Actuator> actuators;
 	std::map<char, uint8_t> axis_actuator_map;
 	std::vector<char> actuator_axis_lut;
+	std::vector<bool> primary_axis;
+
 	std::vector<float> last_milestone;
 
 	struct {

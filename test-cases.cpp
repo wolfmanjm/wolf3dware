@@ -117,7 +117,7 @@ TEST_CASE( "Motion Control", "[MotionControl]" ) {
 	MotionControl mc;
 	mc.initialize();
 	GCodeProcessor gp;
-	GCodeProcessor::GCodes_t gcodes= gp.parse("G1 X1 Y2 G92 G92 X0");
+	GCodeProcessor::GCodes_t gcodes= gp.parse("G1 X1 Y2 F6000 G0 X1 G92 G1 X1 G91 G1 X1 G1 X1 G92 G1 X0");
 	for(auto i : gcodes) {
 		THEDISPATCHER.dispatch(i);
 	}

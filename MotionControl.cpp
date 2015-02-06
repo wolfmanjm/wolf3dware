@@ -2,6 +2,8 @@
 #include "Dispatcher.h"
 #include "GCode.h"
 #include "Planner.h"
+#include "Actuator.h"
+
 
 #include <string.h>
 #include <functional>
@@ -13,7 +15,9 @@ MotionControl::MotionControl()
 {
 	inch_mode= false;
 	absolute_mode= true;
-	planner= new Planner();
+	planner= new Planner(*this);
+	seek_rate= 1000;
+	feed_rate= 5000;
 }
 
 MotionControl::~MotionControl()
@@ -21,13 +25,14 @@ MotionControl::~MotionControl()
 	delete planner;
 }
 
-void MotionControl::addActuator(Actuator *actuator, char axis)
+void MotionControl::addActuator(Actuator& actuator, char axis, bool primary)
 {
 	int i= actuators.size();
 	actuators.push_back(actuator);
 	actuator_axis_lut.push_back(axis);
 	axis_actuator_map[axis]= i;
 	last_milestone.push_back(0);
+	primary_axis.push_back(primary);
 }
 
 void MotionControl::initialize()
@@ -43,6 +48,17 @@ void MotionControl::initialize()
 	THEDISPATCHER.addHandler( Dispatcher::GCODE_HANDLER, 92, std::bind( &MotionControl::handleSetAxisPosition, this, _1) );
 
 	THEDISPATCHER.addHandler( Dispatcher::MCODE_HANDLER, 220, std::bind( &MotionControl::handleSetSpeedOverride, this, _1) );
+
+	Actuator xactuator, yactuator, zactuator, eactuator;
+	xactuator.setStepsPermm(100);
+	yactuator.setStepsPermm(100);
+	zactuator.setStepsPermm(400);
+	eactuator.setStepsPermm(750);
+	addActuator(xactuator, 'X', true);
+	addActuator(yactuator, 'Y', true);
+	addActuator(zactuator, 'Z', true);
+	addActuator(eactuator, 'E', false);
+
 }
 
 bool MotionControl::handleSetSpeedOverride(GCode& gc)
@@ -69,6 +85,7 @@ bool MotionControl::handleG0G1(GCode& gc)
 		char c= actuator_axis_lut[i];
         if( gc.hasArg(c) ) {
             float d= toMillimeters(gc.getArg(c));
+            // TODO absolute mode may need to be per actuator, as E can be in relative
             target[i] = (absolute_mode) ? d : last_milestone[i] + d;
         }else{
         	target[i] = last_milestone[i];
@@ -82,7 +99,7 @@ bool MotionControl::handleG0G1(GCode& gc)
     }
 
     // submit to planner
-	planner->plan(gc, last_milestone.data(), target, n_axis, (gc.getCode() == 0 ? seek_rate : feed_rate) / seconds_per_minute );
+	planner->plan(gc, last_milestone.data(), target, n_axis, actuators.data(), (gc.getCode() == 0 ? seek_rate : feed_rate) / seconds_per_minute );
 
 	// update last_target
 	std::copy(target, target+n_axis, last_milestone.begin());
