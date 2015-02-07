@@ -1,4 +1,5 @@
 # Declaration of variables
+#CC = /datadisk/aux/Stuff/reprap/Firmwares/gcc-arm-none-eabi-4_9-2014q4/bin/arm-none-eabi-g++
 CC = g++-4.8
 CC_FLAGS = -Wall -Wextra -g -std=gnu++11 -MP -MMD
 

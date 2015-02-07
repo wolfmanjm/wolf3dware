@@ -14,11 +14,15 @@ class Planner
 public:
 	Planner(const MotionControl& mc) : motion_control(mc) {};
 	~Planner(){};
-	bool plan(GCode& gc, const float *last_target, const float *target, int n_axis, Actuator *actuators, float rate_mms);
+	bool plan(const float *last_target, const float *target, int n_axis, Actuator *actuators, float rate_mms);
+	void dump(std::ostream& o) const;
 
 private:
 	void calculateTrapezoid(Block& block, float entryspeed, float exitspeed);
-  	float maxAllowableSpeed( float acceleration, float target_velocity, float distance);
+  	float maxAllowableSpeed( float acceleration, float target_velocity, float distance) const;
+	float maxExitSpeed(const Block& b) const;
+	float reversePass(Block &b, float exit_speed);
+	float forwardPass(Block &b, float prev_max_exit_speed);
     void recalculate();
 
 	const MotionControl& motion_control;

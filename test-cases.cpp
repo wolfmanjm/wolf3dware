@@ -2,6 +2,7 @@
 #include "Dispatcher.h"
 #include "GCode.h"
 #include "MotionControl.h"
+#include "Block.h"
 
 #include <map>
 #include <vector>
@@ -112,13 +113,15 @@ TEST_CASE( "Dispatch GCodes", "[Dispatcher]" ) {
 	}
 }
 
-
 TEST_CASE( "Motion Control", "[MotionControl]" ) {
 	MotionControl mc;
 	mc.initialize();
 	GCodeProcessor gp;
-	GCodeProcessor::GCodes_t gcodes= gp.parse("G1 X1 Y2 F6000 G0 X1 G92 G1 X1 G91 G1 X1 G1 X1 G92 G1 X0");
+	GCodeProcessor::GCodes_t gcodes= gp.parse("G1 X100 F6000 G1 X200 G1 X300 G1 X400 G1 X500");
 	for(auto i : gcodes) {
 		THEDISPATCHER.dispatch(i);
 	}
+
+	mc.dump(cout);
+
 }

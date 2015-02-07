@@ -8,8 +8,11 @@
 #include <algorithm>
 #include <array>
 #include <tuple>
+#include <iostream>
+#include <string.h>
 
-bool Planner::plan(GCode &gc, const float *last_target, const float *target, int n_axis,  Actuator *actuators, float rate_mms)
+static uint32_t id= 0;
+bool Planner::plan(const float *last_target, const float *target, int n_axis,  Actuator *actuators, float rate_mms)
 {
     printf("last_target: %f,%f,%f target: %f,%f,%f rate: %f\n", last_target[0], last_target[1], last_target[2], target[0], target[1], target[2], rate_mms);
 
@@ -19,26 +22,27 @@ bool Planner::plan(GCode &gc, const float *last_target, const float *target, int
     for (int i = 0; i < n_axis; ++i) {
         deltas[i] = target[i] - last_target[i];
         if(motion_control.isPrimaryAxis(i)) {
-            sos += powf(deltas[i], 1);
+            sos += powf(deltas[i], 2);
         }
     }
     if(sos > 0.0F) distance = sqrtf( sos );
 
-    uint8_t xaxis= motion_control.getAxisActuator('X');
-    uint8_t yaxis= motion_control.getAxisActuator('Y');
-    uint8_t zaxis= motion_control.getAxisActuator('Z');
-    float unit_vec[3]{deltas[xaxis]/distance, deltas[yaxis]/distance, deltas[zaxis]/distance};
+    uint8_t xaxis = motion_control.getAxisActuator('X');
+    uint8_t yaxis = motion_control.getAxisActuator('Y');
+    uint8_t zaxis = motion_control.getAxisActuator('Z');
+    float unit_vec[3] {deltas[xaxis] / distance, deltas[yaxis] / distance, deltas[zaxis] / distance};
 
-        // Do not move faster than the configured cartesian limits
-        // if ( max_speeds[a] > 0 ) {
-        //     float axis_speed = fabsf(unit_vec[i] * rate_mms);
-        //     if (axis_speed > max_speeds[a])
-        //         rate_mms *= ( max_speeds[a] / axis_speed );
-        // }
+    // Do not move faster than the configured cartesian limits
+    // if ( max_speeds[a] > 0 ) {
+    //     float axis_speed = fabsf(unit_vec[i] * rate_mms);
+    //     if (axis_speed > max_speeds[a])
+    //         rate_mms *= ( max_speeds[a] / axis_speed );
+    // }
 
 
     // create the new block
     Block block;
+    block.id= id++;
 
     for (int i = 0; i < n_axis; i++) {
         std::tuple<bool, uint32_t> r = actuators[i].stepsToTarget(target[i]);
@@ -115,23 +119,191 @@ bool Planner::plan(GCode &gc, const float *last_target, const float *target, int
     float v_allowable = maxAllowableSpeed(-acceleration, minimum_planner_speed, block.millimeters);
     block.entry_speed = std::min(vmax_junction, v_allowable);
 
+    // Initialize planner efficiency flags
+    // Set flag if block will always reach maximum junction speed regardless of entry/exit speeds.
+    // If a block can de/ac-celerate from nominal speed to zero within the length of the block, then
+    // the current block and next block junction speeds are guaranteed to always be at their maximum
+    // junction speeds in deceleration and acceleration, respectively. This is due to how the current
+    // block nominal speed limits both the current and next maximum junction speeds. Hence, in both
+    // the reverse and forward planners, the corresponding block junction speed will always be at the
+    // the maximum junction speed and may always be ignored for any speed reduction checks.
+    block.nominal_length_flag = (block.nominal_speed <= v_allowable);
 
-    // stick on the end of the block queue
-    block_queue.push_back(block);
+    // Always calculate trapezoid for new block
+    block.recalculate_flag = true;
+
+    // Update previous path unit_vector and nominal speed
+    memcpy(previous_unit_vec, unit_vec, sizeof(previous_unit_vec)); // previous_unit_vec[] = unit_vec[]
+
+    // not ready yet
+    block.ready = false;
+    block.times_taken = 0;
+
+    // stick on the head/front of the block queue
+    block_queue.push_front(block);
+
+    // Math-heavy re-computing of the whole queue to take the new
+    recalculate();
+
+    // it can be used now
+    block_queue.front().ready= true;
+
     return true;
 }
 
 // Calculates the maximum allowable speed at this point when you must be able to reach target_velocity using the
 // acceleration within the allotted distance.
-float Planner::maxAllowableSpeed(float acceleration, float target_velocity, float distance)
+float Planner::maxAllowableSpeed(float acceleration, float target_velocity, float distance) const
 {
     return sqrtf(target_velocity * target_velocity - 2.0F * acceleration * distance);
 }
 
-// entry speed is in mm/sec
-// this code written by Arthur Wolf
+float Planner::maxExitSpeed(const Block &b) const
+{
+    // if block is currently executing, return cached exit speed from calculate_trapezoid
+    // this ensures that a block following a currently executing block will have correct entry speed
+    if (b.times_taken > 0) return b.exit_speed;
+
+    // if nominal_length_flag is asserted
+    // we are guaranteed to reach nominal speed regardless of entry speed
+    // thus, max exit will always be nominal
+    if (b.nominal_length_flag) return b.nominal_speed;
+
+    // otherwise, we have to work out max exit speed based on entry and acceleration
+    float max = maxAllowableSpeed(-b.acceleration, b.entry_speed, b.millimeters);
+
+    return std::min(max, b.nominal_speed);
+}
+
+// Called by Planner::recalculate() when scanning the plan from last to first entry.
+float Planner::reversePass(Block &b, float exit_speed)
+{
+    // If entry speed is already at the maximum entry speed, no need to recheck. Block is cruising.
+    // If not, block in state of acceleration or deceleration. Reset entry speed to maximum and
+    // check for maximum allowable speed reductions to ensure maximum possible planned speed.
+    if (b.entry_speed != b.max_entry_speed) {
+        // If nominal length true, max junction speed is guaranteed to be reached. Only compute
+        // for max allowable speed if block is decelerating and nominal length is false.
+        if ((!b.nominal_length_flag) && (b.max_entry_speed > exit_speed)) {
+            float max_entry_speed = maxAllowableSpeed(-b.acceleration, exit_speed, b.millimeters);
+            b.entry_speed = std::min(max_entry_speed, b.max_entry_speed);
+            return b.entry_speed;
+
+        } else {
+            b.entry_speed = b.max_entry_speed;
+        }
+    }
+
+    return b.entry_speed;
+}
+
+// Called by Planner::recalculate() when scanning the plan from first to last entry.
+// returns maximum exit speed of this block
+float Planner::forwardPass(Block &b, float prev_max_exit_speed)
+{
+    // If the previous block is an acceleration block, but it is not long enough to complete the
+    // full speed change within the block, we need to adjust the entry speed accordingly. Entry
+    // speeds have already been reset, maximized, and reverse planned by reverse planner.
+    // If nominal length is true, max junction speed is guaranteed to be reached. No need to recheck.
+
+    // TODO: find out if both of these checks are necessary
+    if (prev_max_exit_speed > b.nominal_speed) prev_max_exit_speed = b.nominal_speed;
+    if (prev_max_exit_speed > b.max_entry_speed) prev_max_exit_speed = b.max_entry_speed;
+
+    if (prev_max_exit_speed <= b.entry_speed) {
+        // accel limited
+        b.entry_speed = prev_max_exit_speed;
+        // since we're now acceleration or cruise limited
+        // we don't need to recalculate our entry speed anymore
+        b.recalculate_flag = false;
+        std::cout << "recalculate_flag set to false: " << b.id << "\n";
+    }
+    // else
+    // // decel limited, do nothing
+
+    return maxExitSpeed(b);
+}
+
+/*
+ * a newly added block is decel limited
+ *
+ * we find its max entry speed given its exit speed
+ *
+ * for each block, walking backwards in the queue:
+ *
+ * if max entry speed == current entry speed
+ * then we can set recalculate to false, since clearly adding another block didn't allow us to enter faster
+ * and thus we don't need to check entry speed for this block any more
+ *
+ * once we find an accel limited block, we must find the max exit speed and walk the queue forwards
+ *
+ * for each block, walking forwards in the queue:
+ *
+ * given the exit speed of the previous block and our own max entry speed
+ * we can tell if we're accel or decel limited (or coasting)
+ *
+ * if prev_exit > max_entry
+ *     then we're still decel limited. update previous trapezoid with our max entry for prev exit
+ * if max_entry >= prev_exit
+ *     then we're accel limited. set recalculate to false, work out max exit speed
+ *
+ * finally, work out trapezoid for the final (and newest) block.
+ */
+void Planner::recalculate()
+{
+    /*
+     * Step 1:
+     * For each block, given the exit speed and acceleration, find the maximum entry speed
+     */
+
+    float entry_speed = minimum_planner_speed;
+    auto curi = block_queue.begin();
+    auto lasti = std::prev(block_queue.end()); //iterator pointing to last entry
+
+    if (block_queue.size() > 1) {
+        // from head to tail
+        while(curi != lasti && curi->recalculate_flag) {
+        	std::cout << "pass1: " << curi->id << "\n";
+            entry_speed = reversePass(*curi, entry_speed);
+            curi = std::next(curi);
+        }
+        std::cout << "pass1 finished at: " << curi->id << "\n";
+
+        /*
+         * Step 2:
+         * now current points to either tail or first non-recalculate block
+         * and has not had its reverse_pass called
+         * or its calc trap
+         * entry_speed is set to the *exit* speed of current.
+         * each block from current to head has its entry speed set to its max entry speed- limited by decel or nominal_rate
+         */
+
+        float exit_speed = maxExitSpeed(*curi);
+        while (curi != block_queue.begin()) {
+        	std::cout << "pass2: " << curi->id << "\n";
+            auto previ= curi;
+            curi= std::prev(curi);
+
+            // we pass the exit speed of the previous block
+            // so this block can decide if it's accel or decel limited and update its fields as appropriate
+            exit_speed = forwardPass(*curi, exit_speed);
+            calculateTrapezoid(*previ, previ->entry_speed, curi->entry_speed);
+        }
+        std::cout << "pass2 finished at: " << curi->id << "\n";
+    }
+
+    /*
+     * Step 3:
+     * work out trapezoid for final (and newest) block
+     */
+    calculateTrapezoid(*curi, curi->entry_speed, minimum_planner_speed);
+}
+
+// this code written by Arthur Wolf based on his acceleration per tick work for Smoothie
 void Planner::calculateTrapezoid(Block &block, float entryspeed, float exitspeed)
 {
+	std::cout << "calculateTrapezoid for: " << block.id << " entry: " << entryspeed << ", exit: " << exitspeed << "\n";
+
     float initial_rate = block.nominal_rate * (entryspeed / block.nominal_speed); // steps/sec
     float final_rate = block.nominal_rate * (exitspeed / block.nominal_speed);
 
@@ -196,8 +368,8 @@ void Planner::calculateTrapezoid(Block &block, float entryspeed, float exitspeed
     float acceleration_time = acceleration_ticks / STEP_TICKER_FREQUENCY;  // This can be moved into the operation bellow, separated for clarity, note :Â we need to do this instead of using time_to_accelerate(seconds) directly because time_to_accelerate(seconds) and acceleration_ticks(seconds) do not have the same value anymore due to the rounding
     float deceleration_time = deceleration_ticks / STEP_TICKER_FREQUENCY;
 
-    float  acceleration_in_steps = ( block.maximum_rate - initial_rate ) / acceleration_time;
-    float deceleration_in_steps = ( block.maximum_rate - final_rate ) / deceleration_time;
+    float  acceleration_in_steps = (acceleration_time > 0.0F ) ? ( block.maximum_rate - initial_rate ) / acceleration_time : 0;
+    float deceleration_in_steps =  (deceleration_time > 0.0F ) ? ( block.maximum_rate - final_rate ) / deceleration_time : 0;
 
     // Note we use this value for acceleration as well as for deceleration, if that doesn't work, we can also as well compute the deceleration value this way :
     // float deceleration(steps/sÂ²) = ( final_rate(steps/s) - maximum_rate(steps/s) ) / acceleration_time(s);
@@ -222,5 +394,30 @@ void Planner::calculateTrapezoid(Block &block, float entryspeed, float exitspeed
     //puts "accelerate_until: #{block.accelerate_until}, decelerate_after: #{block.decelerate_after}, acceleration_per_tick: #{block.acceleration_per_tick}, total_move_ticks: #{block.total_move_ticks}"
 
     block.initial_rate = initial_rate;
+    block.exit_speed= exitspeed;
 }
 
+void Planner::dump(std::ostream &o) const
+{
+    for(auto &b : block_queue) {
+        o <<
+        "Id: " << b.id                         << ", " <<
+        "accelerate_until: " <<  b.accelerate_until          << ", " <<
+        "decelerate_after: " <<  b.decelerate_after          << ", " <<
+        "acceleration_per_tick: " <<  b.acceleration_per_tick     << ", " <<
+        "deceleration_per_tick: " <<  b.deceleration_per_tick     << ", " <<
+        "total_move_ticks: " <<  b.total_move_ticks          << ", " <<
+        "maximum_rate: " <<  b.maximum_rate              << ", " <<
+        "nominal_rate: " <<  b.nominal_rate              << ", " <<
+        "nominal_speed: " <<  b.nominal_speed             << ", " <<
+        "acceleration: " <<  b.acceleration             << ", " <<
+        "millimeters: " <<  b.millimeters               << ", " <<
+        "steps_event_count: " <<  b.steps_event_count         << ", " <<
+        "initial_rate: " <<  b.initial_rate              << ", " <<
+        "max_entry_speed: " <<  b.max_entry_speed           << ", " <<
+        "entry_speed: " <<  b.entry_speed               << ", " <<
+        "exit_speed: " <<  b.exit_speed                << ", " <<
+        //"direction: " <<  b.direction                 << "," <<
+        "steps_to_move: " << b.steps_to_move[0] << ", " << b.steps_to_move[1] << ", " << b.steps_to_move[2] << "\n";
+    }
+}

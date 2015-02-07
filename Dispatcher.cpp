@@ -7,7 +7,8 @@
 
 using namespace std;
 
-#define LOG_WARNING printf
+//#define LOG_WARNING printf
+#define LOG_WARNING(...)
 
 bool Dispatcher::dispatch(GCode& gc)
 {

@@ -3,8 +3,6 @@
 
 #include <cmath>
 
-#define STEP_TICKER_FREQUENCY 100000.0F
-
 void Actuator::move( bool direction, uint32_t steps_to_move, const Block& block )
 {
     // set direction pin
@@ -28,8 +26,8 @@ void Actuator::move( bool direction, uint32_t steps_to_move, const Block& block 
 
 std::tuple<bool,uint32_t> Actuator::stepsToTarget(float target)
 {
-	uint32_t target_steps = std::lround(target * steps_per_mm);
-	bool dir= target_steps >= last_milestone_steps;
+	uint32_t target_steps = lround(target * steps_per_mm);
+	bool dir= (target_steps >= last_milestone_steps);
 	uint32_t delta_steps;
 	if(dir){
 		delta_steps= target_steps - last_milestone_steps;

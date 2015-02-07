@@ -21,6 +21,7 @@ public:
 	char getActuatorAxis(uint8_t i) const { return actuator_axis_lut[i]; }
 	uint8_t getAxisActuator(char a) const { return axis_actuator_map.at(a); }
 	bool isPrimaryAxis(uint8_t i) const { return primary_axis[i]; }
+	void dump(std::ostream& o) const;
 
 private:
 	bool handleG0G1(GCode&);

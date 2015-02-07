@@ -99,7 +99,7 @@ bool MotionControl::handleG0G1(GCode& gc)
     }
 
     // submit to planner
-	planner->plan(gc, last_milestone.data(), target, n_axis, actuators.data(), (gc.getCode() == 0 ? seek_rate : feed_rate) / seconds_per_minute );
+	planner->plan(last_milestone.data(), target, n_axis, actuators.data(), (gc.getCode() == 0 ? seek_rate : feed_rate) / seconds_per_minute );
 
 	// update last_target
 	std::copy(target, target+n_axis, last_milestone.begin());
@@ -138,4 +138,9 @@ void MotionControl::resetAxisPositions() {
 void MotionControl::resetAxisPosition(char axis, float pos){
 	auto i= axis_actuator_map.find(axis);
 	if(i != axis_actuator_map.end()) last_milestone[i->second]= pos;
+}
+
+void MotionControl::dump(std::ostream& o) const
+{
+	planner->dump(o);
 }

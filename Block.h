@@ -7,6 +7,7 @@
 #define STEP_TICKER_FREQUENCY_2 (STEP_TICKER_FREQUENCY*STEP_TICKER_FREQUENCY)
 
 struct Block {
+	uint32_t id{0};
 	uint32_t accelerate_until{0};
 	uint32_t decelerate_after{0};
 	float acceleration_per_tick{0};
@@ -21,6 +22,14 @@ struct Block {
 	float initial_rate{0};
 	float max_entry_speed{0};
 	float entry_speed{0};
-	std::vector<uint32_t> steps_to_move{0};
+	float exit_speed{0};
+	std::vector<uint32_t> steps_to_move;
 	std::bitset<32> direction{0};
+	uint8_t times_taken{0};
+	struct {
+		bool nominal_length_flag:1;
+		bool recalculate_flag:1;
+		bool ready:1;
+	};
 };
+

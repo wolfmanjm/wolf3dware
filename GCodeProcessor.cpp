@@ -8,6 +8,7 @@
 #include <stdint.h>
 #include <ctype.h>
 #include <cmath>
+#include <cstdlib>
 
 using namespace std;
 
