@@ -11,3 +11,19 @@ improved Motion Control from SmoothieWare created by Arthur Wolf.
 Will use the STM32F4xxx HAL by STM, there are no plans to make it portable to other architectures.
 
 Initial prototype will be on a STM32F4-discovery board.
+
+Status
+------
+
+basic gcode parsing - done
+dispatch gcode to handlers - done
+motion control - done
+planner - done
+step generation - done
+
+Todo
+----
+port to STM32F
+add timers for step generation
+use FreeRTOS for threading
+make block queue thread safe

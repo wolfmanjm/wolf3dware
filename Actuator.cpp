@@ -6,7 +6,7 @@
 
 void Actuator::move( bool direction, uint32_t steps_to_move, float axis_ratio, const Block &block )
 {
-    this->block = block; // take a copy if this block
+    this->block = block; // take a copy if this block TODO don't really need to copy the entire block just copy what we need
     this->steps_to_move = steps_to_move;
     // set direction pin
     this->direction = direction;
@@ -30,12 +30,12 @@ void Actuator::move( bool direction, uint32_t steps_to_move, float axis_ratio, c
 
     acceleration_change *= axis_ratio;
     steps_per_tick = (block.initial_rate * axis_ratio) / STEP_TICKER_FREQUENCY; // steps/sec / tick frequency to get steps per tick
-    //puts "acceleration change: #{@acceleration_change}"
     counter = 0.0F;
     step_count = 0;
     moving= true;
 }
 
+// returns steps to given target in mm, and sets the milestone for steps
 std::tuple<bool, uint32_t> Actuator::stepsToTarget(float target)
 {
     uint32_t target_steps = lround(target * steps_per_mm);
@@ -51,6 +51,8 @@ std::tuple<bool, uint32_t> Actuator::stepsToTarget(float target)
     return std::make_tuple(dir, delta_steps);
 }
 
+// called by step ticker at 100KHz (or faster)
+// ISR
 bool Actuator::tick(uint32_t current_tick)
 {
     if(!moving) return false;
@@ -58,7 +60,7 @@ bool Actuator::tick(uint32_t current_tick)
     steps_per_tick += acceleration_change;
 
     if(current_tick == next_accel_event) {
-        if(current_tick == block.accelerate_until) { // We are done accelerating, decceleration becomes 0 : plateau
+        if(current_tick == block.accelerate_until) { // We are done accelerating, deceleration becomes 0 : plateau
             acceleration_change = 0;
             if(block.decelerate_after < block.total_move_ticks) {
                 next_accel_event = block.decelerate_after;
@@ -75,10 +77,6 @@ bool Actuator::tick(uint32_t current_tick)
 
     // protect against rounding errors and such
     if(steps_per_tick <= 0) {
-        // if @counter < 0.9
-        //   puts "#{@axis} - ERROR: finished too fast still have #{@steps_to_move-@current_step} steps to go at tick: #{current_tick}, steps_per_tick: #{@steps_per_tick}, counter: #{@counter}"
-        //   return false
-        // end
         counter = 1.0F; // we complete this step
         steps_per_tick = 0;
     }
@@ -88,13 +86,11 @@ bool Actuator::tick(uint32_t current_tick)
     if(counter >= 1.0F) { // step time
         counter -= 1.0F;
         ++step_count;
-        //puts "#{@axis} - #{current_tick}: Do STEP #{@current_step}, steps_per_tick: #{@steps_per_tick}, #{@steps_per_tick*STEP_TICKER_FREQUENCY/STEPS_PER_MM} mm/sec"
 
         // std::cout << axis << " Step: " << step_count << " " <<  current_tick << "\n";
         step();
 
         if(step_count == steps_to_move) {
-            //puts "#{@axis} - stepping finished"
             moving= false;
             return false;
         }
