@@ -1,10 +1,16 @@
+/**
+    Most of the Planner is taken direct from Smoothie,with inlky minor changes
+    https://github.com/Smoothieware/Smoothieware/blob/edge/src/modules/robot/Planner.cpp
+
+    calculateTrapezoid() was designed by Arthur Wolf for Smoothie
+    https://gist.github.com/arthurwolf/ed8cc3bce15ac395d8e7
+*/
 #include "Planner.h"
 #include "Kernel.h"
 #include "Block.h"
 #include "MotionControl.h"
 #include "Actuator.h"
 
-#include <stdio.h>
 #include <math.h>
 #include <algorithm>
 #include <array>
@@ -15,7 +21,7 @@
 static uint32_t id= 0;
 bool Planner::plan(const float *last_target, const float *target, int n_axis,  Actuator *actuators, float rate_mms)
 {
-    printf("last_target: %f,%f,%f target: %f,%f,%f rate: %f\n", last_target[0], last_target[1], last_target[2], target[0], target[1], target[2], rate_mms);
+    //printf("last_target: %f,%f,%f target: %f,%f,%f rate: %f\n", last_target[0], last_target[1], last_target[2], target[0], target[1], target[2], rate_mms);
 
     float deltas[n_axis];
     float distance = 0.0F;
@@ -138,7 +144,6 @@ bool Planner::plan(const float *last_target, const float *target, int n_axis,  A
 
     // not ready yet
     block.ready = false;
-    block.times_taken = 0;
 
     // stick on the head/front of the block queue
     block_queue.push_front(block);
@@ -161,10 +166,6 @@ float Planner::maxAllowableSpeed(float acceleration, float target_velocity, floa
 
 float Planner::maxExitSpeed(const Block &b) const
 {
-    // if block is currently executing, return cached exit speed from calculate_trapezoid
-    // this ensures that a block following a currently executing block will have correct entry speed
-    if (b.times_taken > 0) return b.exit_speed;
-
     // if nominal_length_flag is asserted
     // we are guaranteed to reach nominal speed regardless of entry speed
     // thus, max exit will always be nominal
@@ -299,7 +300,7 @@ void Planner::recalculate()
 // this code written by Arthur Wolf based on his acceleration per tick work for Smoothie
 void Planner::calculateTrapezoid(Block &block, float entryspeed, float exitspeed)
 {
-	std::cout << "calculateTrapezoid for: " << block.id << " entry: " << entryspeed << ", exit: " << exitspeed << "\n";
+	//std::cout << "calculateTrapezoid for: " << block.id << " entry: " << entryspeed << ", exit: " << exitspeed << "\n";
 
     float initial_rate = block.nominal_rate * (entryspeed / block.nominal_speed); // steps/sec
     float final_rate = block.nominal_rate * (exitspeed / block.nominal_speed);
