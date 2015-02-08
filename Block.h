@@ -24,7 +24,7 @@ struct Block {
 	float entry_speed{0};
 	float exit_speed{0};
 	std::vector<uint32_t> steps_to_move;
-	std::bitset<32> direction{0};
+	std::vector<bool> direction;
 	uint8_t times_taken{0};
 	struct {
 		bool nominal_length_flag:1;

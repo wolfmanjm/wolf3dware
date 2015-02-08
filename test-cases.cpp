@@ -1,8 +1,11 @@
+#include "Kernel.h"
 #include "GCodeProcessor.h"
 #include "Dispatcher.h"
 #include "GCode.h"
 #include "MotionControl.h"
 #include "Block.h"
+#include "Planner.h"
+#include "Actuator.h"
 
 #include <map>
 #include <vector>
@@ -113,15 +116,42 @@ TEST_CASE( "Dispatch GCodes", "[Dispatcher]" ) {
 	}
 }
 
-TEST_CASE( "Motion Control", "[MotionControl]" ) {
-	MotionControl mc;
-	mc.initialize();
-	GCodeProcessor gp;
+TEST_CASE( "Generate Steps", "[stepper]" ) {
+	GCodeProcessor& gp= THEKERNEL.getGCodeProcessor();
+
+	// Parse gcode
 	GCodeProcessor::GCodes_t gcodes= gp.parse("G1 X100 F6000 G1 X200 G1 X300 G1 X400 G1 X500");
+
+	// dispatch gcode to MotionControl and Planner
 	for(auto i : gcodes) {
 		THEDISPATCHER.dispatch(i);
 	}
 
-	mc.dump(cout);
+	// dump planned block queue
+	THEKERNEL.getPlanner().dump(cout);
 
+	const Actuator& xact= THEKERNEL.getMotionControl().getActuator('X');
+	const float pos[]{100,200,300,400,500};
+	int cnt= 0;
+
+	// iterate over block queue and setup steppers
+	Planner::Queue_t& q= THEKERNEL.getPlanner().getQueue();
+	while(!q.empty()) {
+		Block block= q.back();
+		q.pop_back();
+		std::cout << "Playing Block: " << block.id << "\n";
+		THEKERNEL.getMotionControl().issueMove(block);
+		// simulate step ticker
+		uint32_t current_tick= 0;
+		bool r= true;
+		while(r) {
+	  		++current_tick;
+			r= THEKERNEL.getMotionControl().issueTicks(current_tick);
+		}
+		// check we got where we requested to go
+		REQUIRE(xact.getCurrentPositionInmm() == pos[cnt++]);
+		std::cout << "Done\n";
+	}
+
+	REQUIRE(xact.getCurrentPositionInmm() == 500);
 }

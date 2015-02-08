@@ -1,4 +1,5 @@
 #include "Planner.h"
+#include "Kernel.h"
 #include "Block.h"
 #include "MotionControl.h"
 #include "Actuator.h"
@@ -21,15 +22,15 @@ bool Planner::plan(const float *last_target, const float *target, int n_axis,  A
     float sos = 0.0F;
     for (int i = 0; i < n_axis; ++i) {
         deltas[i] = target[i] - last_target[i];
-        if(motion_control.isPrimaryAxis(i)) {
+        if(THEKERNEL.getMotionControl().isPrimaryAxis(i)) {
             sos += powf(deltas[i], 2);
         }
     }
     if(sos > 0.0F) distance = sqrtf( sos );
 
-    uint8_t xaxis = motion_control.getAxisActuator('X');
-    uint8_t yaxis = motion_control.getAxisActuator('Y');
-    uint8_t zaxis = motion_control.getAxisActuator('Z');
+    uint8_t xaxis = THEKERNEL.getMotionControl().getAxisActuator('X');
+    uint8_t yaxis = THEKERNEL.getMotionControl().getAxisActuator('Y');
+    uint8_t zaxis = THEKERNEL.getMotionControl().getAxisActuator('Z');
     float unit_vec[3] {deltas[xaxis] / distance, deltas[yaxis] / distance, deltas[zaxis] / distance};
 
     // Do not move faster than the configured cartesian limits
@@ -46,7 +47,7 @@ bool Planner::plan(const float *last_target, const float *target, int n_axis,  A
 
     for (int i = 0; i < n_axis; i++) {
         std::tuple<bool, uint32_t> r = actuators[i].stepsToTarget(target[i]);
-        block.direction[i] = std::get<0>(r);
+        block.direction.push_back(std::get<0>(r));
         block.steps_to_move.push_back(labs(std::get<1>(r)));
     }
 
@@ -92,7 +93,7 @@ bool Planner::plan(const float *last_target, const float *target, int n_axis,  A
     float vmax_junction = minimum_planner_speed; // Set default max junction speed
 
     if (!block_queue.empty()) {
-        float previous_nominal_speed = block_queue.back().nominal_speed;
+        float previous_nominal_speed = block_queue.front().nominal_speed;
 
         if (previous_nominal_speed > 0.0F && junction_deviation > 0.0F) {
             // Compute cosine of angle between previous and current path. (prev_unit_vec is negative)
@@ -263,11 +264,9 @@ void Planner::recalculate()
     if (block_queue.size() > 1) {
         // from head to tail
         while(curi != lasti && curi->recalculate_flag) {
-        	std::cout << "pass1: " << curi->id << "\n";
             entry_speed = reversePass(*curi, entry_speed);
             curi = std::next(curi);
         }
-        std::cout << "pass1 finished at: " << curi->id << "\n";
 
         /*
          * Step 2:
@@ -280,7 +279,6 @@ void Planner::recalculate()
 
         float exit_speed = maxExitSpeed(*curi);
         while (curi != block_queue.begin()) {
-        	std::cout << "pass2: " << curi->id << "\n";
             auto previ= curi;
             curi= std::prev(curi);
 
@@ -289,7 +287,6 @@ void Planner::recalculate()
             exit_speed = forwardPass(*curi, exit_speed);
             calculateTrapezoid(*previ, previ->entry_speed, curi->entry_speed);
         }
-        std::cout << "pass2 finished at: " << curi->id << "\n";
     }
 
     /*
@@ -397,6 +394,7 @@ void Planner::calculateTrapezoid(Block &block, float entryspeed, float exitspeed
     block.exit_speed= exitspeed;
 }
 
+#include "prettyprint.hpp"
 void Planner::dump(std::ostream &o) const
 {
     for(auto &b : block_queue) {
@@ -417,7 +415,7 @@ void Planner::dump(std::ostream &o) const
         "max_entry_speed: " <<  b.max_entry_speed           << ", " <<
         "entry_speed: " <<  b.entry_speed               << ", " <<
         "exit_speed: " <<  b.exit_speed                << ", " <<
-        //"direction: " <<  b.direction                 << "," <<
-        "steps_to_move: " << b.steps_to_move[0] << ", " << b.steps_to_move[1] << ", " << b.steps_to_move[2] << "\n";
+        "direction: " <<  b.direction                 << "," <<
+        "steps_to_move: " << b.steps_to_move << "\n";
     }
 }

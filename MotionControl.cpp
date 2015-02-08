@@ -1,4 +1,5 @@
 #include "MotionControl.h"
+#include "Kernel.h"
 #include "Dispatcher.h"
 #include "GCode.h"
 #include "Planner.h"
@@ -7,6 +8,7 @@
 
 #include <string.h>
 #include <functional>
+#include <algorithm>
 #include <iostream>
 using namespace std;
 
@@ -15,19 +17,18 @@ MotionControl::MotionControl()
 {
 	inch_mode= false;
 	absolute_mode= true;
-	planner= new Planner(*this);
 	seek_rate= 1000;
 	feed_rate= 5000;
 }
 
 MotionControl::~MotionControl()
 {
-	delete planner;
 }
 
-void MotionControl::addActuator(Actuator& actuator, char axis, bool primary)
+void MotionControl::addActuator(Actuator& actuator, bool primary)
 {
 	int i= actuators.size();
+	char axis= actuator.getAxis();
 	actuators.push_back(actuator);
 	actuator_axis_lut.push_back(axis);
 	axis_actuator_map[axis]= i;
@@ -49,15 +50,15 @@ void MotionControl::initialize()
 
 	THEDISPATCHER.addHandler( Dispatcher::MCODE_HANDLER, 220, std::bind( &MotionControl::handleSetSpeedOverride, this, _1) );
 
-	Actuator xactuator, yactuator, zactuator, eactuator;
+	Actuator xactuator('X'), yactuator('Y'), zactuator('Z'), eactuator('E');
 	xactuator.setStepsPermm(100);
 	yactuator.setStepsPermm(100);
 	zactuator.setStepsPermm(400);
 	eactuator.setStepsPermm(750);
-	addActuator(xactuator, 'X', true);
-	addActuator(yactuator, 'Y', true);
-	addActuator(zactuator, 'Z', true);
-	addActuator(eactuator, 'E', false);
+	addActuator(xactuator, true);
+	addActuator(yactuator, true);
+	addActuator(zactuator, true);
+	addActuator(eactuator, false);
 
 }
 
@@ -99,7 +100,7 @@ bool MotionControl::handleG0G1(GCode& gc)
     }
 
     // submit to planner
-	planner->plan(last_milestone.data(), target, n_axis, actuators.data(), (gc.getCode() == 0 ? seek_rate : feed_rate) / seconds_per_minute );
+	THEKERNEL.getPlanner().plan(last_milestone.data(), target, n_axis, actuators.data(), (gc.getCode() == 0 ? seek_rate : feed_rate) / seconds_per_minute );
 
 	// update last_target
 	std::copy(target, target+n_axis, last_milestone.begin());
@@ -140,7 +141,29 @@ void MotionControl::resetAxisPosition(char axis, float pos){
 	if(i != axis_actuator_map.end()) last_milestone[i->second]= pos;
 }
 
-void MotionControl::dump(std::ostream& o) const
+// sets up each axis to move
+bool MotionControl::issueMove(const Block& block)
 {
-	planner->dump(o);
+	auto i= std::max_element(block.steps_to_move.begin(), block.steps_to_move.end());
+	float inv= 1.0F / *i ;
+	for (size_t i = 0; i < block.steps_to_move.size(); ++i) {
+	    if(block.steps_to_move[i] == 0) continue;
+	    //std::cout << "moving axis: " << actuators[i].getAxis() << "\n";
+	    actuators[i].move(block.direction[i], block.steps_to_move[i], block.steps_to_move[i]*inv, block);
+	}
+	return true;
+}
+
+bool MotionControl::issueTicks(uint32_t current_tick)
+{
+	std::vector<bool> r(actuators.size(), true);
+	for (size_t i = 0; i < actuators.size(); ++i) {
+		if(r[i]) r[i]= actuators[i].tick(current_tick);
+	}
+	return std::count(r.begin(), r.end(), true) > 0;
+}
+
+const Actuator& MotionControl::getActuator(char axis) const
+{
+	return actuators[getAxisActuator(axis)];
 }

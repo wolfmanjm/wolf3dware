@@ -12,10 +12,13 @@ class Actuator;
 class Planner
 {
 public:
-	Planner(const MotionControl& mc) : motion_control(mc) {};
+	Planner() {};
 	~Planner(){};
 	bool plan(const float *last_target, const float *target, int n_axis, Actuator *actuators, float rate_mms);
 	void dump(std::ostream& o) const;
+
+	using Queue_t = std::deque<Block>;
+	Queue_t& getQueue() { return block_queue; }
 
 private:
 	void calculateTrapezoid(Block& block, float entryspeed, float exitspeed);
@@ -25,9 +28,7 @@ private:
 	float forwardPass(Block &b, float prev_max_exit_speed);
     void recalculate();
 
-	const MotionControl& motion_control;
-
-	std::deque<Block> block_queue;
+	Queue_t block_queue;
 
     float previous_unit_vec[3];
 

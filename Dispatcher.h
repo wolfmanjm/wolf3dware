@@ -4,7 +4,7 @@
 #include <functional>
 #include <stdint.h>
 
-#define THEDISPATCHER Dispatcher::get_instance()
+#define THEDISPATCHER Dispatcher::getInstance()
 
 class GCode;
 
@@ -12,7 +12,7 @@ class Dispatcher
 {
 public:
     // setup the Singleton instance
-    static Dispatcher &get_instance()
+    static Dispatcher &getInstance()
     {
         static Dispatcher instance;
         return instance;

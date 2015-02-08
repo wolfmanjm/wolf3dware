@@ -8,6 +8,7 @@
 class GCode;
 class Actuator;
 class Planner;
+class Block;
 
 class MotionControl
 {
@@ -17,11 +18,13 @@ public:
 	void initialize();
 	void resetAxisPositions();
 	void resetAxisPosition(char, float);
-	void addActuator(Actuator&, char, bool);
+	void addActuator(Actuator&, bool);
 	char getActuatorAxis(uint8_t i) const { return actuator_axis_lut[i]; }
 	uint8_t getAxisActuator(char a) const { return axis_actuator_map.at(a); }
 	bool isPrimaryAxis(uint8_t i) const { return primary_axis[i]; }
-	void dump(std::ostream& o) const;
+	bool issueMove(const Block& block);
+	bool issueTicks(uint32_t current_tick);
+	const Actuator& getActuator(char axis) const;
 
 private:
 	bool handleG0G1(GCode&);
@@ -34,8 +37,6 @@ private:
 
 	float seek_rate, feed_rate;
 	float seconds_per_minute{60.0F};
-
-	Planner *planner;
 
 	std::vector<Actuator> actuators;
 	std::map<char, uint8_t> axis_actuator_map;
