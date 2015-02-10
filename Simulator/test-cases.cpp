@@ -14,6 +14,7 @@
 #include <ctype.h>
 #include <cmath>
 #include <assert.h>
+#include <malloc.h>
 
 using namespace std;
 
@@ -21,6 +22,7 @@ using namespace std;
 #include "catch.hpp"
 
 TEST_CASE( "Process and parse gcodes", "[GCodeProcessor]" ) {
+	malloc_stats();
 	GCodeProcessor gp;
 
 	SECTION( "Single GCode with parameters" ) {
@@ -202,6 +204,7 @@ TEST_CASE( "Generate Steps, two axis", "[stepper]" ) {
 }
 
 TEST_CASE( "Generate Steps, three axis XYE", "[stepper]" ) {
+
 	GCodeProcessor& gp= THEKERNEL.getGCodeProcessor();
 
 	// Parse gcode
@@ -214,6 +217,8 @@ TEST_CASE( "Generate Steps, three axis XYE", "[stepper]" ) {
 
 	// dump planned block queue
 	THEKERNEL.getPlanner().dump(cout);
+
+	malloc_stats();
 
 	const Actuator& xact= THEKERNEL.getMotionControl().getActuator('X');
 	const Actuator& yact= THEKERNEL.getMotionControl().getActuator('Y');

@@ -1,0 +1,1 @@
+/datadisk/aux/Stuff/reprap/Firmwares/stm32l100discovery/stlink-texane/st-flash write $1 0x08000000
