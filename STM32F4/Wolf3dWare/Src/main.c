@@ -77,8 +77,8 @@ osMutexDef(lcdMutex);
 osMutexId lcdMutex;
 
 typedef struct {
-    char buf[132];
-    uint8_t len;
+	char buf[132];
+	uint8_t len;
 } T_MEAS;
 
 osPoolDef(mpool, 16, T_MEAS);                    // Define memory pool
@@ -103,6 +103,19 @@ extern void TimingTests();
 extern int os_started;
 extern int maincpp();
 
+
+uint32_t start_time()
+{
+	TIMx->CNT = 0;
+	return TIMx->CNT;
+}
+
+uint32_t stop_time()
+{
+	return TIMx->CNT;
+}
+
+
 /**
   * @brief  Main program
   * @param  None
@@ -110,129 +123,118 @@ extern int maincpp();
   */
 int main(void)
 {
-    HAL_NVIC_SetPriorityGrouping( NVIC_PRIORITYGROUP_4 );
+	HAL_NVIC_SetPriorityGrouping( NVIC_PRIORITYGROUP_4 );
 
-    // use straight malloc initially
-    os_started = 0;
+	// use straight malloc initially
+	os_started = 0;
 
-    /* STM32F4xx HAL library initialization:
-         - Configure the Flash prefetch, instruction and Data caches
-         - Configure the Systick to generate an interrupt each 1 msec
-         - Set NVIC Group Priority to 4
-         - Global MSP (MCU Support Package) initialization
-       */
-    HAL_Init();
+	/* STM32F4xx HAL library initialization:
+		 - Configure the Flash prefetch, instruction and Data caches
+		 - Configure the Systick to generate an interrupt each 1 msec
+		 - Set NVIC Group Priority to 4
+		 - Global MSP (MCU Support Package) initialization
+	   */
+	HAL_Init();
 
-    /* Configure LED3 and LED4 */
-    BSP_LED_Init(LED3);
-    BSP_LED_Init(LED4);
-    BSP_PB_Init(BUTTON_KEY, BUTTON_MODE_EXTI);
+	/* Configure LED3 and LED4 */
+	BSP_LED_Init(LED3);
+	BSP_LED_Init(LED4);
+	BSP_PB_Init(BUTTON_KEY, BUTTON_MODE_EXTI);
 
-    /* Configure the system clock to 180 MHz */
-    SystemClock_Config();
+	/* Configure the system clock to 180 MHz */
+	SystemClock_Config();
 
-    /*##-1- LCD Initialization #################################################*/
-    /* Initialize the LCD */
-    BSP_LCD_Init();
+	/*##-1- LCD Initialization #################################################*/
+	/* Initialize the LCD */
+	BSP_LCD_Init();
 
-    /* Initialize the LCD Layers */
-    BSP_LCD_LayerDefaultInit(1, LCD_FRAME_BUFFER);
+	/* Initialize the LCD Layers */
+	BSP_LCD_LayerDefaultInit(1, LCD_FRAME_BUFFER);
 
-    /* Set LCD Foreground Layer  */
-    BSP_LCD_SelectLayer(1);
+	/* Set LCD Foreground Layer  */
+	BSP_LCD_SelectLayer(1);
 
-    BSP_LCD_SetFont(&LCD_DEFAULT_FONT);
+	BSP_LCD_SetFont(&LCD_DEFAULT_FONT);
 
-    /* Clear the LCD */
-    BSP_LCD_SetBackColor(LCD_COLOR_WHITE);
-    BSP_LCD_Clear(LCD_COLOR_WHITE);
+	/* Clear the LCD */
+	BSP_LCD_SetBackColor(LCD_COLOR_WHITE);
+	BSP_LCD_Clear(LCD_COLOR_WHITE);
 
-    /* Set the LCD Text Color */
-    BSP_LCD_SetTextColor(LCD_COLOR_DARKBLUE);
+	/* Set the LCD Text Color */
+	BSP_LCD_SetTextColor(LCD_COLOR_DARKBLUE);
 
-    LCD_LOG_Init();
-    LCD_LOG_ClearTextZone();
-    LCD_LOG_SetHeader((uint8_t *)"Wolf3dWare");
+	LCD_LOG_Init();
+	LCD_LOG_ClearTextZone();
+	LCD_LOG_SetHeader((uint8_t *)"Wolf3dWare");
 
-    Timer_Config(); // setup a 1us counter for performance tests
+	Timer_Config(); // setup a 1us counter for performance tests
 
-    // setup USB CDC
-    USBD_Init(&USBD_Device, &VCP_Desc, 0);
+	// setup USB CDC
+	SetupVCP();
+	USBD_Init(&USBD_Device, &VCP_Desc, 0);
 
-    USBD_RegisterClass(&USBD_Device, &USBD_CDC);
-    USBD_CDC_RegisterInterface(&USBD_Device, &USBD_CDC_Template_fops);
-    USBD_Start(&USBD_Device);
+	USBD_RegisterClass(&USBD_Device, &USBD_CDC);
+	USBD_CDC_RegisterInterface(&USBD_Device, &USBD_CDC_Template_fops);
+	USBD_Start(&USBD_Device);
 
-    // for (int i = 0; i < 100; ++i) {
-    //  TIMx->CNT= 0;
-    //  uint32_t start = TIMx->CNT;
-    //  HAL_Delay(1000);
-    //  uint32_t stop= TIMx->CNT;
-    //      uint32_t delta= (stop - start);
-    //      LCD_UsrLog("Delay 1000ms = %lu us\n", delta);
-    //  }
-    //  TimingTests();
+	// for (int i = 0; i < 100; ++i) {
+	//  TIMx->CNT= 0;
+	//  uint32_t start = TIMx->CNT;
+	//  HAL_Delay(1000);
+	//  uint32_t stop= TIMx->CNT;
+	//      uint32_t delta= (stop - start);
+	//      LCD_UsrLog("Delay 1000ms = %lu us\n", delta);
+	//  }
+	//  TimingTests();
 
 
-    // setup FreeRTOS
+	// setup FreeRTOS
 
-    /* Attempt to create the event group. */
-    xEventGroup = xEventGroupCreate();
+	/* Attempt to create the event group. */
+	xEventGroup = xEventGroupCreate();
 
-    mpool = osPoolCreate(osPool(mpool));                 // create memory pool
-    MsgBox = osMessageCreate(osMessageQ(MsgBox), NULL);  // create msg queue
+	mpool = osPoolCreate(osPool(mpool));                 // create memory pool
+	MsgBox = osMessageCreate(osMessageQ(MsgBox), NULL);  // create msg queue
 
-    // start threads
-    osThreadDef(Main, mainThread, osPriorityNormal, 0, 1000);
-    MainThreadHandle = osThreadCreate (osThread(Main), NULL);
+	// start threads
+	osThreadDef(Main, mainThread, osPriorityNormal, 0, 1000);
+	MainThreadHandle = osThreadCreate (osThread(Main), NULL);
 
-    osThreadDef(CDC, cdcThread, osPriorityNormal, 0, 1000);
-    CDCThreadHandle = osThreadCreate (osThread(CDC), NULL);
+	osThreadDef(CDC, cdcThread, osPriorityNormal, 0, 1000);
+	CDCThreadHandle = osThreadCreate (osThread(CDC), NULL);
 
-    osThreadDef(Commands, commandThread, osPriorityNormal, 0, 1000);
-    CommandHandlerThreadHandle = osThreadCreate (osThread(Commands), NULL);
+	osThreadDef(Commands, commandThread, osPriorityNormal, 0, 1000);
+	CommandHandlerThreadHandle = osThreadCreate (osThread(Commands), NULL);
 
-    // use thread safe malloc after this
-    os_started = 1;
+	// use thread safe malloc after this
+	os_started = 1;
 
-    osKernelStart();
+	osKernelStart();
 
-    /* Infinite loop */
-    while (1) { }
+	/* Infinite loop */
+	while (1) { }
 }
 
 static void mainThread(void const *argument)
 {
-    maincpp();
-    while(1) {
-        const TickType_t xTicksToWait = pdMS_TO_TICKS( 1000 );
-        EventBits_t uxBits = xEventGroupWaitBits(
-                                 xEventGroup,   /* The event group being tested. */
-                                 0x01,          /* The bits within the event group to wait for. */
-                                 pdTRUE,        /* BIT_0 should be cleared before returning. */
-                                 pdFALSE,       /* Don't wait for both bits, either bit will do. */
-                                 xTicksToWait );/* Wait a maximum of 1000ms for either bit to be set. */
+	maincpp();
+	while(1) {
+		const TickType_t xTicksToWait = pdMS_TO_TICKS( 1000 );
+		EventBits_t uxBits = xEventGroupWaitBits(
+								 xEventGroup,   /* The event group being tested. */
+								 0x01,          /* The bits within the event group to wait for. */
+								 pdTRUE,        /* BIT_0 should be cleared before returning. */
+								 pdFALSE,       /* Don't wait for both bits, either bit will do. */
+								 xTicksToWait );/* Wait a maximum of 1000ms for either bit to be set. */
 
 
-        if( uxBits & 0x01 ) {
-            BSP_LED_Toggle(LED3);
-        } else {
-            BSP_LED_Toggle(LED4);
-        }
-    }
+		if( uxBits & 0x01 ) {
+			BSP_LED_Toggle(LED3);
+		} else {
+			BSP_LED_Toggle(LED4);
+		}
+	}
 }
-
-uint32_t start_time()
-{
-    TIMx->CNT = 0;
-    return TIMx->CNT;
-}
-
-uint32_t stop_time()
-{
-    return TIMx->CNT;
-}
-
 
 // void vApplicationIdleHook( void )
 // {
@@ -241,86 +243,108 @@ uint32_t stop_time()
 
 int hasnl(char *buf, size_t len)
 {
-    bool hasnl = false;
-    int i;
-    for (i = 0; i < len; ++i) {
-        if(buf[i] == '\n') {
-            hasnl = true;
-            break;
-        }
-    }
-    return hasnl ? i : -1;
+	bool hasnl = false;
+	int i;
+	for (i = 0; i < len; ++i) {
+		if(buf[i] == '\n') {
+			hasnl = true;
+			break;
+		}
+	}
+	return hasnl ? i : -1;
 }
 
 void dispatch(char *line, int cnt)
 {
-    //line[cnt]= 0;
-    //LCD_UsrLog("%s\n", line);
-    T_MEAS    *mptr = osPoolAlloc(mpool); // Allocate memory for the message
-    memcpy(mptr->buf, line, cnt);
-    mptr->len = cnt;
-    osMessagePut(MsgBox, (uint32_t)mptr, osWaitForever);  // Send Message
+	//line[cnt]= 0;
+	//LCD_UsrLog("%s\n", line);
+	T_MEAS    *mptr = osPoolAlloc(mpool); // Allocate memory for the message
+	if(mptr == NULL) return;
+
+	memcpy(mptr->buf, line, cnt);
+	mptr->len = cnt;
+	osMessagePut(MsgBox, (uint32_t)mptr, osWaitForever);  // Send Message
 }
 
 // reads lines from CDC serial port
 // discards long lines
 // dispatches line to command handler thread
 
-static char buf[128];
+//static char buf[128];
 static char line[132];
 static int cnt = 0;
 static void cdcThread(void const *argument)
 {
 
-    for (;;) {
-        int n;
-        if ((n = VCP_read(buf, sizeof(buf))) == 0) {
-            osDelay(1);
-            continue;
-        }
-        if((cnt + n) < sizeof(line)) {
-            int off = hasnl(buf, n);
-            if(off >= 0) {
-                // dispatch command
-                if(off != n - 1) { // not last char?
-                    // split upto nl save rest
-                    memcpy(line + cnt, buf, off);
-                    cnt += off;
-                    dispatch(line, cnt);
-                    cnt = n - off - 1;
-                    memcpy(line, &buf[off + 1], cnt);
-                } else {
-                    dispatch(line, cnt + n - 1);
-                    cnt = 0;
-                }
-            } else {
-                memcpy(line + cnt, buf, n);
-                cnt += n;
-            }
-        } else {
-            //discard long line
-            if(hasnl(buf, n) >= 0)
-                cnt = 0;
-        }
-    }
+	for (;;) {
+		uint8_t c;
+		if(!VCP_get(&c)) {
+			osDelay(1);
+			continue;
+		}
+		if(c == '\n') {
+			dispatch(line, cnt);
+			cnt= 0;
+
+		}else if(c == '\r'){
+			continue;
+
+		} else if(cnt >= sizeof(line)) {
+			continue;
+
+		}else{
+			line[cnt++]= c;
+		}
+
+
+		// int n;
+		// if ((n = VCP_read(buf, sizeof(buf))) == 0) {
+		// 	osDelay(1);
+		// 	continue;
+		// }
+		// if((cnt + n) < sizeof(line)) {
+		// 	int off = hasnl(buf, n);
+		// 	if(off >= 0) {
+		// 		// dispatch command
+		// 		if(off != n - 1) { // not last char?
+		// 			// split upto nl save rest
+		// 			memcpy(line + cnt, buf, off);
+		// 			cnt += off;
+		// 			dispatch(line, cnt);
+		// 			cnt = n - off - 1;
+		// 			memcpy(line, &buf[off + 1], cnt);
+		// 		} else {
+		// 			dispatch(line, cnt + n - 1);
+		// 			cnt = 0;
+		// 		}
+		// 	} else {
+		// 		memcpy(line + cnt, buf, n);
+		// 		cnt += n;
+		// 	}
+		// } else {
+		// 	//discard long line
+		// 	if(hasnl(buf, n) >= 0)
+		// 		cnt = 0;
+		// }
+	}
 }
 
 static void commandThread(void const *argument)
 {
-    T_MEAS  *rptr;
-    osEvent  evt;
-    char  line[133];
-    for (;;) {
-        evt = osMessageGet(MsgBox, osWaitForever);  // wait for message
-        if (evt.status == osEventMessage) {
-            rptr = evt.value.p;
-            uint8_t cnt = rptr->len;
-            memcpy(line, rptr->buf, cnt);
-            osPoolFree(mpool, rptr);                  // free memory allocated for message
-            line[cnt] = 0;
-            LCD_UsrLog("%s\n", line);
-        }
-    }
+	T_MEAS  *rptr;
+	osEvent  evt;
+	char  line[133];
+	for (;;) {
+		evt = osMessageGet(MsgBox, osWaitForever);  // wait for message
+		if (evt.status == osEventMessage) {
+			rptr = evt.value.p;
+			uint8_t cnt = rptr->len;
+			memcpy(line, rptr->buf, cnt);
+			osPoolFree(mpool, rptr);                  // free memory allocated for message
+			line[cnt] = 0;
+			LCD_UsrLog("%s\n", line);
+		}
+	}
 }
 
 
@@ -346,97 +370,97 @@ static void commandThread(void const *argument)
  */
 static void SystemClock_Config(void)
 {
-    RCC_ClkInitTypeDef RCC_ClkInitStruct;
-    RCC_OscInitTypeDef RCC_OscInitStruct;
+	RCC_ClkInitTypeDef RCC_ClkInitStruct;
+	RCC_OscInitTypeDef RCC_OscInitStruct;
 
-    /* Enable Power Control clock */
-    __HAL_RCC_PWR_CLK_ENABLE();
+	/* Enable Power Control clock */
+	__HAL_RCC_PWR_CLK_ENABLE();
 
-    /* The voltage scaling allows optimizing the power consumption when the device is
-       clocked below the maximum system frequency, to update the voltage scaling value
-       regarding system frequency refer to product datasheet.  */
-    __HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE1);
+	/* The voltage scaling allows optimizing the power consumption when the device is
+	   clocked below the maximum system frequency, to update the voltage scaling value
+	   regarding system frequency refer to product datasheet.  */
+	__HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE1);
 
-    /* Enable HSE Oscillator and activate PLL with HSE as source */
-    RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE;
-    RCC_OscInitStruct.HSEState = RCC_HSE_ON;
-    RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
-    RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
-    RCC_OscInitStruct.PLL.PLLM = 8;
-    RCC_OscInitStruct.PLL.PLLN = 360;
-    RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
-    RCC_OscInitStruct.PLL.PLLQ = 7;
-    if(HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK) {
-        Error_Handler();
-    }
+	/* Enable HSE Oscillator and activate PLL with HSE as source */
+	RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE;
+	RCC_OscInitStruct.HSEState = RCC_HSE_ON;
+	RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
+	RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
+	RCC_OscInitStruct.PLL.PLLM = 8;
+	RCC_OscInitStruct.PLL.PLLN = 360;
+	RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
+	RCC_OscInitStruct.PLL.PLLQ = 7;
+	if(HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK) {
+		Error_Handler();
+	}
 
-    /* Activate the Over-Drive mode */
-    HAL_PWREx_EnableOverDrive();
+	/* Activate the Over-Drive mode */
+	HAL_PWREx_EnableOverDrive();
 
-    /* Select PLL as system clock source and configure the HCLK, PCLK1 and PCLK2
-       clocks dividers */
-    RCC_ClkInitStruct.ClockType = (RCC_CLOCKTYPE_SYSCLK | RCC_CLOCKTYPE_HCLK | RCC_CLOCKTYPE_PCLK1 | RCC_CLOCKTYPE_PCLK2);
-    RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
-    RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
-    RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV4;
-    RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV2;
-    if(HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_5) != HAL_OK) {
-        Error_Handler();
-    }
+	/* Select PLL as system clock source and configure the HCLK, PCLK1 and PCLK2
+	   clocks dividers */
+	RCC_ClkInitStruct.ClockType = (RCC_CLOCKTYPE_SYSCLK | RCC_CLOCKTYPE_HCLK | RCC_CLOCKTYPE_PCLK1 | RCC_CLOCKTYPE_PCLK2);
+	RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
+	RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
+	RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV4;
+	RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV2;
+	if(HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_5) != HAL_OK) {
+		Error_Handler();
+	}
 }
 
 static void Timer_Config()
 {
-    /*##-1- Configure the TIM peripheral #######################################*/
-    /* -----------------------------------------------------------------------
-      In this example TIM3 input clock (TIM3CLK) is set to 2 * APB1 clock (PCLK1),
-      since APB1 prescaler is different from 1.
-        TIM3CLK = 2 * PCLK1
-        PCLK1 = HCLK / 4
-        => TIM3CLK = HCLK / 2 = SystemCoreClock /2
-      To get TIM3 counter clock at 10 KHz, the Prescaler is computed as following:
-      Prescaler = (TIM3CLK / TIM3 counter clock) - 1
-      Prescaler = ((SystemCoreClock /2) /10 KHz) - 1
+	/*##-1- Configure the TIM peripheral #######################################*/
+	/* -----------------------------------------------------------------------
+	  In this example TIM3 input clock (TIM3CLK) is set to 2 * APB1 clock (PCLK1),
+	  since APB1 prescaler is different from 1.
+		TIM3CLK = 2 * PCLK1
+		PCLK1 = HCLK / 4
+		=> TIM3CLK = HCLK / 2 = SystemCoreClock /2
+	  To get TIM3 counter clock at 10 KHz, the Prescaler is computed as following:
+	  Prescaler = (TIM3CLK / TIM3 counter clock) - 1
+	  Prescaler = ((SystemCoreClock /2) /10 KHz) - 1
 
-      Note:
-       SystemCoreClock variable holds HCLK frequency and is defined in system_stm32f4xx.c file.
-       Each time the core clock (HCLK) changes, user had to update SystemCoreClock
-       variable value. Otherwise, any configuration based on this variable will be incorrect.
-       This variable is updated in three ways:
-        1) by calling CMSIS function SystemCoreClockUpdate()
-        2) by calling HAL API function HAL_RCC_GetSysClockFreq()
-        3) each time HAL_RCC_ClockConfig() is called to configure the system clock frequency
-    ----------------------------------------------------------------------- */
+	  Note:
+	   SystemCoreClock variable holds HCLK frequency and is defined in system_stm32f4xx.c file.
+	   Each time the core clock (HCLK) changes, user had to update SystemCoreClock
+	   variable value. Otherwise, any configuration based on this variable will be incorrect.
+	   This variable is updated in three ways:
+		1) by calling CMSIS function SystemCoreClockUpdate()
+		2) by calling HAL API function HAL_RCC_GetSysClockFreq()
+		3) each time HAL_RCC_ClockConfig() is called to configure the system clock frequency
+	----------------------------------------------------------------------- */
 
-    //LCD_UsrLog("SystemCoreClock= %lu\n", SystemCoreClock);
+	//LCD_UsrLog("SystemCoreClock= %lu\n", SystemCoreClock);
 
-    /* Compute the prescaler value to have TIMx counter clock equal to 1000 KHz */
-    uint32_t uwPrescalerValue = (uint32_t) ((SystemCoreClock / 2) / 1000000) - 1;
+	/* Compute the prescaler value to have TIMx counter clock equal to 1000 KHz */
+	uint32_t uwPrescalerValue = (uint32_t) ((SystemCoreClock / 2) / 1000000) - 1;
 
-    /* Set TIMx instance */
-    TimHandle.Instance = TIMx;
+	/* Set TIMx instance */
+	TimHandle.Instance = TIMx;
 
-    /* Initialize TIM3 peripheral as follows:
-         + Period = 10000 - 1
-         + Prescaler = ((SystemCoreClock/2)/10000) - 1
-         + ClockDivision = 0
-         + Counter direction = Up
-    */
-    TimHandle.Init.Period = 0xFFFFFFFF;
-    TimHandle.Init.Prescaler = uwPrescalerValue;
-    TimHandle.Init.ClockDivision = 0;
-    TimHandle.Init.CounterMode = TIM_COUNTERMODE_UP;
-    if(HAL_TIM_Base_Init(&TimHandle) != HAL_OK) {
-        /* Initialization Error */
-        Error_Handler();
-    }
+	/* Initialize TIM3 peripheral as follows:
+		 + Period = 10000 - 1
+		 + Prescaler = ((SystemCoreClock/2)/10000) - 1
+		 + ClockDivision = 0
+		 + Counter direction = Up
+	*/
+	TimHandle.Init.Period = 0xFFFFFFFF;
+	TimHandle.Init.Prescaler = uwPrescalerValue;
+	TimHandle.Init.ClockDivision = 0;
+	TimHandle.Init.CounterMode = TIM_COUNTERMODE_UP;
+	if(HAL_TIM_Base_Init(&TimHandle) != HAL_OK) {
+		/* Initialization Error */
+		Error_Handler();
+	}
 
-    /*##-2- Start the TIM Base generation */
-    /* Start Channel1 */
-    if(HAL_TIM_Base_Start(&TimHandle) != HAL_OK) {
-        /* Starting Error */
-        Error_Handler();
-    }
+	/*##-2- Start the TIM Base generation */
+	/* Start Channel1 */
+	if(HAL_TIM_Base_Start(&TimHandle) != HAL_OK) {
+		/* Starting Error */
+		Error_Handler();
+	}
 }
 
 /**
@@ -446,26 +470,26 @@ static void Timer_Config()
   */
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
-    if(GPIO_Pin == KEY_BUTTON_PIN) {
-        /* Toggle LED3 */
-        //BSP_LED_Toggle(LED3);
-        BaseType_t xHigherPriorityTaskWoken, xResult;
-        /* xHigherPriorityTaskWoken must be initialised to pdFALSE. */
-        xHigherPriorityTaskWoken = pdFALSE;
-        /* Set bit 0 and bit 4 in xEventGroup. */
-        xResult = xEventGroupSetBitsFromISR(
-                      xEventGroup,    /* The event group being updated. */
-                      0x01,           /* The bits being set. */
-                      &xHigherPriorityTaskWoken );
-        if( xResult != pdFAIL ) {
-            /* If xHigherPriorityTaskWoken is now set to pdTRUE then a context
-            switch should be requested.  The macro used is port specific and will
-            be either portYIELD_FROM_ISR() or portEND_SWITCHING_ISR() - refer to
-            the documentation page for the port being used. */
-            portYIELD_FROM_ISR( xHigherPriorityTaskWoken );
-        }
+	if(GPIO_Pin == KEY_BUTTON_PIN) {
+		/* Toggle LED3 */
+		//BSP_LED_Toggle(LED3);
+		BaseType_t xHigherPriorityTaskWoken, xResult;
+		/* xHigherPriorityTaskWoken must be initialised to pdFALSE. */
+		xHigherPriorityTaskWoken = pdFALSE;
+		/* Set bit 0 and bit 4 in xEventGroup. */
+		xResult = xEventGroupSetBitsFromISR(
+					  xEventGroup,    /* The event group being updated. */
+					  0x01,           /* The bits being set. */
+					  &xHigherPriorityTaskWoken );
+		if( xResult != pdFAIL ) {
+			/* If xHigherPriorityTaskWoken is now set to pdTRUE then a context
+			switch should be requested.  The macro used is port specific and will
+			be either portYIELD_FROM_ISR() or portEND_SWITCHING_ISR() - refer to
+			the documentation page for the port being used. */
+			portYIELD_FROM_ISR( xHigherPriorityTaskWoken );
+		}
 
-    }
+	}
 }
 
 /**
@@ -475,10 +499,10 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
   */
 static void Error_Handler(void)
 {
-    /* Turn LED4 on */
-    BSP_LED_On(LED4);
-    while(1) {
-    }
+	/* Turn LED4 on */
+	BSP_LED_On(LED4);
+	while(1) {
+	}
 }
 
 #ifdef  USE_FULL_ASSERT
@@ -491,12 +515,12 @@ static void Error_Handler(void)
   */
 void assert_failed(uint8_t *file, uint32_t line)
 {
-    /* User can add his own implementation to report the file name and line number,
-       ex: printf("Wrong parameters value: file %s on line %d\r\n", file, line) */
+	/* User can add his own implementation to report the file name and line number,
+	   ex: printf("Wrong parameters value: file %s on line %d\r\n", file, line) */
 
-    /* Infinite loop */
-    while (1) {
-    }
+	/* Infinite loop */
+	while (1) {
+	}
 }
 #endif
 

@@ -255,3 +255,36 @@ TEST_CASE( "Generate Steps, three axis XYE", "[stepper]" ) {
 	REQUIRE(yact.getCurrentPositionInmm() == 50);
 	REQUIRE(eact.getCurrentPositionInmm() == Approx(4.75F).epsilon(0.001F));
 }
+
+#include "RingBuffer.hpp"
+TEST_CASE( "RingBuffer", "[ringbuffer]" ) {
+
+	SECTION("Basic") {
+		RingBuffer<uint8_t, 10> rb;
+		REQUIRE(rb.empty());
+		REQUIRE_FALSE(rb.full());
+		REQUIRE(rb.put(1));
+		REQUIRE_FALSE(rb.empty());
+		REQUIRE_FALSE(rb.full());
+		for (int i = 2; i <= 9; ++i) {
+		    REQUIRE(rb.put(i));
+			if(i < 9) REQUIRE_FALSE(rb.full());
+			else REQUIRE(rb.full());
+		}
+		REQUIRE_FALSE(rb.empty());
+		REQUIRE_FALSE(rb.put(10));
+		REQUIRE(rb.full());
+
+		uint8_t x;
+		for (uint8_t i = 1; i <= 8; ++i) {
+			REQUIRE_FALSE(rb.empty());
+		    REQUIRE(rb.get(x));
+			REQUIRE_FALSE(rb.full());
+			REQUIRE(x == i);
+		}
+		REQUIRE_FALSE(rb.empty());
+		REQUIRE(rb.get(x));
+		REQUIRE(x == 9);
+		REQUIRE(rb.empty());
+	}
+}

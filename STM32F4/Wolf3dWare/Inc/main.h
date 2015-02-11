@@ -54,6 +54,8 @@
 #define TIMx                           TIM2
 #define TIMx_CLK_ENABLE                __HAL_RCC_TIM2_CLK_ENABLE
 
+#define __debugbreak()  { __asm volatile ("bkpt #0"); }
+
 #endif /* __MAIN_H */
 
 /************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/

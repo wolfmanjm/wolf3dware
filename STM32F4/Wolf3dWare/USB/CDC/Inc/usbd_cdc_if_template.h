@@ -35,6 +35,7 @@
 
 /* Includes ------------------------------------------------------------------*/
 #include "usbd_cdc.h"
+#include <stdbool.h>
 
 /* Exported types ------------------------------------------------------------*/
 /* Exported constants --------------------------------------------------------*/
@@ -44,6 +45,8 @@ extern USBD_CDC_ItfTypeDef  USBD_CDC_Template_fops;
 /* Exported macro ------------------------------------------------------------*/
 /* Exported functions ------------------------------------------------------- */
 
+void SetupVCP();
+bool VCP_get(uint8_t *c);
 int VCP_read(void *pBuffer, int size);
 int VCP_write(const void *pBuffer, int size);
 extern char g_VCPInitialized;
