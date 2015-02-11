@@ -89,15 +89,19 @@ USBD_CDC_LineCodingTypeDef linecoding = {
 
 
 extern USBD_HandleTypeDef USBD_Device;
+extern void setCDCEventFromISR();
 
-static uint8_t rx_buffer[CDC_DATA_HS_OUT_PACKET_SIZE];
+static uint8_t rx_buffer[CDC_DATA_FS_OUT_PACKET_SIZE*2];
+static uint8_t overflow_buffer[CDC_DATA_FS_OUT_PACKET_SIZE];
+static uint16_t overflow_buffer_size;
 static RingBuffer_t *ring_buffer;
 
 char g_VCPInitialized;
 
 void SetupVCP()
 {
-	ring_buffer = CreateRingBuffer(CDC_DATA_HS_OUT_PACKET_SIZE+1);
+	ring_buffer = CreateRingBuffer(CDC_DATA_FS_OUT_PACKET_SIZE*8+1);
+	overflow_buffer_size= 0;
 }
 
 /* Private functions ---------------------------------------------------------*/
@@ -219,14 +223,39 @@ static int8_t TEMPLATE_Control  (uint8_t cmd, uint8_t *pbuf, uint16_t length)
     * @param  Len: Number of data received (in bytes)
     * @retval Result of the operation: USBD_OK if all operations are OK else USBD_FAIL
     */
+
+static volatile bool buffer_full= false;
 static int8_t TEMPLATE_Receive (uint8_t *Buf, uint32_t *Len)
 {
-	for (int i = 0; i < *Len; ++i) {
-		if(!RingBufferPut(ring_buffer, Buf[i])) break;
+	if(overflow_buffer_size > 0) {
+		// feed overflow buffer first
+		for (int i = 0; i < overflow_buffer_size; ++i) {
+		    if(!RingBufferPut(ring_buffer, overflow_buffer[i])){
+		    	// Now what?? FIXME this should not happen as buffer is bigger than overflow buffer
+		    	break;
+		    }
+		    setCDCEventFromISR();
+		}
+		overflow_buffer_size= 0;
 	}
-    if (!RingBufferFull(ring_buffer)) {
+
+	uint32_t n= *Len;
+	for (int i = 0; i < n; ++i) {
+		if(!RingBufferPut(ring_buffer, Buf[i])){
+			// dump overflow into the overflow buffer, as we will not call USBD_CDC_ReceivePacket
+			// we should not get any more packets until these have all been cleared
+			overflow_buffer_size= n-i;
+			memcpy(overflow_buffer, &Buf[i], overflow_buffer_size);
+    		buffer_full= true;
+			break;
+		}
+		setCDCEventFromISR();
+	}
+
+    if (!buffer_full) {
         USBD_CDC_ReceivePacket(&USBD_Device);
     }
+
     return (USBD_OK);
 }
 
@@ -244,7 +273,15 @@ static int8_t TEMPLATE_Receive (uint8_t *Buf, uint32_t *Len)
 
 bool VCP_get(uint8_t *c)
 {
-	return RingBufferGet(ring_buffer, c);
+	bool r= RingBufferGet(ring_buffer, c);
+
+	if(buffer_full && RingBufferEmpty(ring_buffer)) {
+		buffer_full= false;
+    	// we drained the buffer, so we can start receiving packets again
+    	USBD_CDC_ReceivePacket(&USBD_Device);
+    }
+
+    return r;
 }
 
 int VCP_read(void *pBuffer, int size)
@@ -260,6 +297,10 @@ int VCP_read(void *pBuffer, int size)
     	++cnt;
     }
 
+    if(buffer_full && RingBufferEmpty(ring_buffer)) {
+    	// we drained the buffer, so we can start recieving packets again
+    	USBD_CDC_ReceivePacket(&USBD_Device);
+    }
 
     return cnt;
 }
@@ -270,7 +311,7 @@ int VCP_write(const void *pBuffer, int size)
     if (size > CDC_DATA_HS_OUT_PACKET_SIZE) {
         int offset;
         for (offset = 0; offset < size; offset++) {
-            int todo = MIN(CDC_DATA_HS_OUT_PACKET_SIZE,
+            int todo = MIN(CDC_DATA_FS_OUT_PACKET_SIZE,
                            size - offset);
             int done = VCP_write(((char *)pBuffer) + offset, todo);
             if (done != todo)

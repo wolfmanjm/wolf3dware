@@ -87,6 +87,9 @@ osMessageQDef(MsgBox, 16, T_MEAS);               // Define message queue
 osMessageQId  MsgBox;
 EventGroupHandle_t xEventGroup;
 
+// Semaphore to tell us how many bytes we have waiting
+SemaphoreHandle_t cdc_semaphore;
+
 static void cdcThread(void const *argument);
 static void commandThread(void const *argument);
 static void mainThread(void const *argument);
@@ -195,6 +198,7 @@ int main(void)
 
 	mpool = osPoolCreate(osPool(mpool));                 // create memory pool
 	MsgBox = osMessageCreate(osMessageQ(MsgBox), NULL);  // create msg queue
+	cdc_semaphore= xSemaphoreCreateCounting( 65535, 0);
 
 	// start threads
 	osThreadDef(Main, mainThread, osPriorityNormal, 0, 1000);
@@ -241,91 +245,64 @@ static void mainThread(void const *argument)
 
 // }
 
-int hasnl(char *buf, size_t len)
-{
-	bool hasnl = false;
-	int i;
-	for (i = 0; i < len; ++i) {
-		if(buf[i] == '\n') {
-			hasnl = true;
-			break;
-		}
-	}
-	return hasnl ? i : -1;
-}
-
-void dispatch(char *line, int cnt)
+bool dispatch(char *line, int cnt)
 {
 	//line[cnt]= 0;
 	//LCD_UsrLog("%s\n", line);
-	T_MEAS    *mptr = osPoolAlloc(mpool); // Allocate memory for the message
-	if(mptr == NULL) return;
+	T_MEAS *mptr = osPoolAlloc(mpool); // Allocate memory for the message
+	if(mptr == NULL) return false;
 
 	memcpy(mptr->buf, line, cnt);
 	mptr->len = cnt;
 	osMessagePut(MsgBox, (uint32_t)mptr, osWaitForever);  // Send Message
+	return true;
 }
 
 // reads lines from CDC serial port
 // discards long lines
 // dispatches line to command handler thread
+void setCDCEventFromISR()
+{
+	static BaseType_t xHigherPriorityTaskWoken;
+	xHigherPriorityTaskWoken= pdFALSE;
 
-//static char buf[128];
+    xSemaphoreGiveFromISR( cdc_semaphore, &xHigherPriorityTaskWoken );
+
+    portYIELD_FROM_ISR( xHigherPriorityTaskWoken );
+}
+
 static char line[132];
 static int cnt = 0;
 static void cdcThread(void const *argument)
 {
-
+	const TickType_t xTicksToWait = pdMS_TO_TICKS( 100 );
+	uint8_t c;
 	for (;;) {
-		uint8_t c;
+		// wait until we have something to process
+		xSemaphoreTake( cdc_semaphore, xTicksToWait);
+
 		if(!VCP_get(&c)) {
-			osDelay(1);
 			continue;
 		}
+
 		if(c == '\n') {
-			dispatch(line, cnt);
+			// dispatch on NL, if out of memory wait for the other thread to catch up
+			while(!dispatch(line, cnt)) {
+				osDelay (100);
+			}
 			cnt= 0;
 
 		}else if(c == '\r'){
+			// ignore CR
 			continue;
 
-		} else if(cnt >= sizeof(line)) {
+		}else if(cnt >= sizeof(line)) {
+			// discard the excess of long lines
 			continue;
 
 		}else{
 			line[cnt++]= c;
 		}
-
-
-		// int n;
-		// if ((n = VCP_read(buf, sizeof(buf))) == 0) {
-		// 	osDelay(1);
-		// 	continue;
-		// }
-		// if((cnt + n) < sizeof(line)) {
-		// 	int off = hasnl(buf, n);
-		// 	if(off >= 0) {
-		// 		// dispatch command
-		// 		if(off != n - 1) { // not last char?
-		// 			// split upto nl save rest
-		// 			memcpy(line + cnt, buf, off);
-		// 			cnt += off;
-		// 			dispatch(line, cnt);
-		// 			cnt = n - off - 1;
-		// 			memcpy(line, &buf[off + 1], cnt);
-		// 		} else {
-		// 			dispatch(line, cnt + n - 1);
-		// 			cnt = 0;
-		// 		}
-		// 	} else {
-		// 		memcpy(line + cnt, buf, n);
-		// 		cnt += n;
-		// 	}
-		// } else {
-		// 	//discard long line
-		// 	if(hasnl(buf, n) >= 0)
-		// 		cnt = 0;
-		// }
 	}
 }
 
@@ -499,8 +476,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
   */
 static void Error_Handler(void)
 {
-	/* Turn LED4 on */
-	BSP_LED_On(LED4);
+	__debugbreak();
 	while(1) {
 	}
 }
