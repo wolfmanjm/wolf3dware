@@ -271,19 +271,67 @@ void setCDCEventFromISR()
     portYIELD_FROM_ISR( xHigherPriorityTaskWoken );
 }
 
+#define MD5TEST
+#ifdef MD5TEST
+#include "md5.h"
+static void MDPrint (MD5_CTX *mdContext)
+{
+  int i;
+  for (i = 0; i < 16; i++){
+  	LCD_UsrLog("%02x", mdContext->digest[i]);
+  }
+  LCD_UsrLog("\n");
+}
+static MD5_CTX mdContext;
+static bool testing= false;
+#endif
+
 static char line[132];
 static int cnt = 0;
+
 static void cdcThread(void const *argument)
 {
 	const TickType_t xTicksToWait = pdMS_TO_TICKS( 100 );
 	uint8_t c;
 	for (;;) {
-		// wait until we have something to process
-		xSemaphoreTake( cdc_semaphore, xTicksToWait);
 
-		if(!VCP_get(&c)) {
-			continue;
+		while(!VCP_get(&c)) {
+			// wait until we have something to process
+			xSemaphoreTake( cdc_semaphore, xTicksToWait);
 		}
+
+#ifdef MD5TEST
+		// for testing download
+		if(!testing && c == 26) {
+			testing= true;
+			MD5Init (&mdContext);
+			cnt= 0;
+			LCD_UsrLog("Started MD5\n");
+			continue;
+  		}
+  		if(testing && c == 26) {
+  			testing= false;
+			LCD_UsrLog("Ended MD5\n");
+			if(cnt > 0) {
+  				MD5Update (&mdContext, line, cnt);
+ 				cnt= 0;
+  			}
+			MD5Final (&mdContext);
+  			MDPrint (&mdContext);
+  			continue;
+  		}
+
+		if(testing) {
+			line[cnt++]= c;
+			if(cnt >= sizeof(line)) {
+  				MD5Update (&mdContext, line, cnt);
+  				cnt= 0;
+  			}
+			//LCD_UsrLog("Added %c\n", c);
+  			continue;
+		}
+
+#endif
 
 		if(c == '\n') {
 			// dispatch on NL, if out of memory wait for the other thread to catch up

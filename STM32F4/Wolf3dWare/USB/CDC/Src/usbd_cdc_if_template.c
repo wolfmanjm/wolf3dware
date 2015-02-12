@@ -234,7 +234,6 @@ static int8_t TEMPLATE_Receive (uint8_t *Buf, uint32_t *Len)
 		    	// Now what?? FIXME this should not happen as buffer is bigger than overflow buffer
 		    	break;
 		    }
-		    setCDCEventFromISR();
 		}
 		overflow_buffer_size= 0;
 	}
@@ -249,8 +248,9 @@ static int8_t TEMPLATE_Receive (uint8_t *Buf, uint32_t *Len)
     		buffer_full= true;
 			break;
 		}
-		setCDCEventFromISR();
-	}
+    }
+    // signal thread that we have something to process
+	setCDCEventFromISR();
 
     if (!buffer_full) {
         USBD_CDC_ReceivePacket(&USBD_Device);

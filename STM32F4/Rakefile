@@ -140,10 +140,16 @@ LDFLAGS = " #{CFLAGS} -T#{LSCRIPT} " + " -fno-rtti -fno-exceptions " + "-Wl,--wr
    # " --specs=rdimon.specs --specs=nano.specs -u _printf_float -u _scanf_float -lstdc++_s -lsupc++_s -lm -lgcc -lc_s -lgcc -lc_s " # -lnosys "
 
 # tasks
-desc "Upload via stlink"
+# desc "Upload via stlink"
+# task :upload do
+#   sh "./flashit #{OBJDIR}/#{PROG}.bin"
+# end
+
+desc "Upload via openocd"
 task :upload do
-  sh "./flashit #{OBJDIR}/#{PROG}.bin"
+  sh "./flashit.openocd #{OBJDIR}/#{PROG}.elf"
 end
+
 
 # generate the header dependencies if they exist
 import(*DEPFILES)
