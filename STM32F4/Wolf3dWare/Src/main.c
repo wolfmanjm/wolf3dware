@@ -95,7 +95,9 @@ static void SystemClock_Config(void);
 static void Error_Handler(void);
 static void Timer_Config(void);
 
-TIM_HandleTypeDef TimHandle;
+TIM_HandleTypeDef PerformanceTimHandle;
+TIM_HandleTypeDef StepTickerTimHandle;
+volatile uint32_t delta_time= 0;
 
 #define BUTTON_BIT 0x01
 
@@ -108,13 +110,13 @@ extern int maincpp();
 
 uint32_t start_time()
 {
-	TIMx->CNT = 0;
-	return TIMx->CNT;
+	PERFORMANCE_TIMx->CNT = 0;
+	return PERFORMANCE_TIMx->CNT;
 }
 
 uint32_t stop_time()
 {
-	return TIMx->CNT;
+	return PERFORMANCE_TIMx->CNT;
 }
 
 
@@ -234,6 +236,7 @@ static void mainThread(void const *argument)
 			}
 		} else {
 			BSP_LED_Toggle(LED4);
+			//LCD_UsrLog("stepticker: %lu us\n", delta_time);
 		}
 	}
 }
@@ -434,34 +437,13 @@ static void SystemClock_Config(void)
 
 static void Timer_Config()
 {
-	/*##-1- Configure the TIM peripheral #######################################*/
-	/* -----------------------------------------------------------------------
-	  In this example TIM3 input clock (TIM3CLK) is set to 2 * APB1 clock (PCLK1),
-	  since APB1 prescaler is different from 1.
-		TIM3CLK = 2 * PCLK1
-		PCLK1 = HCLK / 4
-		=> TIM3CLK = HCLK / 2 = SystemCoreClock /2
-	  To get TIM3 counter clock at 10 KHz, the Prescaler is computed as following:
-	  Prescaler = (TIM3CLK / TIM3 counter clock) - 1
-	  Prescaler = ((SystemCoreClock /2) /10 KHz) - 1
-
-	  Note:
-	   SystemCoreClock variable holds HCLK frequency and is defined in system_stm32f4xx.c file.
-	   Each time the core clock (HCLK) changes, user had to update SystemCoreClock
-	   variable value. Otherwise, any configuration based on this variable will be incorrect.
-	   This variable is updated in three ways:
-		1) by calling CMSIS function SystemCoreClockUpdate()
-		2) by calling HAL API function HAL_RCC_GetSysClockFreq()
-		3) each time HAL_RCC_ClockConfig() is called to configure the system clock frequency
-	----------------------------------------------------------------------- */
-
-	//LCD_UsrLog("SystemCoreClock= %lu\n", SystemCoreClock);
+	// setup Performance timer
 
 	/* Compute the prescaler value to have TIMx counter clock equal to 1000 KHz */
 	uint32_t uwPrescalerValue = (uint32_t) ((SystemCoreClock / 2) / 1000000) - 1;
 
 	/* Set TIMx instance */
-	TimHandle.Instance = TIMx;
+	PerformanceTimHandle.Instance = PERFORMANCE_TIMx;
 
 	/* Initialize TIM3 peripheral as follows:
 		 + Period = 10000 - 1
@@ -469,21 +451,54 @@ static void Timer_Config()
 		 + ClockDivision = 0
 		 + Counter direction = Up
 	*/
-	TimHandle.Init.Period = 0xFFFFFFFF;
-	TimHandle.Init.Prescaler = uwPrescalerValue;
-	TimHandle.Init.ClockDivision = 0;
-	TimHandle.Init.CounterMode = TIM_COUNTERMODE_UP;
-	if(HAL_TIM_Base_Init(&TimHandle) != HAL_OK) {
+	PerformanceTimHandle.Init.Period = 0xFFFFFFFF;
+	PerformanceTimHandle.Init.Prescaler = uwPrescalerValue;
+	PerformanceTimHandle.Init.ClockDivision = 0;
+	PerformanceTimHandle.Init.CounterMode = TIM_COUNTERMODE_UP;
+	if(HAL_TIM_Base_Init(&PerformanceTimHandle) != HAL_OK) {
 		/* Initialization Error */
 		Error_Handler();
 	}
 
 	/*##-2- Start the TIM Base generation */
 	/* Start Channel1 */
-	if(HAL_TIM_Base_Start(&TimHandle) != HAL_OK) {
+	if(HAL_TIM_Base_Start(&PerformanceTimHandle) != HAL_OK) {
 		/* Starting Error */
 		Error_Handler();
 	}
+
+	// setup the stepticker timer interrupt
+
+    /* Compute the prescaler value to have TIM3 counter clock equal to 1Mhz */
+    uwPrescalerValue = (uint32_t) ((SystemCoreClock / 2) / 1000000) - 1;
+
+    /* Set TIMx instance */
+    StepTickerTimHandle.Instance = STEPTICKER_TIMx;
+
+    /* Initialize TIM3 peripheral as follows:
+         + Period = xxx where 10000/xxx Hz
+         + Prescaler = ((SystemCoreClock/2)/10000) - 1
+         + ClockDivision = 0
+         + Counter direction = Up
+    */
+    StepTickerTimHandle.Init.Period = 10 - 1; // set period to trigger interrupt at 10us or 100KHz
+    StepTickerTimHandle.Init.Prescaler = uwPrescalerValue;
+    StepTickerTimHandle.Init.ClockDivision = 0;
+    StepTickerTimHandle.Init.CounterMode = TIM_COUNTERMODE_UP;
+
+    if(HAL_TIM_Base_Init(&StepTickerTimHandle) != HAL_OK) {
+        /* Initialization Error */
+        Error_Handler();
+    }
+
+    /*##-2- Start the TIM Base generation in interrupt mode ####################*/
+    /* Start Channel1 */
+    if(HAL_TIM_Base_Start_IT(&StepTickerTimHandle) != HAL_OK) {
+        /* Starting Error */
+        Error_Handler();
+    }
+
+
 }
 
 /**
@@ -500,6 +515,24 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 		xTaskNotifyFromISR( MainThreadHandle, BUTTON_BIT, eSetBits, &xHigherPriorityTaskWoken );
 		portYIELD_FROM_ISR( xHigherPriorityTaskWoken );
 	}
+}
+
+/**
+  * @brief  Period elapsed callback in non blocking mode
+  * @param  htim: TIM handle
+  * @retval None
+  */
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+{
+	// this is the step ticker
+	// if(htim->Instance != STEPTICKER_TIMx) {
+	// 	Error_Handler();
+	// }
+	static uint32_t last= 0;
+	// handle stepticker
+	uint32_t now= stop_time();
+	delta_time= now-last;
+	last= now;
 }
 
 /**

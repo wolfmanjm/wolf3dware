@@ -42,6 +42,8 @@
 #include "stm32f4xx_it.h"
 #include "cmsis_os.h"
 
+extern TIM_HandleTypeDef    StepTickerTimHandle;
+extern TIM_HandleTypeDef    PerformanceTimHandle;
 
 /** @addtogroup STM32F4xx_HAL_Examples
   * @{
@@ -191,6 +193,18 @@ void OTG_HS_IRQHandler(void)
 {
    HAL_PCD_IRQHandler(&hpcd);
 }
+
+/**
+  * @brief  This function handles TIM interrupt request.
+  * @param  None
+  * @retval None
+  */
+void STEPTICKER_TIMx_IRQHandler(void)
+{
+  HAL_TIM_IRQHandler(&StepTickerTimHandle);
+}
+
+
 
 /**
   * @}

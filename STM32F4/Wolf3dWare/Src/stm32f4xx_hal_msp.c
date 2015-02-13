@@ -70,14 +70,15 @@ void HAL_TIM_Base_MspInit(TIM_HandleTypeDef *htim)
 {
   /*##-1- Enable peripherals and GPIO Clocks #################################*/
   /* TIMx Peripheral clock enable */
-  TIMx_CLK_ENABLE();
+  PERFORMANCE_TIMx_CLK_ENABLE();
+  STEPTICKER_TIMx_CLK_ENABLE();
 
   /*##-2- Configure the NVIC for TIMx ########################################*/
   /* Set the TIMx priority */
-  //HAL_NVIC_SetPriority(TIMx_IRQn, 0, 1);
+  HAL_NVIC_SetPriority(STEPTICKER_TIMx_IRQn, 1, 0);
 
   /* Enable the TIMx global Interrupt */
-  //HAL_NVIC_EnableIRQ(TIMx_IRQn);
+  HAL_NVIC_EnableIRQ(STEPTICKER_TIMx_IRQn);
 }
 
 /**

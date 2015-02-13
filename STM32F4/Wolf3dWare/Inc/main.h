@@ -51,8 +51,14 @@
 /* Exported macro ------------------------------------------------------------*/
 /* Exported functions ------------------------------------------------------- */
 
-#define TIMx                           TIM2
-#define TIMx_CLK_ENABLE                __HAL_RCC_TIM2_CLK_ENABLE
+#define PERFORMANCE_TIMx             TIM2
+#define PERFORMANCE_TIMx_CLK_ENABLE  __HAL_RCC_TIM2_CLK_ENABLE
+
+#define STEPTICKER_TIMx              TIM3
+#define STEPTICKER_TIMx_CLK_ENABLE  __HAL_RCC_TIM3_CLK_ENABLE
+/* Definition for TIMx's NVIC */
+#define STEPTICKER_TIMx_IRQn        TIM3_IRQn
+#define STEPTICKER_TIMx_IRQHandler  TIM3_IRQHandler
 
 #define __debugbreak()  { __asm volatile ("bkpt #0"); }
 
