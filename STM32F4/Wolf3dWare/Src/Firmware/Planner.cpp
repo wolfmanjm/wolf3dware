@@ -218,7 +218,7 @@ float Planner::forwardPass(Block &b, float prev_max_exit_speed)
         // since we're now acceleration or cruise limited
         // we don't need to recalculate our entry speed anymore
         b.recalculate_flag = false;
-        std::cout << "recalculate_flag set to false: " << b.id << "\n";
+        //std::cout << "recalculate_flag set to false: " << b.id << "\n";
     }
     // else
     // // decel limited, do nothing
@@ -395,28 +395,28 @@ void Planner::calculateTrapezoid(Block &block, float entryspeed, float exitspeed
     block.exit_speed= exitspeed;
 }
 
-//#include "prettyprint.hpp"
+#include "prettyprint.hpp"
 void Planner::dump(std::ostream &o) const
 {
-//     for(auto &b : block_queue) {
-//         o <<
-//         "Id: " << b.id                         << ", " <<
-//         "accelerate_until: " <<  b.accelerate_until          << ", " <<
-//         "decelerate_after: " <<  b.decelerate_after          << ", " <<
-//         "acceleration_per_tick: " <<  b.acceleration_per_tick     << ", " <<
-//         "deceleration_per_tick: " <<  b.deceleration_per_tick     << ", " <<
-//         "total_move_ticks: " <<  b.total_move_ticks          << ", " <<
-//         "maximum_rate: " <<  b.maximum_rate              << ", " <<
-//         "nominal_rate: " <<  b.nominal_rate              << ", " <<
-//         "nominal_speed: " <<  b.nominal_speed             << ", " <<
-//         "acceleration: " <<  b.acceleration             << ", " <<
-//         "millimeters: " <<  b.millimeters               << ", " <<
-//         "steps_event_count: " <<  b.steps_event_count         << ", " <<
-//         "initial_rate: " <<  b.initial_rate              << ", " <<
-//         "max_entry_speed: " <<  b.max_entry_speed           << ", " <<
-//         "entry_speed: " <<  b.entry_speed               << ", " <<
-//         "exit_speed: " <<  b.exit_speed                << ", " <<
-//         "direction: " <<  b.direction                 << "," <<
-//         "steps_to_move: " << b.steps_to_move << "\n";
-//     }
+    for(auto &b : block_queue) {
+        o <<
+        "Id: " << b.id                         << ", " <<
+        "accelerate_until: " <<  b.accelerate_until          << ", " <<
+        "decelerate_after: " <<  b.decelerate_after          << ", " <<
+        "acceleration_per_tick: " <<  b.acceleration_per_tick     << ", " <<
+        "deceleration_per_tick: " <<  b.deceleration_per_tick     << ", " <<
+        "total_move_ticks: " <<  b.total_move_ticks          << ", " <<
+        "maximum_rate: " <<  b.maximum_rate              << ", " <<
+        "nominal_rate: " <<  b.nominal_rate              << ", " <<
+        "nominal_speed: " <<  b.nominal_speed             << ", " <<
+        "acceleration: " <<  b.acceleration             << ", " <<
+        "millimeters: " <<  b.millimeters               << ", " <<
+        "steps_event_count: " <<  b.steps_event_count         << ", " <<
+        "initial_rate: " <<  b.initial_rate              << ", " <<
+        "max_entry_speed: " <<  b.max_entry_speed           << ", " <<
+        "entry_speed: " <<  b.entry_speed               << ", " <<
+        "exit_speed: " <<  b.exit_speed                << ", " <<
+        "direction: " <<  b.direction                 << "," <<
+        "steps_to_move: " << b.steps_to_move << "\n";
+    }
 }

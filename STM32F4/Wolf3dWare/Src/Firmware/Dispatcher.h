@@ -1,7 +1,10 @@
 #pragma once
 
+#include "OutputStream.h"
+
 #include <map>
 #include <functional>
+#include <string>
 #include <stdint.h>
 
 #define THEDISPATCHER Dispatcher::getInstance()
@@ -18,7 +21,7 @@ public:
         return instance;
     }
 
-    using Handler_t = std::function<bool(GCode &)>;
+    using Handler_t = std::function<bool(GCode&)>;
     using Handlers_t = std::multimap<uint16_t, Handler_t>;
     enum HANDLER_NAME { GCODE_HANDLER, MCODE_HANDLER };
 
@@ -26,6 +29,8 @@ public:
     void removeHandler(HANDLER_NAME gcode, Handlers_t::iterator);
     bool dispatch(GCode &gc);
     void clearHandlers();
+    const std::string& getResult() { return result; }
+    OutputStream& getOS() { return output_stream; }
 
 private:
     Dispatcher() {};
@@ -34,5 +39,7 @@ private:
     // use multimap as multiple handlers may be needed per gcode
     Handlers_t gcode_handlers;
     Handlers_t mcode_handlers;
+    OutputStream output_stream;
+    std::string result;
 };
 

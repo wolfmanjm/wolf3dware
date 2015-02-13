@@ -76,8 +76,9 @@ osThreadId CommandHandlerThreadHandle;
 osMutexDef(lcdMutex);
 osMutexId lcdMutex;
 
+#define MAXLINELEN 132
 typedef struct {
-	char buf[132];
+	char buf[MAXLINELEN];
 	uint8_t len;
 } T_MEAS;
 
@@ -103,6 +104,7 @@ volatile uint32_t delta_time= 0;
 
 /* Private functions ---------------------------------------------------------*/
 
+extern bool commandLineHandler(const char*);
 extern void TimingTests();
 extern int os_started;
 extern int maincpp();
@@ -219,9 +221,16 @@ int main(void)
 	while (1) { }
 }
 
+// called to send replies back to USB Serial
+bool serial_reply(const char *buf, size_t len)
+{
+	int n= VCP_write(buf, len);
+	return n == len;
+}
+
 static void mainThread(void const *argument)
 {
-	maincpp();
+	maincpp(); // any cpp setup needed
 	while(1) {
 		const TickType_t xTicksToWait = pdMS_TO_TICKS( 1000 );
 		uint32_t ulNotifiedValue;
@@ -272,7 +281,7 @@ void setCDCEventFromISR()
     portYIELD_FROM_ISR( xHigherPriorityTaskWoken );
 }
 
-#define MD5TEST
+//#define MD5TEST
 #ifdef MD5TEST
 #include "md5.h"
 static void MDPrint (MD5_CTX *mdContext)
@@ -287,7 +296,7 @@ static MD5_CTX mdContext;
 static bool testing= false;
 #endif
 
-static char line[132];
+static char line[MAXLINELEN];
 static int cnt = 0;
 
 static void cdcThread(void const *argument)
@@ -345,6 +354,9 @@ static void cdcThread(void const *argument)
 			// ignore CR
 			continue;
 
+		}else if(c == 8 || c == 127) { // BS or DEL
+			if(cnt > 0) --cnt;
+
 		}else if(cnt >= sizeof(line)) {
 			// discard the excess of long lines
 			continue;
@@ -359,7 +371,7 @@ static void commandThread(void const *argument)
 {
 	T_MEAS  *rptr;
 	osEvent  evt;
-	char  line[133];
+	char  line[MAXLINELEN+1];
 	for (;;) {
 		evt = osMessageGet(MsgBox, osWaitForever);  // wait for message
 		if (evt.status == osEventMessage) {
@@ -368,7 +380,8 @@ static void commandThread(void const *argument)
 			memcpy(line, rptr->buf, cnt);
 			osPoolFree(mpool, rptr);                  // free memory allocated for message
 			line[cnt] = 0;
-			LCD_UsrLog("%s\n", line);
+			//LCD_UsrLog("%s\n", line);
+			commandLineHandler(line);
 		}
 	}
 }
