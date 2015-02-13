@@ -87,9 +87,6 @@ osMessageQDef(MsgBox, 16, T_MEAS);               // Define message queue
 osMessageQId  MsgBox;
 EventGroupHandle_t xEventGroup;
 
-// Semaphore to tell us how many bytes we have waiting
-SemaphoreHandle_t cdc_semaphore;
-
 static void cdcThread(void const *argument);
 static void commandThread(void const *argument);
 static void mainThread(void const *argument);
@@ -99,6 +96,8 @@ static void Error_Handler(void);
 static void Timer_Config(void);
 
 TIM_HandleTypeDef TimHandle;
+
+#define BUTTON_BIT 0x01
 
 /* Private functions ---------------------------------------------------------*/
 
@@ -198,7 +197,6 @@ int main(void)
 
 	mpool = osPoolCreate(osPool(mpool));                 // create memory pool
 	MsgBox = osMessageCreate(osMessageQ(MsgBox), NULL);  // create msg queue
-	cdc_semaphore= xSemaphoreCreateCounting( 65535, 0);
 
 	// start threads
 	osThreadDef(Main, mainThread, osPriorityNormal, 0, 1000);
@@ -224,16 +222,16 @@ static void mainThread(void const *argument)
 	maincpp();
 	while(1) {
 		const TickType_t xTicksToWait = pdMS_TO_TICKS( 1000 );
-		EventBits_t uxBits = xEventGroupWaitBits(
-								 xEventGroup,   /* The event group being tested. */
-								 0x01,          /* The bits within the event group to wait for. */
-								 pdTRUE,        /* BIT_0 should be cleared before returning. */
-								 pdFALSE,       /* Don't wait for both bits, either bit will do. */
-								 xTicksToWait );/* Wait a maximum of 1000ms for either bit to be set. */
+		uint32_t ulNotifiedValue;
+		BaseType_t xResult = xTaskNotifyWait( 0,          /* Don't clear bits on entry. */
+                                   			  0xFFFFFFFF,  /* Clear all bits on exit. */
+                                   			  &ulNotifiedValue, /* Stores the notified value. */
+                                 			  xTicksToWait );
 
-
-		if( uxBits & 0x01 ) {
-			BSP_LED_Toggle(LED3);
+        if( xResult == pdPASS ) {
+			if( ulNotifiedValue & BUTTON_BIT ) {
+				BSP_LED_Toggle(LED3);
+			}
 		} else {
 			BSP_LED_Toggle(LED4);
 		}
@@ -266,7 +264,7 @@ void setCDCEventFromISR()
 	static BaseType_t xHigherPriorityTaskWoken;
 	xHigherPriorityTaskWoken= pdFALSE;
 
-    xSemaphoreGiveFromISR( cdc_semaphore, &xHigherPriorityTaskWoken );
+    vTaskNotifyGiveFromISR( CDCThreadHandle, &xHigherPriorityTaskWoken );
 
     portYIELD_FROM_ISR( xHigherPriorityTaskWoken );
 }
@@ -297,7 +295,7 @@ static void cdcThread(void const *argument)
 
 		while(!VCP_get(&c)) {
 			// wait until we have something to process
-			xSemaphoreTake( cdc_semaphore, xTicksToWait);
+			ulTaskNotifyTake( pdFALSE, xTicksToWait);
 		}
 
 #ifdef MD5TEST
@@ -498,22 +496,9 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 	if(GPIO_Pin == KEY_BUTTON_PIN) {
 		/* Toggle LED3 */
 		//BSP_LED_Toggle(LED3);
-		BaseType_t xHigherPriorityTaskWoken, xResult;
-		/* xHigherPriorityTaskWoken must be initialised to pdFALSE. */
-		xHigherPriorityTaskWoken = pdFALSE;
-		/* Set bit 0 and bit 4 in xEventGroup. */
-		xResult = xEventGroupSetBitsFromISR(
-					  xEventGroup,    /* The event group being updated. */
-					  0x01,           /* The bits being set. */
-					  &xHigherPriorityTaskWoken );
-		if( xResult != pdFAIL ) {
-			/* If xHigherPriorityTaskWoken is now set to pdTRUE then a context
-			switch should be requested.  The macro used is port specific and will
-			be either portYIELD_FROM_ISR() or portEND_SWITCHING_ISR() - refer to
-			the documentation page for the port being used. */
-			portYIELD_FROM_ISR( xHigherPriorityTaskWoken );
-		}
-
+		BaseType_t xHigherPriorityTaskWoken= pdFALSE;
+		xTaskNotifyFromISR( MainThreadHandle, BUTTON_BIT, eSetBits, &xHigherPriorityTaskWoken );
+		portYIELD_FROM_ISR( xHigherPriorityTaskWoken );
 	}
 }
 
