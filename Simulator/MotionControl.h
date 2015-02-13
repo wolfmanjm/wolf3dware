@@ -31,6 +31,7 @@ private:
 	bool handleSettings(GCode&);
 	bool handleSetAxisPosition(GCode& gc);
 	bool handleSetSpeedOverride(GCode& gc);
+	bool handleGetPosition(GCode& gc);
 
 	float toMillimeters( float value ){ return this->inch_mode ? value * 25.4F : value; }
 	float fromMillimeters(float value){ return this->inch_mode ? value / 25.4F : value; }

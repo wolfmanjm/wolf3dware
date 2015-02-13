@@ -15,11 +15,28 @@ bool Dispatcher::dispatch(GCode& gc)
 	auto& handler= gc.hasG() ? gcode_handlers : mcode_handlers;
 	const auto& f= handler.equal_range(gc.getCode());
 	bool ret= false;
+	output_stream.clear();
 	for (auto it=f.first; it!=f.second; ++it) {
-		if(!it->second(gc)) {
+		if(it->second(gc)) {
+			ret= true;
+		}else{
 			LOG_WARNING("handler did not handle %c%d\n", gc.hasG() ? 'G':'M', gc.getCode());
 		}
-		ret= true;
+	}
+
+	// get any output the command(s) returned
+	result= output_stream.str();
+
+	if(output_stream.isAppendNL()) {
+		// append newline
+		result.append("\r\n");
+	}
+
+	if(output_stream.isPrependOK()) {
+		// output the result after the ok
+		result.insert(0, "ok ").append("\r\n");
+	}else{
+		result.append("ok\r\n");
 	}
 
 	return ret;

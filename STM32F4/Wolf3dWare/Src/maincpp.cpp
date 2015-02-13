@@ -23,12 +23,16 @@ extern "C" int maincpp()
 	//malloc_stats();
 	GCodeProcessor& gp= THEKERNEL.getGCodeProcessor();
 
-	// Parse gcode
+	// Parse gcode - This would come from Serial port
 	GCodeProcessor::GCodes_t gcodes= gp.parse("G1 X100 Y0 E1.0 F6000 G1 X100 Y100 E2.0 G1 X0 Y100 E3.0 G1 X0 Y0 E4.0 G1 X100 Y50 E4.75");
 
 	// dispatch gcode to MotionControl and Planner
 	for(auto i : gcodes) {
-		THEDISPATCHER.dispatch(i);
+		if(THEDISPATCHER.dispatch(i)) {
+			// we would send back ok here
+		}else{
+			// no handler for this gcode, return ok - nohandler
+		}
 	}
 
 	// dump planned block queue
@@ -49,14 +53,17 @@ extern "C" int maincpp()
 	Planner::Queue_t& q= THEKERNEL.getPlanner().getQueue();
 	while(!q.empty()) {
 		Block block= q.back();
+		//if(!block.ready()) wait longer
 		q.pop_back();
 		std::cout << "Playing Block: " << block.id << "\n";
 		THEKERNEL.getMotionControl().issueMove(block);
+
 		// simulate step ticker
 		uint32_t current_tick= 0;
 		bool r= true;
 		while(r) {
 	  		++current_tick;
+	  		// sends ticks to all actuators, returns false when all have finished all steps
 			r= THEKERNEL.getMotionControl().issueTicks(current_tick);
 		}
 

@@ -48,6 +48,7 @@ void MotionControl::initialize()
 	THEDISPATCHER.addHandler( Dispatcher::GCODE_HANDLER, 91, std::bind( &MotionControl::handleSettings, this, _1) );
 	THEDISPATCHER.addHandler( Dispatcher::GCODE_HANDLER, 92, std::bind( &MotionControl::handleSetAxisPosition, this, _1) );
 
+	THEDISPATCHER.addHandler( Dispatcher::MCODE_HANDLER, 114, std::bind( &MotionControl::handleGetPosition, this, _1) );
 	THEDISPATCHER.addHandler( Dispatcher::MCODE_HANDLER, 220, std::bind( &MotionControl::handleSetSpeedOverride, this, _1) );
 
 	Actuator xactuator('X'), yactuator('Y'), zactuator('Z'), eactuator('E');
@@ -66,11 +67,11 @@ bool MotionControl::handleSetSpeedOverride(GCode& gc)
 {
     if (gc.hasArg('S')) {
         float factor = gc.getArg('S');
-        factor= std::min(factor, 10.0F);
-        factor= std::max(factor, 1000.0F);
+        factor= std::max(factor, 10.0F);
+        factor= std::min(factor, 1000.0F);
         seconds_per_minute = 6000.0F / factor;
     }else{
-    	// printf("Current speed override: %f\n", 6000.0F / seconds_per_minute);
+    	THEDISPATCHER.getOS().printf("Current speed override: %f\n", 6000.0F / seconds_per_minute);
     }
 
     return true;
@@ -118,6 +119,19 @@ bool MotionControl::handleSettings(GCode& gc)
 	}
 
 	return true;
+}
+
+
+bool MotionControl::handleGetPosition(GCode& gc)
+{
+	bool raw= !gc.hasNoArgs();
+  	THEDISPATCHER.getOS().printf("C: ");
+	for (size_t i = 0; i < actuators.size(); ++i) {
+		char c= actuator_axis_lut[i];
+  	    THEDISPATCHER.getOS().printf("%c:%1.3f ", c, raw ? actuators[i].getCurrentPositionInSteps() : fromMillimeters(last_milestone[i]));
+  	}
+    THEDISPATCHER.getOS().setPrependOK();
+    return true;
 }
 
 bool MotionControl::handleSetAxisPosition(GCode& gc)
