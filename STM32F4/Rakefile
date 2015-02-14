@@ -64,6 +64,7 @@ CCPP = "#{TOOLSBIN}g++"
 LD = "#{TOOLSBIN}gcc"
 LDCPP = "#{TOOLSBIN}g++"
 OBJCOPY = "#{TOOLSBIN}objcopy"
+OBJDUMP = "#{TOOLSBIN}objdump"
 SIZE = "#{TOOLSBIN}size"
 AR = "#{TOOLSBIN}ar"
 
@@ -164,6 +165,10 @@ task :build => ["#{PROG}.bin", :size]
 
 task :size do
   sh "#{SIZE} #{OBJDIR}/#{PROG}.elf"
+end
+
+task :disasm do
+  sh "#{OBJDUMP} -d -f -M reg-names-std --demangle #{OBJDIR}/#{PROG}.elf > #{OBJDIR}/#{PROG}.disasm"
 end
 
 task :makelibs do

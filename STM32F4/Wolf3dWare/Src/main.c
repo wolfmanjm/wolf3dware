@@ -108,7 +108,7 @@ extern bool commandLineHandler(const char*);
 extern void TimingTests();
 extern int os_started;
 extern int maincpp();
-
+extern void issueTicks(void);
 
 uint32_t start_time()
 {
@@ -173,8 +173,6 @@ int main(void)
 	LCD_LOG_ClearTextZone();
 	LCD_LOG_SetHeader((uint8_t *)"Wolf3dWare");
 
-	Timer_Config(); // setup a 1us counter for performance tests
-
 	// setup USB CDC
 	SetupVCP();
 	USBD_Init(&USBD_Device, &VCP_Desc, 0);
@@ -212,8 +210,13 @@ int main(void)
 	osThreadDef(Commands, commandThread, osPriorityNormal, 0, 1000);
 	CommandHandlerThreadHandle = osThreadCreate (osThread(Commands), NULL);
 
+	maincpp(); // any cpp setup needed, including assigning pins to the actuators
+
+	Timer_Config(); // setup a 1us counter for performance tests
+
 	// use thread safe malloc after this
 	os_started = 1;
+
 
 	osKernelStart();
 
@@ -228,9 +231,9 @@ bool serial_reply(const char *buf, size_t len)
 	return n == len;
 }
 
+extern void testGpio();
 static void mainThread(void const *argument)
 {
-	maincpp(); // any cpp setup needed
 	while(1) {
 		const TickType_t xTicksToWait = pdMS_TO_TICKS( 1000 );
 		uint32_t ulNotifiedValue;
@@ -243,9 +246,10 @@ static void mainThread(void const *argument)
 			if( ulNotifiedValue & BUTTON_BIT ) {
 				BSP_LED_Toggle(LED3);
 			}
+			LCD_UsrLog("stepticker: %lu us\n", delta_time);
 		} else {
-			BSP_LED_Toggle(LED4);
-			//LCD_UsrLog("stepticker: %lu us\n", delta_time);
+			//BSP_LED_Toggle(LED4);
+			testGpio();
 		}
 	}
 }
@@ -541,11 +545,13 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 	// if(htim->Instance != STEPTICKER_TIMx) {
 	// 	Error_Handler();
 	// }
-	static uint32_t last= 0;
+
 	// handle stepticker
-	uint32_t now= stop_time();
-	delta_time= now-last;
-	last= now;
+	//uint32_t s= start_time();
+	issueTicks();
+
+	//uint32_t e= stop_time();
+	//delta_time= e-s;
 }
 
 /**

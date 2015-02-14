@@ -10,6 +10,8 @@ void Actuator::move( bool direction, uint32_t steps_to_move, float axis_ratio, c
     this->steps_to_move = steps_to_move;
     // set direction pin
     this->direction = direction;
+    hal_functions[SET_DIR](direction);
+
     // need to scale by the axis ratio
     this->axis_ratio = axis_ratio;
 
@@ -32,6 +34,8 @@ void Actuator::move( bool direction, uint32_t steps_to_move, float axis_ratio, c
     steps_per_tick = (block.initial_rate * axis_ratio) / STEP_TICKER_FREQUENCY; // steps/sec / tick frequency to get steps per tick
     counter = 0.0F;
     step_count = 0;
+    // enable the stepper motor
+    if(!enabled) enable(true);
     moving= true;
 }
 
@@ -97,11 +101,29 @@ bool Actuator::tick(uint32_t current_tick)
     return true;
 }
 
+void Actuator::enable(bool on)
+{
+    hal_functions[SET_ENABLE](on);
+    enabled= on;
+}
+
 void Actuator::step()
 {
-    // TODO issue step pulse
+    // issue step pulse
+    hal_functions[SET_STEP](true);
 
     // keep track of real time position in steps
     uint32_t dir= direction?1:-1;
     current_step_position += dir;
+
+    stepped= true;
+}
+
+void Actuator::unstep()
+{
+    // reset the step pulse if it stepped
+    if(stepped) {
+        hal_functions[SET_STEP](false);
+        stepped= false;
+    }
 }

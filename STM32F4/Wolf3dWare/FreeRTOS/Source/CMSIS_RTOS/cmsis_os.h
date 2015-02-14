@@ -21,9 +21,9 @@
  * Version 1.02
  *    Control functions for short timeouts in microsecond resolution:
  *    Added: osKernelSysTick, osKernelSysTickFrequency, osKernelSysTickMicroSec
- *    Removed: osSignalGet 
- *    
- *  
+ *    Removed: osSignalGet
+ *
+ *
  *----------------------------------------------------------------------------
  *
  * Portions COPYRIGHT 2014 STMicroelectronics
@@ -59,7 +59,7 @@
   * @author  MCD Application Team
   * @date    25-December-2014
   * @brief   Header of cmsis_os.c
-  *          A new set of APIs are added in addition to existing ones, these APIs 
+  *          A new set of APIs are added in addition to existing ones, these APIs
   *          are specific to FreeRTOS.
   ******************************************************************************
   * @attention
@@ -70,14 +70,14 @@
   *
   *        http://www.st.com/software_license_agreement_liberty_v2
   *
-  * Unless required by applicable law or agreed to in writing, software 
-  * distributed under the License is distributed on an "AS IS" BASIS, 
+  * Unless required by applicable law or agreed to in writing, software
+  * distributed under the License is distributed on an "AS IS" BASIS,
   * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
   * See the License for the specific language governing permissions and
   * limitations under the License.
   *
   ******************************************************************************
-  */ 
+  */
 
  #if   defined ( __CC_ARM )
   #define __ASM            __asm                                      /*!< asm keyword for ARM Compiler          */
@@ -96,7 +96,7 @@
 #include <stdint.h>
 #include <stddef.h>
 #include "core_cmFunc.h"
-	
+
 #include "FreeRTOS.h"
 #include "task.h"
 #include "timers.h"
@@ -255,7 +255,7 @@ typedef enum {
 	osThreadReady     = 0x1 ,			        /* The thread being queried is in a read or pending ready list. */
 	osThreadBlocked   = 0x2,		        /* The thread being queried is in the Blocked state. */
 	osThreadSuspended = 0x3,	      /* The thread being queried is in the Suspended state, or is in the Blocked state with an infinite time out. */
-	osThreadDeleted   = 0x4,		          /* The thread being queried has been deleted, but its TCB has not yet been freed. */   
+	osThreadDeleted   = 0x4,		          /* The thread being queried has been deleted, but its TCB has not yet been freed. */
   osThreadError     = 0x7FFFFFFF
 } osThreadState;
 #endif /* INCLUDE_eTaskGetState */
@@ -309,7 +309,7 @@ typedef struct os_mailQ_cb *osMailQId;
 /// Thread Definition structure contains startup information of a thread.
 /// \note CAN BE CHANGED: \b os_thread_def is implementation specific in every CMSIS-RTOS.
 typedef struct os_thread_def  {
-  char                   *name;        ///< Thread name 
+  char                   *name;        ///< Thread name
   os_pthread             pthread;      ///< start address of thread function
   osPriority             tpriority;    ///< initial thread priority
   uint32_t               instances;    ///< maximum number of instances of that thread function
@@ -394,9 +394,9 @@ int32_t osKernelRunning(void);
 
 #if (defined (osFeature_SysTick)  &&  (osFeature_SysTick != 0))     // System Timer available
 
-/// Get the RTOS kernel system timer counter 
+/// Get the RTOS kernel system timer counter
 /// \note MUST REMAIN UNCHANGED: \b osKernelSysTick shall be consistent in every CMSIS-RTOS.
-/// \return RTOS kernel system timer as 32-bit value 
+/// \return RTOS kernel system timer as 32-bit value
 uint32_t osKernelSysTick (void);
 
 /// The RTOS kernel system timer frequency in Hz
@@ -900,7 +900,7 @@ osStatus osThreadResumeAll (void);
 
 /**
 * @brief  Delay a task until a specified time
-* @param   PreviousWakeTime   Pointer to a variable that holds the time at which the 
+* @param   PreviousWakeTime   Pointer to a variable that holds the time at which the
 *          task was last unblocked.
 * @param   millisec    time delay value
 * @retval  status code that indicates the execution status of the function.
@@ -908,7 +908,7 @@ osStatus osThreadResumeAll (void);
 osStatus osDelayUntil (uint32_t PreviousWakeTime, uint32_t millisec);
 
 /**
-* @brief   Lists all the current threads, along with their current state 
+* @brief   Lists all the current threads, along with their current state
 *          and stack usage high water mark.
 * @param   buffer   A buffer into which the above mentioned details
 *          will be written
