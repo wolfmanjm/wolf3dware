@@ -118,6 +118,102 @@ TEST_CASE( "Dispatch GCodes", "[Dispatcher]" ) {
 	}
 }
 
+
+
+TEST_CASE( "Planning", "[planner]" ) {
+	GCodeProcessor& gp= THEKERNEL.getGCodeProcessor();
+
+	SECTION("plan one axis") {
+		// Parse gcode
+		GCodeProcessor::GCodes_t gcodes= gp.parse("G92 G1 X100 F6000 G1 X200 G1 X300 G1 X400 G1 X500");
+
+		// dispatch gcode to Planner
+		for(auto i : gcodes) {
+			THEDISPATCHER.dispatch(i);
+		}
+
+		// dump planned block queue
+		THEKERNEL.getPlanner().dump(cout);
+
+		const float entryspeed[]{0,100,100,100,100};
+		const float exitspeed[]{100,100,100,100,0};
+		int cnt= 0;
+
+		// iterate over block queue and check it
+		Planner::Queue_t& q= THEKERNEL.getPlanner().getLookAheadQueue();
+		Planner::Queue_t& rq= THEKERNEL.getPlanner().getReadyQueue();
+		REQUIRE(q.size() == 1);
+		REQUIRE(rq.size() == 4);
+
+		while(!rq.empty()) {
+			Block block= rq.back();
+			rq.pop_back();
+			REQUIRE(block.id == cnt);
+			REQUIRE(block.entry_speed == entryspeed[cnt]);
+			REQUIRE(block.exit_speed == exitspeed[cnt]);
+			REQUIRE(block.steps_to_move[0] == 10000);
+			++cnt;
+		}
+
+		Block block= q.back();
+		q.pop_back();
+		REQUIRE(block.id == cnt);
+		REQUIRE(block.entry_speed == entryspeed[cnt]);
+		REQUIRE(block.exit_speed == exitspeed[cnt]);
+		REQUIRE(block.steps_to_move[0] == 10000);
+		++cnt;
+
+		REQUIRE(cnt == 5);
+		REQUIRE(rq.empty());
+		REQUIRE(q.empty());
+	}
+
+	SECTION("plan one axis, different speeds") {
+		// Parse gcode
+		GCodeProcessor::GCodes_t gcodes= gp.parse("G92 G1 X100 F6000 G1 X200 F600 G1 X300 F6000 G1 X400 F12000 G1 X500 F12000");
+
+		// dispatch gcode to Planner
+		for(auto i : gcodes) {
+			THEDISPATCHER.dispatch(i);
+		}
+
+		// dump planned block queue
+		THEKERNEL.getPlanner().dump(cout);
+
+		const float entryspeed[]{0,10,10,100,200};
+		const float exitspeed[]{10,10,100,200,0};
+		int cnt= 0;
+
+		// iterate over block queue and check it
+		Planner::Queue_t& q= THEKERNEL.getPlanner().getLookAheadQueue();
+		Planner::Queue_t& rq= THEKERNEL.getPlanner().getReadyQueue();
+		REQUIRE(q.size() == 1);
+		REQUIRE(rq.size() == 4);
+
+		while(!rq.empty()) {
+			INFO( "Block is " << cnt);
+			Block block= rq.back();
+			rq.pop_back();
+			REQUIRE(block.id == cnt+5);
+			REQUIRE(block.entry_speed == entryspeed[cnt]);
+			REQUIRE(block.exit_speed == exitspeed[cnt]);
+			REQUIRE(block.steps_to_move[0] == 10000);
+			++cnt;
+		}
+
+		Block block= q.back();
+		q.pop_back();
+		REQUIRE(block.id == cnt+5);
+		REQUIRE(block.entry_speed == entryspeed[cnt]);
+		REQUIRE(block.exit_speed == exitspeed[cnt]);
+		REQUIRE(block.steps_to_move[0] == 10000);
+		++cnt;
+
+		REQUIRE(cnt == 5);
+	}
+}
+
+#if 0
 TEST_CASE( "Planning and Stepping", "[stepper]" ) {
 	GCodeProcessor& gp= THEKERNEL.getGCodeProcessor();
     MotionControl& mc= THEKERNEL.getMotionControl();
@@ -334,3 +430,4 @@ TEST_CASE( "RingBuffer", "[ringbuffer]" ) {
 		REQUIRE(rb.empty());
 	}
 }
+#endif

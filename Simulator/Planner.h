@@ -18,7 +18,7 @@ public:
 	void dump(std::ostream& o) const;
 
 	using Queue_t = std::deque<Block>;
-	Queue_t& getQueue() { return lookahead_q; }
+	Queue_t& getLookAheadQueue() { return lookahead_q; }
 	Queue_t& getReadyQueue() { return ready_q; }
 	void moveAllToReady();
 
