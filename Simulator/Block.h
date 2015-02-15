@@ -28,7 +28,6 @@ struct Block {
 	struct {
 		bool nominal_length_flag:1;
 		bool recalculate_flag:1;
-		bool ready:1;
 	};
 };
 

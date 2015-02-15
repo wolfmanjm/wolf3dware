@@ -40,14 +40,20 @@ void MotionControl::initialize()
 {
 	// register the gcodes this class handles
 	using std::placeholders::_1;
-	THEDISPATCHER.addHandler( Dispatcher::GCODE_HANDLER, 0, std::bind( &MotionControl::handleG0G1, this, _1) );
-	THEDISPATCHER.addHandler( Dispatcher::GCODE_HANDLER, 1, std::bind( &MotionControl::handleG0G1, this, _1) );
+
+	// G codes
+	THEDISPATCHER.addHandler( Dispatcher::GCODE_HANDLER, 0,  std::bind( &MotionControl::handleG0G1, this, _1) );
+	THEDISPATCHER.addHandler( Dispatcher::GCODE_HANDLER, 1,  std::bind( &MotionControl::handleG0G1, this, _1) );
 	THEDISPATCHER.addHandler( Dispatcher::GCODE_HANDLER, 20, std::bind( &MotionControl::handleSettings, this, _1) );
 	THEDISPATCHER.addHandler( Dispatcher::GCODE_HANDLER, 21, std::bind( &MotionControl::handleSettings, this, _1) );
 	THEDISPATCHER.addHandler( Dispatcher::GCODE_HANDLER, 90, std::bind( &MotionControl::handleSettings, this, _1) );
 	THEDISPATCHER.addHandler( Dispatcher::GCODE_HANDLER, 91, std::bind( &MotionControl::handleSettings, this, _1) );
 	THEDISPATCHER.addHandler( Dispatcher::GCODE_HANDLER, 92, std::bind( &MotionControl::handleSetAxisPosition, this, _1) );
 
+	// M codes
+	THEDISPATCHER.addHandler( Dispatcher::MCODE_HANDLER, 17, std::bind( &MotionControl::handleEnable, this, _1) );
+	THEDISPATCHER.addHandler( Dispatcher::MCODE_HANDLER, 18, std::bind( &MotionControl::handleEnable, this, _1) );
+	THEDISPATCHER.addHandler( Dispatcher::MCODE_HANDLER, 84, std::bind( &MotionControl::handleEnable, this, _1) );
 	THEDISPATCHER.addHandler( Dispatcher::MCODE_HANDLER, 114, std::bind( &MotionControl::handleGetPosition, this, _1) );
 	THEDISPATCHER.addHandler( Dispatcher::MCODE_HANDLER, 220, std::bind( &MotionControl::handleSetSpeedOverride, this, _1) );
 
@@ -60,7 +66,30 @@ void MotionControl::initialize()
 	addActuator(yactuator, true);
 	addActuator(zactuator, true);
 	addActuator(eactuator, false);
+}
 
+bool MotionControl::handleEnable(GCode& gc)
+{
+	switch(gc.getCode()) {
+		case 17: // all on
+			for(auto& a : actuators) a.enable(true);
+			break;
+		case 18: // all off
+			for(auto& a : actuators) a.enable(false);
+				break;
+		case 84:
+			if(gc.getSubcode() == 0){
+				for(auto& a : actuators) a.enable(false);
+			}else if(gc.getSubcode() == 1){
+				// selective axis off
+				for(auto& args : gc.getArgs()) {
+					auto a= axis_actuator_map.find(args.first);
+					if(a != axis_actuator_map.end()) actuators[a->second].enable(false);
+				}
+			}else return false;
+			break;
+	}
+	return true;
 }
 
 bool MotionControl::handleSetSpeedOverride(GCode& gc)
@@ -124,7 +153,7 @@ bool MotionControl::handleSettings(GCode& gc)
 
 bool MotionControl::handleGetPosition(GCode& gc)
 {
-	bool raw= !gc.hasNoArgs();
+	bool raw= (gc.getSubcode() == 1);
   	THEDISPATCHER.getOS().printf("C: ");
 	for (size_t i = 0; i < actuators.size(); ++i) {
 		char c= actuator_axis_lut[i];
@@ -148,36 +177,47 @@ bool MotionControl::handleSetAxisPosition(GCode& gc)
 
 void MotionControl::resetAxisPositions() {
 	std::fill(last_milestone.begin(), last_milestone.end(), 0.0F);
+	for(auto& a : actuators) a.resetPositionInSteps(0);
 }
 
 void MotionControl::resetAxisPosition(char axis, float pos){
 	auto i= axis_actuator_map.find(axis);
-	if(i != axis_actuator_map.end()) last_milestone[i->second]= pos;
+	if(i != axis_actuator_map.end()){
+		last_milestone[i->second]= pos;
+		actuators[i->second].resetPositionInmm(pos);
+	}
 }
 
 // sets up each axis to move
 bool MotionControl::issueMove(const Block& block)
 {
+	moving_mask= 0;
 	auto i= std::max_element(block.steps_to_move.begin(), block.steps_to_move.end());
 	float inv= 1.0F / *i ;
 	for (size_t i = 0; i < block.steps_to_move.size(); ++i) {
 	    if(block.steps_to_move[i] == 0) continue;
 	    //std::cout << "moving axis: " << actuators[i].getAxis() << "\n";
 	    actuators[i].move(block.direction[i], block.steps_to_move[i], block.steps_to_move[i]*inv, block);
+	    moving_mask |= (1<<i);
 	}
 	return true;
 }
 
 bool MotionControl::issueTicks(uint32_t current_tick)
 {
-	std::vector<bool> r(actuators.size(), true);
-	for (size_t i = 0; i < actuators.size(); ++i) {
-		if(r[i]) r[i]= actuators[i].tick(current_tick);
+	bool done= true;
+	for (auto& a : actuators) {
+		if(a.tick(current_tick)) done= false;
 	}
-	return std::count(r.begin(), r.end(), true) > 0;
+
+	// this will toggle the step pin if it was set
+	for (auto& a : actuators) {
+		a.unstep();
+	}
+	return !done;
 }
 
-const Actuator& MotionControl::getActuator(char axis) const
+Actuator& MotionControl::getActuator(char axis)
 {
 	return actuators[getAxisActuator(axis)];
 }

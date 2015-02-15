@@ -10,6 +10,7 @@
 #include "Block.h"
 #include "MotionControl.h"
 #include "Actuator.h"
+#include "Lock.h"
 
 #include <math.h>
 #include <algorithm>
@@ -98,8 +99,8 @@ bool Planner::plan(const float *last_target, const float *target, int n_axis,  A
     // and this allows one to stop with little to no decleration in many cases. This is particualrly bad on leadscrew based systems that will skip steps.
     float vmax_junction = minimum_planner_speed; // Set default max junction speed
 
-    if (!block_queue.empty()) {
-        float previous_nominal_speed = block_queue.front().nominal_speed;
+    if (!lookahead_q.empty()) {
+        float previous_nominal_speed = lookahead_q.front().nominal_speed;
 
         if (previous_nominal_speed > 0.0F && junction_deviation > 0.0F) {
             // Compute cosine of angle between previous and current path. (prev_unit_vec is negative)
@@ -142,17 +143,28 @@ bool Planner::plan(const float *last_target, const float *target, int n_axis,  A
     // Update previous path unit_vector and nominal speed
     memcpy(previous_unit_vec, unit_vec, sizeof(previous_unit_vec)); // previous_unit_vec[] = unit_vec[]
 
-    // not ready yet
-    block.ready = false;
-
     // stick on the head/front of the block queue
-    block_queue.push_front(block);
+    lookahead_q.push_front(block);
 
     // Math-heavy re-computing of the whole queue to take the new
     recalculate();
 
-    // it can be used now
-    block_queue.front().ready= true;
+    // starting at end of the queue move any block that has recalculate_flag set to false into the ready queue
+    while(!lookahead_q.empty()) {
+        auto& b= lookahead_q.back();
+        if(!b.recalculate_flag){
+            {
+                Lock l(READY_Q_MUTEX); // gets a mutex on this
+                l.lock();
+                ready_q.push_front(b);
+                l.unLock();
+            }
+            lookahead_q.pop_back();
+        }else{
+            // we stop looking when we hit the last block that has is set
+            break;
+        }
+    }
 
     return true;
 }
@@ -218,7 +230,7 @@ float Planner::forwardPass(Block &b, float prev_max_exit_speed)
         // since we're now acceleration or cruise limited
         // we don't need to recalculate our entry speed anymore
         b.recalculate_flag = false;
-        std::cout << "recalculate_flag set to false: " << b.id << "\n";
+        //std::cout << "recalculate_flag set to false: " << b.id << "\n";
     }
     // else
     // // decel limited, do nothing
@@ -259,10 +271,10 @@ void Planner::recalculate()
      */
 
     float entry_speed = minimum_planner_speed;
-    auto curi = block_queue.begin();
-    auto lasti = std::prev(block_queue.end()); //iterator pointing to last entry
+    auto curi = lookahead_q.begin();
+    auto lasti = std::prev(lookahead_q.end()); //iterator pointing to last entry
 
-    if (block_queue.size() > 1) {
+    if (lookahead_q.size() > 1) {
         // from head to tail
         while(curi != lasti && curi->recalculate_flag) {
             entry_speed = reversePass(*curi, entry_speed);
@@ -279,7 +291,7 @@ void Planner::recalculate()
          */
 
         float exit_speed = maxExitSpeed(*curi);
-        while (curi != block_queue.begin()) {
+        while (curi != lookahead_q.begin()) {
             auto previ= curi;
             curi= std::prev(curi);
 
@@ -395,28 +407,44 @@ void Planner::calculateTrapezoid(Block &block, float entryspeed, float exitspeed
     block.exit_speed= exitspeed;
 }
 
+void Planner::moveAllToReady()
+{
+    Lock l(READY_Q_MUTEX); // gets a mutex on this
+    l.lock();
+    while(!lookahead_q.empty()) {
+        ready_q.push_front(lookahead_q.back());
+        lookahead_q.pop_back();
+    }
+    l.unLock();
+}
+
 #include "prettyprint.hpp"
 void Planner::dump(std::ostream &o) const
 {
-    for(auto &b : block_queue) {
-        o <<
-        "Id: " << b.id                         << ", " <<
-        "accelerate_until: " <<  b.accelerate_until          << ", " <<
-        "decelerate_after: " <<  b.decelerate_after          << ", " <<
-        "acceleration_per_tick: " <<  b.acceleration_per_tick     << ", " <<
-        "deceleration_per_tick: " <<  b.deceleration_per_tick     << ", " <<
-        "total_move_ticks: " <<  b.total_move_ticks          << ", " <<
-        "maximum_rate: " <<  b.maximum_rate              << ", " <<
-        "nominal_rate: " <<  b.nominal_rate              << ", " <<
-        "nominal_speed: " <<  b.nominal_speed             << ", " <<
-        "acceleration: " <<  b.acceleration             << ", " <<
-        "millimeters: " <<  b.millimeters               << ", " <<
-        "steps_event_count: " <<  b.steps_event_count         << ", " <<
-        "initial_rate: " <<  b.initial_rate              << ", " <<
-        "max_entry_speed: " <<  b.max_entry_speed           << ", " <<
-        "entry_speed: " <<  b.entry_speed               << ", " <<
-        "exit_speed: " <<  b.exit_speed                << ", " <<
-        "direction: " <<  b.direction                 << "," <<
-        "steps_to_move: " << b.steps_to_move << "\n";
+    for (int i = 0; i < 2; ++i) {
+        Queue_t q= i==0 ? lookahead_q : ready_q;
+        o << (i==0 ? "Look ahead Queue:\n" : "Ready Queue\n");
+        for(auto &b : q) {
+            o <<
+            "Id: " << b.id                         << ", " <<
+            "accelerate_until: " <<  b.accelerate_until          << ", " <<
+            "decelerate_after: " <<  b.decelerate_after          << ", " <<
+            "acceleration_per_tick: " <<  b.acceleration_per_tick     << ", " <<
+            "deceleration_per_tick: " <<  b.deceleration_per_tick     << ", " <<
+            "total_move_ticks: " <<  b.total_move_ticks          << ", " <<
+            "maximum_rate: " <<  b.maximum_rate              << ", " <<
+            "nominal_rate: " <<  b.nominal_rate              << ", " <<
+            "nominal_speed: " <<  b.nominal_speed             << ", " <<
+            "acceleration: " <<  b.acceleration             << ", " <<
+            "millimeters: " <<  b.millimeters               << ", " <<
+            "steps_event_count: " <<  b.steps_event_count         << ", " <<
+            "initial_rate: " <<  b.initial_rate              << ", " <<
+            "max_entry_speed: " <<  b.max_entry_speed           << ", " <<
+            "entry_speed: " <<  b.entry_speed               << ", " <<
+            "exit_speed: " <<  b.exit_speed                << ", " <<
+            "recalculate_flag: " <<  b.recalculate_flag   << "," <<
+            "direction: " <<  b.direction                 << "," <<
+            "steps_to_move: " << b.steps_to_move << "\n";
+        }
     }
 }

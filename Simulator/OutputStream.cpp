@@ -1,6 +1,7 @@
 #include "OutputStream.h"
 #include <cstdarg>
 #include <cstring>
+#include "stdio.h"
 
 int OutputStream::printf(const char *format, ...)
 {

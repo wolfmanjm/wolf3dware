@@ -120,6 +120,21 @@ TEST_CASE( "Dispatch GCodes", "[Dispatcher]" ) {
 
 TEST_CASE( "Planning and Stepping", "[stepper]" ) {
 	GCodeProcessor& gp= THEKERNEL.getGCodeProcessor();
+    MotionControl& mc= THEKERNEL.getMotionControl();
+
+    // Setup pins for each Actuator
+    mc.getActuator('X').assignHALFunction(Actuator::SET_STEP,   [](bool ) { /*cout << "X_StepPin::set(" << on << ")\n"; */ });
+    mc.getActuator('X').assignHALFunction(Actuator::SET_DIR,    [](bool ) { /*cout << "X_DirPin::set(" << on << ")\n";  */ });
+    mc.getActuator('X').assignHALFunction(Actuator::SET_ENABLE, [](bool ) { /*cout << "X_EnbPin::set(" << on << ")\n";  */ });
+    mc.getActuator('Y').assignHALFunction(Actuator::SET_STEP,   [](bool ) { /*cout << "Y_StepPin::set(" << on << ")\n"; */ });
+    mc.getActuator('Y').assignHALFunction(Actuator::SET_DIR,    [](bool ) { /*cout << "Y_DirPin::set(" << on << ")\n";  */ });
+    mc.getActuator('Y').assignHALFunction(Actuator::SET_ENABLE, [](bool ) { /*cout << "Y_EnbPin::set(" << on << ")\n";  */ });
+    mc.getActuator('Z').assignHALFunction(Actuator::SET_STEP,   [](bool ) { /*cout << "Z_StepPin::set(" << on << ")\n"; */ });
+    mc.getActuator('Z').assignHALFunction(Actuator::SET_DIR,    [](bool ) { /*cout << "Z_DirPin::set(" << on << ")\n";  */ });
+    mc.getActuator('Z').assignHALFunction(Actuator::SET_ENABLE, [](bool ) { /*cout << "Z_EnbPin::set(" << on << ")\n";  */ });
+    mc.getActuator('E').assignHALFunction(Actuator::SET_STEP,   [](bool ) { /*cout << "E_StepPin::set(" << on << ")\n"; */ });
+    mc.getActuator('E').assignHALFunction(Actuator::SET_DIR,    [](bool ) { /*cout << "E_DirPin::set(" << on << ")\n";  */ });
+    mc.getActuator('E').assignHALFunction(Actuator::SET_ENABLE, [](bool ) { /*cout << "E_EnbPin::set(" << on << ")\n";  */ });
 
 	SECTION("Generate Steps, one axis") {
 		// Parse gcode

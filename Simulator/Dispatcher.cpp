@@ -24,19 +24,21 @@ bool Dispatcher::dispatch(GCode& gc)
 		}
 	}
 
-	// get any output the command(s) returned
-	result= output_stream.str();
+	if(ret) {
+		// get any output the command(s) returned
+		result= output_stream.str();
 
-	if(output_stream.isAppendNL()) {
-		// append newline
-		result.append("\r\n");
-	}
+		if(output_stream.isAppendNL()) {
+			// append newline
+			result.append("\r\n");
+		}
 
-	if(output_stream.isPrependOK()) {
-		// output the result after the ok
-		result.insert(0, "ok ").append("\r\n");
-	}else{
-		result.append("ok\r\n");
+		if(output_stream.isPrependOK()) {
+			// output the result after the ok
+			result.insert(0, "ok ").append("\r\n");
+		}else{
+			result.append("ok\r\n");
+		}
 	}
 
 	return ret;
