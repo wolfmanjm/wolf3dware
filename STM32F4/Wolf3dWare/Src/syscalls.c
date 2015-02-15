@@ -37,6 +37,7 @@
 
 #include "stm32f4xx_hal.h"
 
+#define __debugbreak()  { __asm volatile ("bkpt #0"); }
 
 /* Variables */
 #undef errno
@@ -106,6 +107,7 @@ caddr_t _sbrk(int incr)
     char *stack=  (char *)__get_MSP();
     if (heap_end + incr >= stack) {
         //write (1, "Heap and stack collision\n", 25);
+        __debugbreak();
         abort ();
     }
     heap_end += incr;

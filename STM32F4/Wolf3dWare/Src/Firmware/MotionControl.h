@@ -24,6 +24,8 @@ public:
 	bool isPrimaryAxis(uint8_t i) const { return primary_axis[i]; }
 	bool issueMove(const Block& block);
 	bool issueTicks(uint32_t current_tick);
+	bool isAnythingMoving() const { return moving_mask != 0; }
+
 	Actuator& getActuator(char axis);
 
 private:
@@ -39,6 +41,7 @@ private:
 
 	float seek_rate, feed_rate;
 	float seconds_per_minute{60.0F};
+	uint32_t moving_mask{0};
 
 	std::vector<Actuator> actuators;
 	std::map<char, uint8_t> axis_actuator_map;

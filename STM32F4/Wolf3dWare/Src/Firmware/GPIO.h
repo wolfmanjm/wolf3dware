@@ -5,28 +5,27 @@
 */
 #include "stm32f4xx_hal.h"
 
-template <uint32_t base_addr>
-struct STM32F429_PORT {
- 	static GPIO_TypeDef volatile *port() { return (GPIO_TypeDef volatile *)base_addr; }
-};
 
-using GPIO_PORT_A = STM32F429_PORT<(uint32_t)GPIOA>;
-using GPIO_PORT_B = STM32F429_PORT<(uint32_t)GPIOB>;
-using GPIO_PORT_C = STM32F429_PORT<(uint32_t)GPIOC>;
-using GPIO_PORT_D = STM32F429_PORT<(uint32_t)GPIOD>;
-using GPIO_PORT_E = STM32F429_PORT<(uint32_t)GPIOE>;
-using GPIO_PORT_F = STM32F429_PORT<(uint32_t)GPIOF>;
-using GPIO_PORT_G = STM32F429_PORT<(uint32_t)GPIOG>;
-using GPIO_PORT_H = STM32F429_PORT<(uint32_t)GPIOH>;
-using GPIO_PORT_I = STM32F429_PORT<(uint32_t)GPIOI>;
-using GPIO_PORT_J = STM32F429_PORT<(uint32_t)GPIOJ>;
-using GPIO_PORT_K = STM32F429_PORT<(uint32_t)GPIOK>;
+// needed to get around weird compiler errors
+#define GPIO_PORT_A ((uint32_t)GPIOA)
+#define GPIO_PORT_B ((uint32_t)GPIOB)
+#define GPIO_PORT_C ((uint32_t)GPIOC)
+#define GPIO_PORT_D ((uint32_t)GPIOD)
+#define GPIO_PORT_E ((uint32_t)GPIOE)
+#define GPIO_PORT_F ((uint32_t)GPIOF)
+#define GPIO_PORT_G ((uint32_t)GPIOG)
+#define GPIO_PORT_H ((uint32_t)GPIOH)
+#define GPIO_PORT_I ((uint32_t)GPIOI)
+#define GPIO_PORT_J ((uint32_t)GPIOJ)
+#define GPIO_PORT_K ((uint32_t)GPIOK)
 
-template <typename TPort, uint16_t TPin>
+// defines a pin with the port and pin mask, must use port definition from above
+// relies on pointer types being 32 bits
+template <uint32_t TPort, uint16_t TPin>
 class GPIOPin {
 public:
-    using Port = TPort;
+    static const uint32_t Port = TPort;
     static const uint16_t Pin = TPin;
-    //static void set(bool set) {Port p; HAL_GPIO_WritePin((GPIO_TypeDef*)p.port(), Pin, set?GPIO_PIN_SET:GPIO_PIN_RESET); }
-    static void set(bool set) {Port p; p.port()->BSRR = set ? Pin : Pin<<16; }
+    static void set(bool set) {((GPIO_TypeDef*)Port)->BSRR = set ? Pin : Pin<<16; }
 };
+

@@ -18,7 +18,9 @@ public:
 	void dump(std::ostream& o) const;
 
 	using Queue_t = std::deque<Block>;
-	Queue_t& getQueue() { return block_queue; }
+	Queue_t& getQueue() { return lookahead_q; }
+	Queue_t& getReadyQueue() { return ready_q; }
+	void moveAllToReady();
 
 private:
 	void calculateTrapezoid(Block& block, float entryspeed, float exitspeed);
@@ -28,7 +30,8 @@ private:
 	float forwardPass(Block &b, float prev_max_exit_speed);
     void recalculate();
 
-	Queue_t block_queue;
+	Queue_t lookahead_q;
+	Queue_t ready_q;
 
     float previous_unit_vec[3];
 

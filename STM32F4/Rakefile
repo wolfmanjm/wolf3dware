@@ -115,7 +115,7 @@ DEFINES= defines.join(' ')
 # -gcc -c -mthumb -mcpu=cortex-m4 -mfloat-abi=softfp -mfpu=fpv4-sp-d16 -std=gnu90 -DSTM32F429xx -DUSE_STM32F429I_DISCO -I..\..\..\Inc -I..\..\..\..\..\..\..\Drivers\CMSIS\Device\ST\STM32F4xx\Include -I..\..\..\..\..\..\..\Drivers\STM32F4xx_HAL_Driver\inc -I..\..\..\..\..\..\..\Drivers\BSP\STM32F429I-Discovery -I..\..\..\..\..\..\..\Utilities\Log -I..\..\..\..\..\..\..\Drivers\CMSIS\Include -Os -ffunction-sections -fdata-sections -g -Wall -Wno-unused-but-set-variable -o Drivers\STM32F4xx_HAL_Driver\stm32f4xx_hal_pcd.o ..\..\..\..\..\..\..\Drivers\STM32F4xx_HAL_Driver\Src\stm32f4xx_hal_pcd.c
 DEPFLAGS = '-MMD '
 CSTD = '-std=c99'
-CFLAGS = DEPFLAGS + " -mthumb -mcpu=cortex-m4 -mthumb-interwork -O2 -g3 " +
+CFLAGS = DEPFLAGS + " -mthumb -mcpu=cortex-m4 -mthumb-interwork -O0 -g3 " +
     "-ffunction-sections -fdata-sections -fno-math-errno " +
     "-g -Wall " +
     "-mfloat-abi=softfp -mfpu=fpv4-sp-d16 "

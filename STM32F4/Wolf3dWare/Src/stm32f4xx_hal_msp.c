@@ -68,6 +68,8 @@
   */
 void HAL_TIM_Base_MspInit(TIM_HandleTypeDef *htim)
 {
+  // NOTE This is the stepticker
+
   /*##-1- Enable peripherals and GPIO Clocks #################################*/
   /* TIMx Peripheral clock enable */
   PERFORMANCE_TIMx_CLK_ENABLE();

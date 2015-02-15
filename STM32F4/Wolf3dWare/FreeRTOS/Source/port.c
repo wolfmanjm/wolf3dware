@@ -10,12 +10,12 @@
     the terms of the GNU General Public License (version 2) as published by the
     Free Software Foundation >>!AND MODIFIED BY!<< the FreeRTOS exception.
 
-	***************************************************************************
+        ***************************************************************************
     >>!   NOTE: The modification to the GPL is included to allow you to     !<<
     >>!   distribute a combined work that includes FreeRTOS without being   !<<
     >>!   obliged to provide the source code for proprietary components     !<<
     >>!   outside of the FreeRTOS kernel.                                   !<<
-	***************************************************************************
+        ***************************************************************************
 
     FreeRTOS is distributed in the hope that it will be useful, but WITHOUT ANY
     WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
@@ -37,17 +37,17 @@
     ***************************************************************************
 
     http://www.FreeRTOS.org/FAQHelp.html - Having a problem?  Start by reading
-	the FAQ page "My application does not run, what could be wrong?".  Have you
-	defined configASSERT()?
+        the FAQ page "My application does not run, what could be wrong?".  Have you
+        defined configASSERT()?
 
-	http://www.FreeRTOS.org/support - In return for receiving this top quality
-	embedded software for free we request you assist our global community by
-	participating in the support forum.
+        http://www.FreeRTOS.org/support - In return for receiving this top quality
+        embedded software for free we request you assist our global community by
+        participating in the support forum.
 
-	http://www.FreeRTOS.org/training - Investing in training allows your team to
-	be as productive as possible as early as possible.  Now you can receive
-	FreeRTOS training directly from Richard Barry, CEO of Real Time Engineers
-	Ltd, and the world's leading authority on the world's leading RTOS.
+        http://www.FreeRTOS.org/training - Investing in training allows your team to
+        be as productive as possible as early as possible.  Now you can receive
+        FreeRTOS training directly from Richard Barry, CEO of Real Time Engineers
+        Ltd, and the world's leading authority on the world's leading RTOS.
 
     http://www.FreeRTOS.org/plus - A selection of FreeRTOS ecosystem products,
     including FreeRTOS+Trace - an indispensable productivity tool, a DOS
@@ -112,13 +112,13 @@
 #define portTOP_BIT_OF_BYTE					( ( uint8_t ) 0x80 )
 #define portMAX_PRIGROUP_BITS				( ( uint8_t ) 7 )
 #define portPRIORITY_GROUP_MASK				( 0x07UL << 8UL )
-#define portPRIGROUP_SHIFT					( 8UL )
+#define portPRIGROUP_SHIFT                                      ( 8UL )
 
 /* Masks off all bits but the VECTACTIVE bits in the ICSR register. */
-#define portVECTACTIVE_MASK					( 0xFFUL )
+#define portVECTACTIVE_MASK                                     ( 0xFFUL )
 
 /* Constants required to manipulate the VFP. */
-#define portFPCCR					( ( volatile uint32_t * ) 0xe000ef34 ) /* Floating point context control register. */
+#define portFPCCR                                       ( ( volatile uint32_t * ) 0xe000ef34 ) /* Floating point context control register. */
 #define portASPEN_AND_LSPEN_BITS	( 0x3UL << 30UL )
 
 /* Constants required to set up the initial stack. */
@@ -390,11 +390,13 @@ void vPortEndScheduler( void )
 
 void vPortEnterCritical( void )
 {
-	portDISABLE_INTERRUPTS();
-	uxCriticalNesting++;
-
-	/* This is not the interrupt safe version of the enter critical function so
-	assert() if it is being called from an interrupt context.  Only API
+        portDISABLE_INTERRUPTS();
+        uxCriticalNesting++;
+        __asm volatile( "dsb" );
+        __asm volatile( "isb" );
+        
+        /* This is not the interrupt safe version of the enter critical function so
+        assert() if it is being called from an interrupt context.  Only API 
 	functions that end in "FromISR" can be used in an interrupt.  Only assert if
 	the critical nesting count is 1 to protect against recursive calls if the
 	assert function also uses a critical section. */
@@ -416,9 +418,40 @@ void vPortExitCritical( void )
 }
 /*-----------------------------------------------------------*/
 
+__attribute__(( naked )) uint32_t ulPortSetInterruptMask( void )
+{
+        __asm volatile                                                                                                          \
+        (                                                                                                                                       \
+                "       mrs r0, basepri                                                                                 \n" \
+                "       mov r1, %0                                                                                              \n"     \
+                "       msr basepri, r1                                                                                 \n" \
+                "       bx lr                                                                                                   \n" \
+                :: "i" ( configMAX_SYSCALL_INTERRUPT_PRIORITY ) : "r0", "r1"    \
+        );
+
+        /* This return will not be reached but is necessary to prevent compiler
+        warnings. */
+        return 0;
+}
+/*-----------------------------------------------------------*/
+
+__attribute__(( naked )) void vPortClearInterruptMask( uint32_t ulNewMaskValue )
+{
+        __asm volatile                                                                                                  \
+        (                                                                                                                               \
+                "       msr basepri, r0                                                                         \n"     \
+                "       bx lr                                                                                           \n" \
+                :::"r0"                                                                                                         \
+        );
+
+        /* Just to avoid compiler warnings. */
+        ( void ) ulNewMaskValue;
+}
+/*-----------------------------------------------------------*/
+
 void xPortPendSVHandler( void )
 {
-	/* This is a naked function. */
+        /* This is a naked function. */
 
 	__asm volatile
 	(
@@ -436,14 +469,14 @@ void xPortPendSVHandler( void )
 	"										\n"
 	"	str r0, [r2]						\n" /* Save the new top of stack into the first member of the TCB. */
 	"										\n"
-	"	stmdb sp!, {r3}						\n"
-	"	mov r0, %0 							\n"
-	"	msr basepri, r0						\n"
-	"	dsb									\n"
-	"   isb									\n"
-	"	bl vTaskSwitchContext				\n"
-	"	mov r0, #0							\n"
-	"	msr basepri, r0						\n"
+        "       stmdb sp!, {r3}                                         \n"
+        "       mov r0, %0                                                      \n"
+        "       msr basepri, r0                                         \n"
+        "       dsb                                                                     \n"
+        "   isb                                                                 \n"
+        "       bl vTaskSwitchContext                           \n"
+        "       mov r0, #0                                                      \n"
+        "       msr basepri, r0                                         \n"
 	"	ldmia sp!, {r3}						\n"
 	"										\n"
 	"	ldr r1, [r3]						\n" /* The first item in pxCurrentTCB is the task top of stack. */

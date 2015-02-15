@@ -6,6 +6,10 @@
 #include "Firmware/Block.h"
 #include "Firmware/Planner.h"
 #include "Firmware/Actuator.h"
+#include "Firmware/Lock.h"
+#include "Firmware/GPIO.h"
+
+#include "cmsis_os.h"
 
 #include <map>
 #include <vector>
@@ -19,7 +23,10 @@
 
 using namespace std;
 
-#include "Firmware/GPIO.h"
+
+// global
+SemaphoreHandle_t READY_Q_MUTEX;
+bool execute_mode= false;
 
 #define __debugbreak()  { __asm volatile ("bkpt #0"); }
 
@@ -81,39 +88,40 @@ static void initializePins()
 
 	// init all to low
 	// HAL_GPIO_WritePin(GPIO_PORT[Led], GPIO_PIN[Led], GPIO_PIN_RESET);
-	{X_StepPin p; p.set(false);}
-	{X_DirPin p;  p.set(false);}
-	{X_EnbPin p;  p.set(false);}
-	{Y_StepPin p; p.set(false);}
-	{Y_DirPin p;  p.set(false);}
-	{Y_EnbPin p;  p.set(false);}
-	{Z_StepPin p; p.set(false);}
-	{Z_DirPin p;  p.set(false);}
-	{Z_EnbPin p;  p.set(false);}
-	{E_StepPin p; p.set(false);}
-	{E_DirPin p;  p.set(false);}
-	{E_EnbPin p;  p.set(false);}
+	{X_StepPin::set(false);}
+	{X_DirPin::set(false);}
+	{X_EnbPin::set(false);}
+	{Y_StepPin::set(false);}
+	{Y_DirPin::set(false);}
+	{Y_EnbPin::set(false);}
+	{Z_StepPin::set(false);}
+	{Z_DirPin::set(false);}
+	{Z_EnbPin::set(false);}
+	{E_StepPin::set(false);}
+	{E_DirPin::set(false);}
+	{E_EnbPin::set(false);}
 }
 
 extern "C" void testGpio()
 {
 	static bool tog= false;
-	LED4Pin pin;
-	pin.set(tog);
+	LED4Pin::set(tog);
 	tog= !tog;
 }
 
-#include "cmsis_os.h"
-osThreadId TickThreadHandle;
-extern "C" void tickThread(void const *argument);
+
+osThreadId moveCompletedThreadHandle;
+extern "C" void moveCompletedThread(void const *argument);
 
 extern "C" int maincpp()
 {
-	osThreadDef(Tick, tickThread, osPriorityRealtime, 0, 1000);
-	TickThreadHandle = osThreadCreate (osThread(Tick), NULL);
-	if(TickThreadHandle == NULL) {
+	osThreadDef(Tick, moveCompletedThread, osPriorityRealtime, 0, 1000);
+	moveCompletedThreadHandle = osThreadCreate (osThread(Tick), NULL);
+	if(moveCompletedThreadHandle == NULL) {
 		__debugbreak();
 	}
+
+	READY_Q_MUTEX= xSemaphoreCreateMutex();
 
 	// creates Kernel singleton and other singletoms and Initializes MotionControl
 	MotionControl& mc= THEKERNEL.getMotionControl();
@@ -121,33 +129,34 @@ extern "C" int maincpp()
 	initializePins();
 
 	// Setup pins for each Actuator
-	mc.getActuator('X').assignHALFunction(Actuator::SET_STEP, [](bool on)  { X_StepPin p; p.set(on); });
-	mc.getActuator('X').assignHALFunction(Actuator::SET_DIR, [](bool on)   { X_DirPin p; p.set(on); });
-	mc.getActuator('X').assignHALFunction(Actuator::SET_ENABLE, [](bool on){ X_EnbPin p; p.set(on); });
-	mc.getActuator('Y').assignHALFunction(Actuator::SET_STEP, [](bool on)  { Y_StepPin p; p.set(on); });
-	mc.getActuator('Y').assignHALFunction(Actuator::SET_DIR, [](bool on)   { Y_DirPin p; p.set(on); });
-	mc.getActuator('Y').assignHALFunction(Actuator::SET_ENABLE, [](bool on){ Y_EnbPin p; p.set(on); });
-	mc.getActuator('Z').assignHALFunction(Actuator::SET_STEP, [](bool on)  { Z_StepPin p; p.set(on); });
-	mc.getActuator('Z').assignHALFunction(Actuator::SET_DIR, [](bool on)   { Z_DirPin p; p.set(on); });
-	mc.getActuator('Z').assignHALFunction(Actuator::SET_ENABLE, [](bool on){ Z_EnbPin p; p.set(on); });
-	mc.getActuator('E').assignHALFunction(Actuator::SET_STEP, [](bool on)  { E_StepPin p; p.set(on); });
-	mc.getActuator('E').assignHALFunction(Actuator::SET_DIR, [](bool on)   { E_DirPin p; p.set(on); });
-	mc.getActuator('E').assignHALFunction(Actuator::SET_ENABLE, [](bool on){ E_EnbPin p; p.set(on);  });
+	mc.getActuator('X').assignHALFunction(Actuator::SET_STEP, [](bool on)  { X_StepPin::set(on); });
+	mc.getActuator('X').assignHALFunction(Actuator::SET_DIR, [](bool on)   { X_DirPin::set(on); });
+	mc.getActuator('X').assignHALFunction(Actuator::SET_ENABLE, [](bool on){ X_EnbPin::set(on); });
+	mc.getActuator('Y').assignHALFunction(Actuator::SET_STEP, [](bool on)  { Y_StepPin::set(on); });
+	mc.getActuator('Y').assignHALFunction(Actuator::SET_DIR, [](bool on)   { Y_DirPin::set(on); });
+	mc.getActuator('Y').assignHALFunction(Actuator::SET_ENABLE, [](bool on){ Y_EnbPin::set(on); });
+	mc.getActuator('Z').assignHALFunction(Actuator::SET_STEP, [](bool on)  { Z_StepPin::set(on); });
+	mc.getActuator('Z').assignHALFunction(Actuator::SET_DIR, [](bool on)   { Z_DirPin::set(on); });
+	mc.getActuator('Z').assignHALFunction(Actuator::SET_ENABLE, [](bool on){ Z_EnbPin::set(on); });
+	mc.getActuator('E').assignHALFunction(Actuator::SET_STEP, [](bool on)  { E_StepPin::set(on); });
+	mc.getActuator('E').assignHALFunction(Actuator::SET_DIR, [](bool on)   { E_DirPin::set(on); });
+	mc.getActuator('E').assignHALFunction(Actuator::SET_ENABLE, [](bool on){ E_EnbPin::set(on);  });
 	return 0;
 }
 
-void executeMotion()
+void executeNextBlock()
 {
-	// iterate over block queue and setup steppers
-	Planner::Queue_t& q= THEKERNEL.getPlanner().getQueue();
-	while(!q.empty()) {
+	// queue needs to be protected with a Mutex
+	Planner::Queue_t& q= THEKERNEL.getPlanner().getReadyQueue();
+	Lock l(READY_Q_MUTEX);
+	l.lock();
+	if(!q.empty()) {
 		Block block= q.back();
-		//if(!block.ready()) wait longer
 		q.pop_back();
+		l.unLock();
 		THEKERNEL.getMotionControl().issueMove(block);
-
-		// wait until move is finished then execute next block
-
+	}else{
+		l.unLock();
 	}
 }
 
@@ -166,7 +175,13 @@ bool handleCommand(const char *line)
 		oss << "Wolf3dWare V0.1\n";
 
 	}else if(strcmp(line, "play") == 0) {
-		executeMotion();
+		THEKERNEL.getPlanner().moveAllToReady();
+		executeNextBlock();
+		execute_mode= true;
+		oss << "ok\n";
+
+	}else if(strcmp(line, "pause") == 0) {
+		execute_mode= false;
 		oss << "ok\n";
 
 	}else{
@@ -176,7 +191,19 @@ bool handleCommand(const char *line)
 
 	std::string str= oss.str();
 	if(!str.empty()) {
-		serial_reply(str.c_str(), str.size());
+		if(str.size() < 32) {
+			serial_reply(str.c_str(), str.size());
+		}else{
+			//hack before we fix the cdc out
+			int n= str.size();
+			int off= 0;
+			while(n > 0) {
+				int s= min(32, n);
+				serial_reply(str.substr(off, s).c_str(), s);
+				off+=s;
+				n-=s;
+			}
+		}
 	}
 
 	return handled;
@@ -213,32 +240,37 @@ extern "C" bool commandLineHandler(const char *line)
 	return true;
 }
 
-// Do not want this to run in stepticker ISR, so we signal a high priority Thread to run it
+// run ticks in tick ISR, but the pri needs to be 5 otherwise we can't use signals
+static uint32_t currentTick= 0;
 extern "C" void issueTicks()
 {
-	BaseType_t xHigherPriorityTaskWoken;
-    xHigherPriorityTaskWoken = pdFALSE;
+	MotionControl& mc= THEKERNEL.getMotionControl();
+	if(!execute_mode) return;
 
-    vTaskNotifyGiveFromISR( TickThreadHandle, &xHigherPriorityTaskWoken );
+	if(!mc.isAnythingMoving()) return; // nothing moving so move on
 
-    portYIELD_FROM_ISR( xHigherPriorityTaskWoken );
+	if(!THEKERNEL.getMotionControl().issueTicks(++currentTick)){
+		currentTick= 0;
+		// signal the next block to start, handled in moveCompletedThread
+		BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+ 		vTaskNotifyGiveFromISR( moveCompletedThreadHandle, &xHigherPriorityTaskWoken );
+ 		portYIELD_FROM_ISR( xHigherPriorityTaskWoken );
+		// moveCompletedFlag= 1;
+ 		// 	portYIELD_FROM_ISR( pdTRUE );
+	}
 }
 
-static uint32_t currentTick= 0;
-void tickThread(void const *argument)
+// run the block change in this thread when signaled
+static uint32_t overflow= 0;
+void moveCompletedThread(void const *argument)
 {
-	const TickType_t xTicksToWait = pdMS_TO_TICKS( 100000 );
 	for(;;) {
 		// wait until we have something to process
-		uint32_t ulNotifiedValue= ulTaskNotifyTake( pdTRUE, xTicksToWait);
-		while(ulNotifiedValue > 0) {
-			if(!THEKERNEL.getMotionControl().issueTicks(++currentTick)){
-				currentTick= 0;
-				// finished all moves
-				// signal the next block to start
-			}
-
-			--ulNotifiedValue;
+		uint32_t ulNotifiedValue= ulTaskNotifyTake( pdTRUE, portMAX_DELAY);
+		if(ulNotifiedValue > 0) {
+			if(ulNotifiedValue > 1) overflow++;
+			// get next block
+			executeNextBlock();
 		}
 	}
 }

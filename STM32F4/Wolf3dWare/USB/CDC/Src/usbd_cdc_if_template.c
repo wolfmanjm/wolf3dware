@@ -305,10 +305,10 @@ int VCP_read(void *pBuffer, int size)
     return cnt;
 }
 
-// TODO make non-blocking
+// TODO make non-blocking and use circular queue
 int VCP_write(const void *pBuffer, int size)
 {
-    if (size > CDC_DATA_HS_OUT_PACKET_SIZE) {
+    if (size > CDC_DATA_FS_OUT_PACKET_SIZE) {
         int offset;
         for (offset = 0; offset < size; offset++) {
             int todo = MIN(CDC_DATA_FS_OUT_PACKET_SIZE,

@@ -348,6 +348,8 @@ static void cdcThread(void const *argument)
 #endif
 
 		if(c == '\n') {
+			if(cnt == 0) continue; //ignore empty lines
+
 			// dispatch on NL, if out of memory wait for the other thread to catch up
 			while(!dispatch(line, cnt)) {
 				osDelay (100);
@@ -547,11 +549,12 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 	// }
 
 	// handle stepticker
-	//uint32_t s= start_time();
+	uint32_t s= start_time();
+
 	issueTicks();
 
-	//uint32_t e= stop_time();
-	//delta_time= e-s;
+	uint32_t e= stop_time();
+	delta_time= e-s;
 }
 
 /**
