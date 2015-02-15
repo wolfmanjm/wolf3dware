@@ -6,8 +6,9 @@
 #include "Firmware/Block.h"
 #include "Firmware/Planner.h"
 #include "Firmware/Actuator.h"
-#include "Firmware/Lock.h"
-#include "Firmware/GPIO.h"
+
+#include "Lock.h"
+#include "GPIO.h"
 
 #include "cmsis_os.h"
 
