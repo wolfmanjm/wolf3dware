@@ -139,9 +139,31 @@ TEST_CASE( "Planning", "[planner]" ) {
 		// iterate over block queue and check it
 		Planner::Queue_t& rq= THEKERNEL.getPlanner().getReadyQueue();
 		REQUIRE(rq.size() == 3);
+		Block block= rq.back();
+		REQUIRE(block.total_move_ticks == 1000);
+		REQUIRE(block.accelerate_until == 1000);
+		REQUIRE(block.decelerate_after == 1000);
+		REQUIRE(block.entry_speed == 0);
+		REQUIRE(block.exit_speed == 20);
+		rq.pop_back();
+
+		block= rq.back();
+		REQUIRE(block.total_move_ticks == 414);
+		REQUIRE(block.accelerate_until == 414);
+		REQUIRE(block.decelerate_after == 414);
+		REQUIRE(block.entry_speed == 20);
+		REQUIRE(block.exit_speed == Approx(28.2843F).epsilon(0.0001F));
+		rq.pop_back();
+
+		block= rq.back();
+		REQUIRE(block.total_move_ticks == 103585);
+		REQUIRE(block.accelerate_until == 3585);
+		REQUIRE(block.decelerate_after == 98585);
+		REQUIRE(block.entry_speed == Approx(28.2843F).epsilon(0.0001F));
+		REQUIRE(block.exit_speed == 0);
+		rq.pop_back();
 	}
 
-#if 0
 	SECTION("plan one axis") {
 		// Parse gcode
 		GCodeProcessor::GCodes_t gcodes= gp.parse("G92 G1 X100 F6000 G1 X200 G1 X300 G1 X400 G1 X500");
@@ -167,7 +189,6 @@ TEST_CASE( "Planning", "[planner]" ) {
 		while(!rq.empty()) {
 			Block block= rq.back();
 			rq.pop_back();
-			REQUIRE(block.id == cnt);
 			REQUIRE(block.entry_speed == entryspeed[cnt]);
 			REQUIRE(block.exit_speed == exitspeed[cnt]);
 			REQUIRE(block.steps_to_move[0] == 10000);
@@ -176,7 +197,6 @@ TEST_CASE( "Planning", "[planner]" ) {
 
 		Block block= q.back();
 		q.pop_back();
-		REQUIRE(block.id == cnt);
 		REQUIRE(block.entry_speed == entryspeed[cnt]);
 		REQUIRE(block.exit_speed == exitspeed[cnt]);
 		REQUIRE(block.steps_to_move[0] == 10000);
@@ -188,9 +208,12 @@ TEST_CASE( "Planning", "[planner]" ) {
 	}
 
 	SECTION("plan one axis, different speeds") {
+		Planner::Queue_t& q= THEKERNEL.getPlanner().getLookAheadQueue();
+		Planner::Queue_t& rq= THEKERNEL.getPlanner().getReadyQueue();
+		q.clear();
+		rq.clear();
 		// Parse gcode
 		GCodeProcessor::GCodes_t gcodes= gp.parse("G92 G1 X100 F6000 G1 X200 F600 G1 X300 F6000 G1 X400 F12000 G1 X500 F12000");
-
 		// dispatch gcode to Planner
 		for(auto i : gcodes) {
 			THEDISPATCHER.dispatch(i);
@@ -204,8 +227,6 @@ TEST_CASE( "Planning", "[planner]" ) {
 		int cnt= 0;
 
 		// iterate over block queue and check it
-		Planner::Queue_t& q= THEKERNEL.getPlanner().getLookAheadQueue();
-		Planner::Queue_t& rq= THEKERNEL.getPlanner().getReadyQueue();
 		REQUIRE(q.size() == 1);
 		REQUIRE(rq.size() == 4);
 
@@ -213,7 +234,6 @@ TEST_CASE( "Planning", "[planner]" ) {
 			INFO( "Block is " << cnt);
 			Block block= rq.back();
 			rq.pop_back();
-			REQUIRE(block.id == cnt+5);
 			REQUIRE(block.entry_speed == entryspeed[cnt]);
 			REQUIRE(block.exit_speed == exitspeed[cnt]);
 			REQUIRE(block.steps_to_move[0] == 10000);
@@ -222,7 +242,6 @@ TEST_CASE( "Planning", "[planner]" ) {
 
 		Block block= q.back();
 		q.pop_back();
-		REQUIRE(block.id == cnt+5);
 		REQUIRE(block.entry_speed == entryspeed[cnt]);
 		REQUIRE(block.exit_speed == exitspeed[cnt]);
 		REQUIRE(block.steps_to_move[0] == 10000);
@@ -253,41 +272,14 @@ TEST_CASE( "Planning", "[planner]" ) {
 		// dump planned block queue
 		THEKERNEL.getPlanner().dump(cout);
 
-		const float entryspeed[]{0,10,10,100,200};
-		const float exitspeed[]{10,10,100,200,0};
-		int cnt= 0;
-
 		// iterate over block queue and check it
 		Planner::Queue_t& q= THEKERNEL.getPlanner().getLookAheadQueue();
 		Planner::Queue_t& rq= THEKERNEL.getPlanner().getReadyQueue();
 		REQUIRE(q.size() == 1);
-		REQUIRE(rq.size() == 11);
-
-		while(!rq.empty()) {
-			INFO( "Block is " << cnt);
-			Block block= rq.back();
-			rq.pop_back();
-			REQUIRE(block.id == cnt+5);
-			REQUIRE(block.entry_speed == entryspeed[cnt]);
-			REQUIRE(block.exit_speed == exitspeed[cnt]);
-			REQUIRE(block.steps_to_move[0] == 10000);
-			++cnt;
-		}
-
-		Block block= q.back();
-		q.pop_back();
-		REQUIRE(block.id == cnt+5);
-		REQUIRE(block.entry_speed == entryspeed[cnt]);
-		REQUIRE(block.exit_speed == exitspeed[cnt]);
-		REQUIRE(block.steps_to_move[0] == 10000);
-		++cnt;
-
-		REQUIRE(cnt == 5);
-		REQUIRE(q.empty());
-		REQUIRE(rq.empty());
+		REQUIRE(rq.size() == 102);
+		rq.clear();
+		q.clear();
 	}
-
-#endif
 }
 
 TEST_CASE( "Planning and Stepping", "[stepper]" ) {
