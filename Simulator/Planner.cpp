@@ -151,9 +151,7 @@ bool Planner::plan(const float *last_target, const float *target, int n_axis,  A
 	// Math-heavy re-computing of the whole queue to take the new
 	recalculate();
 
-#if 1
 	// starting at end of the queue move any block that has recalculate_flag set to false into the ready queue
-	// FIXME doesn't work becuase first entry always has recalculate_flag set to true
 	auto curi = lookahead_q.rbegin();
 	while(curi != lookahead_q.rend()) {
 		auto nexti= std::next(curi);
@@ -173,7 +171,6 @@ bool Planner::plan(const float *last_target, const float *target, int n_axis,  A
 			break;
 		}
 	}
-#endif
 
 	return true;
 }
@@ -330,14 +327,14 @@ void Planner::calculateTrapezoid(Block &block, float entryspeed, float exitspeed
 
 	float initial_rate = block.nominal_rate * (entryspeed / block.nominal_speed); // steps/sec
 	float final_rate = block.nominal_rate * (exitspeed / block.nominal_speed);
-
+	printf("Initial rate: %f, final_rate: %f\n", initial_rate, final_rate);
 	// How many steps ( can be fractions of steps, we need very precise values ) to accelerate and decelerate
 	// This is a simplification to get rid of rate_delta and get the steps/s² accel directly from the mm/s² accel
 	float acceleration_per_second = (block.acceleration * block.steps_event_count) / block.millimeters;
 
-	float maximum_possible_rate = sqrtf( ( block.steps_event_count * acceleration_per_second ) + ( ( powf(initial_rate, 2) + powf(final_rate, 2) / 2.0F ) ) );
+	float maximum_possible_rate = sqrtf( ( block.steps_event_count * acceleration_per_second ) + ( ( powf(initial_rate, 2) + powf(final_rate, 2) ) / 2.0F ) );
 
-	//printf("maximum_possible_rate: %f steps/sec, %f mm/sec\n", maximum_possible_rate, maximum_possible_rate/100);
+	printf("id %d: acceleration_per_second: %f, maximum_possible_rate: %f steps/sec, %f mm/sec\n", block.id, acceleration_per_second, maximum_possible_rate, maximum_possible_rate/100);
 
 	// Now this is the maximum rate we'll achieve this move, either because
 	// it's the higher we can achieve, or because it's the higher we are

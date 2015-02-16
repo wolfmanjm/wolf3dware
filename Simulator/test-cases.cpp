@@ -122,6 +122,25 @@ TEST_CASE( "Dispatch GCodes", "[Dispatcher]" ) {
 
 TEST_CASE( "Planning", "[planner]" ) {
 	GCodeProcessor& gp= THEKERNEL.getGCodeProcessor();
+
+	SECTION("plan one axis two moves") {
+		// Parse gcode
+		GCodeProcessor::GCodes_t gcodes= gp.parse("G92 G1 X0.1 F6000 G1 X0.2 G1 X100");
+
+		// dispatch gcode to Planner
+		for(auto i : gcodes) {
+			THEDISPATCHER.dispatch(i);
+		}
+
+		// dump planned block queue
+		THEKERNEL.getPlanner().moveAllToReady();
+		THEKERNEL.getPlanner().dump(cout);
+
+		// iterate over block queue and check it
+		Planner::Queue_t& rq= THEKERNEL.getPlanner().getReadyQueue();
+		REQUIRE(rq.size() == 3);
+	}
+
 #if 0
 	SECTION("plan one axis") {
 		// Parse gcode
@@ -213,7 +232,6 @@ TEST_CASE( "Planning", "[planner]" ) {
 		REQUIRE(q.empty());
 		REQUIRE(rq.empty());
 	}
-#endif
 	SECTION("plan one axis, very short segments") {
 		// Parse gcode
 		GCodeProcessor::GCodes_t gcodes= gp.parse("G92 G91 G1 X0.1 F6000");
@@ -269,6 +287,7 @@ TEST_CASE( "Planning", "[planner]" ) {
 		REQUIRE(rq.empty());
 	}
 
+#endif
 }
 
 TEST_CASE( "Planning and Stepping", "[stepper]" ) {
