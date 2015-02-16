@@ -122,7 +122,7 @@ TEST_CASE( "Dispatch GCodes", "[Dispatcher]" ) {
 
 TEST_CASE( "Planning", "[planner]" ) {
 	GCodeProcessor& gp= THEKERNEL.getGCodeProcessor();
-
+#if 0
 	SECTION("plan one axis") {
 		// Parse gcode
 		GCodeProcessor::GCodes_t gcodes= gp.parse("G92 G1 X100 F6000 G1 X200 G1 X300 G1 X400 G1 X500");
@@ -210,7 +210,65 @@ TEST_CASE( "Planning", "[planner]" ) {
 		++cnt;
 
 		REQUIRE(cnt == 5);
+		REQUIRE(q.empty());
+		REQUIRE(rq.empty());
 	}
+#endif
+	SECTION("plan one axis, very short segments") {
+		// Parse gcode
+		GCodeProcessor::GCodes_t gcodes= gp.parse("G92 G91 G1 X0.1 F6000");
+		// dispatch gcodes to Planner
+		for(auto i : gcodes) {
+			THEDISPATCHER.dispatch(i);
+		}
+		const char* seg= "G1 X0.1";
+		const char *last= "G1 X100 G1 X100 G90";
+		for (int i = 0; i < 100; ++i) {
+		    gcodes= gp.parse(seg);
+			THEDISPATCHER.dispatch(gcodes[0]);
+		}
+		gcodes= gp.parse(last);
+		for(auto i : gcodes) {
+			THEDISPATCHER.dispatch(i);
+		}
+
+		// dump planned block queue
+		THEKERNEL.getPlanner().dump(cout);
+
+		const float entryspeed[]{0,10,10,100,200};
+		const float exitspeed[]{10,10,100,200,0};
+		int cnt= 0;
+
+		// iterate over block queue and check it
+		Planner::Queue_t& q= THEKERNEL.getPlanner().getLookAheadQueue();
+		Planner::Queue_t& rq= THEKERNEL.getPlanner().getReadyQueue();
+		REQUIRE(q.size() == 1);
+		REQUIRE(rq.size() == 11);
+
+		while(!rq.empty()) {
+			INFO( "Block is " << cnt);
+			Block block= rq.back();
+			rq.pop_back();
+			REQUIRE(block.id == cnt+5);
+			REQUIRE(block.entry_speed == entryspeed[cnt]);
+			REQUIRE(block.exit_speed == exitspeed[cnt]);
+			REQUIRE(block.steps_to_move[0] == 10000);
+			++cnt;
+		}
+
+		Block block= q.back();
+		q.pop_back();
+		REQUIRE(block.id == cnt+5);
+		REQUIRE(block.entry_speed == entryspeed[cnt]);
+		REQUIRE(block.exit_speed == exitspeed[cnt]);
+		REQUIRE(block.steps_to_move[0] == 10000);
+		++cnt;
+
+		REQUIRE(cnt == 5);
+		REQUIRE(q.empty());
+		REQUIRE(rq.empty());
+	}
+
 }
 
 TEST_CASE( "Planning and Stepping", "[stepper]" ) {
@@ -268,6 +326,7 @@ TEST_CASE( "Planning and Stepping", "[stepper]" ) {
 		}
 
 		REQUIRE(xact.getCurrentPositionInmm() == 500);
+		REQUIRE(q.empty());
 	}
 
 	SECTION( "Generate Steps, two axis" ) {
@@ -312,6 +371,7 @@ TEST_CASE( "Planning and Stepping", "[stepper]" ) {
 
 		REQUIRE(xact.getCurrentPositionInmm() == 100);
 		REQUIRE(yact.getCurrentPositionInmm() == 50);
+		REQUIRE(q.empty());
 	}
 
 	SECTION( "Generate Steps, three axis XYE" ) {

@@ -326,7 +326,7 @@ void Planner::recalculate()
 // this code written by Arthur Wolf based on his acceleration per tick work for Smoothie
 void Planner::calculateTrapezoid(Block &block, float entryspeed, float exitspeed)
 {
-	//std::cout << "calculateTrapezoid for: " << block.id << " entry: " << entryspeed << ", exit: " << exitspeed << "\n";
+	std::cout << "calculateTrapezoid for: " << block.id << " entry: " << entryspeed << ", exit: " << exitspeed << "\n";
 
 	float initial_rate = block.nominal_rate * (entryspeed / block.nominal_speed); // steps/sec
 	float final_rate = block.nominal_rate * (exitspeed / block.nominal_speed);
@@ -337,7 +337,7 @@ void Planner::calculateTrapezoid(Block &block, float entryspeed, float exitspeed
 
 	float maximum_possible_rate = sqrtf( ( block.steps_event_count * acceleration_per_second ) + ( ( powf(initial_rate, 2) + powf(final_rate, 2) / 2.0F ) ) );
 
-	//puts "maximum_possible_rate: #{block.maximum_possible_rate} steps/sec, #{maximum_possible_rate/STEPS_PER_MM} mm/sec"
+	//printf("maximum_possible_rate: %f steps/sec, %f mm/sec\n", maximum_possible_rate, maximum_possible_rate/100);
 
 	// Now this is the maximum rate we'll achieve this move, either because
 	// it's the higher we can achieve, or because it's the higher we are
@@ -449,6 +449,7 @@ void Planner::dump(std::ostream &o) const
 			"maximum_rate: " <<  b.maximum_rate              << ", " <<
 			"nominal_rate: " <<  b.nominal_rate              << ", " <<
 			"nominal_speed: " <<  b.nominal_speed             << ", " <<
+			"nominal_length_flag: " <<  b.nominal_length_flag << ", " <<
 			"acceleration: " <<  b.acceleration             << ", " <<
 			"millimeters: " <<  b.millimeters               << ", " <<
 			"steps_event_count: " <<  b.steps_event_count         << ", " <<
