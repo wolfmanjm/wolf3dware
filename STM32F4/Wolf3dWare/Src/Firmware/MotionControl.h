@@ -25,6 +25,7 @@ public:
 	bool issueMove(const Block& block);
 	bool issueTicks(uint32_t current_tick);
 	bool isAnythingMoving() const { return moving_mask != 0; }
+	void setNothingMoving() { moving_mask= 0; }
 
 	Actuator& getActuator(char axis);
 

@@ -323,18 +323,18 @@ void Planner::recalculate()
 // this code written by Arthur Wolf based on his acceleration per tick work for Smoothie
 void Planner::calculateTrapezoid(Block &block, float entryspeed, float exitspeed)
 {
-	std::cout << "calculateTrapezoid for: " << block.id << " entry: " << entryspeed << ", exit: " << exitspeed << "\n";
+	//std::cout << "calculateTrapezoid for: " << block.id << " entry: " << entryspeed << ", exit: " << exitspeed << "\n";
 
 	float initial_rate = block.nominal_rate * (entryspeed / block.nominal_speed); // steps/sec
 	float final_rate = block.nominal_rate * (exitspeed / block.nominal_speed);
-	printf("Initial rate: %f, final_rate: %f\n", initial_rate, final_rate);
+	//printf("Initial rate: %f, final_rate: %f\n", initial_rate, final_rate);
 	// How many steps ( can be fractions of steps, we need very precise values ) to accelerate and decelerate
 	// This is a simplification to get rid of rate_delta and get the steps/s² accel directly from the mm/s² accel
 	float acceleration_per_second = (block.acceleration * block.steps_event_count) / block.millimeters;
 
 	float maximum_possible_rate = sqrtf( ( block.steps_event_count * acceleration_per_second ) + ( ( powf(initial_rate, 2) + powf(final_rate, 2) ) / 2.0F ) );
 
-	printf("id %d: acceleration_per_second: %f, maximum_possible_rate: %f steps/sec, %f mm/sec\n", block.id, acceleration_per_second, maximum_possible_rate, maximum_possible_rate/100);
+	//printf("id %d: acceleration_per_second: %f, maximum_possible_rate: %f steps/sec, %f mm/sec\n", block.id, acceleration_per_second, maximum_possible_rate, maximum_possible_rate/100);
 
 	// Now this is the maximum rate we'll achieve this move, either because
 	// it's the higher we can achieve, or because it's the higher we are

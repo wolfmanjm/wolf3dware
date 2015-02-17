@@ -56,6 +56,7 @@ std::tuple<bool, uint32_t> Actuator::stepsToTarget(float target)
 }
 
 // called by step ticker at 100KHz (or faster)
+// Runs is ISR context
 bool Actuator::tick(uint32_t current_tick)
 {
     if(!moving) return false;

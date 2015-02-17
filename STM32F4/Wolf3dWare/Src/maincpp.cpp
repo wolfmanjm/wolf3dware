@@ -28,6 +28,7 @@ using namespace std;
 // global
 SemaphoreHandle_t READY_Q_MUTEX;
 bool execute_mode= false;
+uint32_t xdelta= 0;
 
 #define __debugbreak()  { __asm volatile ("bkpt #0"); }
 
@@ -48,8 +49,10 @@ using E_EnbPin  = GPIOPin<GPIO_PORT_D,GPIO_PIN_4>; // PD4   P1-39
 using LED3Pin   = GPIOPin<GPIO_PORT_G,GPIO_PIN_13>;// LED3
 using LED4Pin   = GPIOPin<GPIO_PORT_G,GPIO_PIN_14>;// LED4
 
+using TriggerPin= GPIOPin<GPIO_PORT_D,GPIO_PIN_5>; // PD5
+
 // 11 Spare
-// PD5 P1-37
+//- PD5 P1-37
 // PD7 P1-35
 // PE2 -> PE6 P1-15,P1-16,P1-13,P1-14 ,P1-11
 // PF6 P2-3
@@ -84,7 +87,7 @@ static void initializePins()
 	GPIO_InitStruct.Pin = GPIO_PIN_3|GPIO_PIN_8|GPIO_PIN_11|GPIO_PIN_12|GPIO_PIN_13;
 	HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 	// PD
-	GPIO_InitStruct.Pin = GPIO_PIN_2|GPIO_PIN_4;
+	GPIO_InitStruct.Pin = GPIO_PIN_2|GPIO_PIN_4|GPIO_PIN_5;
 	HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
 
 	// init all to low
@@ -101,6 +104,7 @@ static void initializePins()
 	{E_StepPin::set(false);}
 	{E_DirPin::set(false);}
 	{E_EnbPin::set(false);}
+	{TriggerPin::set(false);}
 }
 
 extern "C" void testGpio()
@@ -111,20 +115,13 @@ extern "C" void testGpio()
 }
 
 
-osThreadId moveCompletedThreadHandle;
 extern "C" void moveCompletedThread(void const *argument);
 
 extern "C" int maincpp()
 {
-	osThreadDef(Tick, moveCompletedThread, osPriorityRealtime, 0, 1000);
-	moveCompletedThreadHandle = osThreadCreate (osThread(Tick), NULL);
-	if(moveCompletedThreadHandle == NULL) {
-		__debugbreak();
-	}
-
 	READY_Q_MUTEX= xSemaphoreCreateMutex();
 
-	// creates Kernel singleton and other singletoms and Initializes MotionControl
+	// creates Kernel singleton and other singletons and Initializes MotionControl
 	MotionControl& mc= THEKERNEL.getMotionControl();
 
 	initializePins();
@@ -156,13 +153,16 @@ void executeNextBlock()
 		q.pop_back();
 		l.unLock();
 		THEKERNEL.getMotionControl().issueMove(block);
+
 	}else{
+		// as the block was empty nothing will be moving now
+		THEKERNEL.getMotionControl().setNothingMoving();
 		l.unLock();
 	}
 }
 
 extern "C" bool serial_reply(const char*, size_t);
-
+// runs in the commandThread context
 bool handleCommand(const char *line)
 {
 	bool handled= true;
@@ -172,18 +172,24 @@ bool handleCommand(const char *line)
 		// dump planned block queue
 		THEKERNEL.getPlanner().dump(oss);
 
-	}else if(strcmp(line, "version") == 0) {
-		oss << "Wolf3dWare V0.1\n";
+	}else if(strcmp(line, "connected") == 0) {
+		oss << "Welcome to Wolf3dWare\r\nok\r\n";
 
-	}else if(strcmp(line, "play") == 0) {
+	}else if(strcmp(line, "version") == 0) {
+		oss << "Wolf3dWare V0.1, Clock speed: " << SystemCoreClock/1000000.0F << " MHz\n";
+
+	}else if(strcmp(line, "run") == 0) {
 		THEKERNEL.getPlanner().moveAllToReady();
 		executeNextBlock();
 		execute_mode= true;
 		oss << "ok\n";
 
-	}else if(strcmp(line, "pause") == 0) {
+	}else if(strcmp(line, "hold") == 0) {
 		execute_mode= false;
 		oss << "ok\n";
+
+	}else if(strcmp(line, "stats") == 0) {
+		oss << "Worst time: " << xdelta << "uS\nok\n";
 
 	}else{
 		oss << "Unknown command: " << line << "\n";
@@ -210,8 +216,8 @@ bool handleCommand(const char *line)
 	return handled;
 }
 
-
 // gets called for each received line from USB serial port
+// runs in the commandThread context
 extern "C" bool commandLineHandler(const char *line)
 {
 	if(*line == 24) {
@@ -243,25 +249,30 @@ extern "C" bool commandLineHandler(const char *line)
 
 // run ticks in tick ISR, but the pri needs to be 5 otherwise we can't use signals
 static uint32_t currentTick= 0;
-extern "C" void issueTicks()
+extern "C" bool issueTicks()
 {
 	MotionControl& mc= THEKERNEL.getMotionControl();
-	if(!execute_mode) return;
+	if(!execute_mode) return true;
 
-	if(!mc.isAnythingMoving()) return; // nothing moving so move on
+	// TODO need to count missed ticks while moveCompletedThread is running
 
-	if(!THEKERNEL.getMotionControl().issueTicks(++currentTick)){
+	if(!mc.isAnythingMoving()) return true; // nothing moving or was moving so move on
+
+	// something is moving or was told to move and may have stopped
+	if(!mc.issueTicks(++currentTick)){
+		// all moves finished
+		TriggerPin::set(true);
+		// need to protect against getting called again if this takes longer than 10uS
+		mc.setNothingMoving();
 		currentTick= 0;
-		// signal the next block to start, handled in moveCompletedThread
-		BaseType_t xHigherPriorityTaskWoken = pdFALSE;
- 		vTaskNotifyGiveFromISR( moveCompletedThreadHandle, &xHigherPriorityTaskWoken );
- 		portYIELD_FROM_ISR( xHigherPriorityTaskWoken );
-		// moveCompletedFlag= 1;
- 		// 	portYIELD_FROM_ISR( pdTRUE );
+		return false;  // signals ISR to yield to the moveCompletedThread
 	}
+	return true;
 }
 
 // run the block change in this thread when signaled
+extern uint32_t xst, xet;
+extern "C" uint32_t stop_time();
 static uint32_t overflow= 0;
 void moveCompletedThread(void const *argument)
 {
@@ -272,6 +283,10 @@ void moveCompletedThread(void const *argument)
 			if(ulNotifiedValue > 1) overflow++;
 			// get next block
 			executeNextBlock();
+			xet= stop_time();
+			uint32_t d= xet-xst;
+			if(d > xdelta) xdelta= d;
+			TriggerPin::set(false);
 		}
 	}
 }

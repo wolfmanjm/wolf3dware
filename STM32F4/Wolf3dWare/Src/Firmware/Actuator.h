@@ -38,6 +38,7 @@ public:
 	void assignHALFunction(HAL_FUNCTION_INDEX i, HAL_function_t fnc) { hal_functions[i] = fnc; }
 
 private:
+	// FIXME do not need to store the entire block here
 	Block block;
 	float counter;
 	float acceleration_change;

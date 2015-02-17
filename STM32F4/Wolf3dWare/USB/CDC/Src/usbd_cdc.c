@@ -472,7 +472,7 @@ int cdcPoolIdx= 0;
 
 void* allocCDC()
 {
-  if(cdcPoolIdx >= 8) return NULL;
+  if(cdcPoolIdx >= 8) cdcPoolIdx= 0; // recycle
   return &cdcPool[cdcPoolIdx++];
 }
 

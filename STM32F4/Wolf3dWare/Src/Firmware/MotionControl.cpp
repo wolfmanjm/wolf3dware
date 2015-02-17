@@ -203,18 +203,19 @@ bool MotionControl::issueMove(const Block& block)
 	return true;
 }
 
+// runs in ISR context
 bool MotionControl::issueTicks(uint32_t current_tick)
 {
-	bool done= true;
+	bool not_done= true;
 	for (auto& a : actuators) {
-		if(a.tick(current_tick)) done= false;
+		if(a.tick(current_tick)) not_done= false;
 	}
 
 	// this will toggle the step pin if it was set
 	for (auto& a : actuators) {
 		a.unstep();
 	}
-	return !done;
+	return !not_done;
 }
 
 Actuator& MotionControl::getActuator(char axis)

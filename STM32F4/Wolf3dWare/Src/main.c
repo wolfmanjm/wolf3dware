@@ -50,6 +50,9 @@
 
 #include <stdbool.h>
 
+// if not defined will run at 180MHz, but USB clock will be off a little bit
+#define SYSCLK168MHZ
+
 USBD_HandleTypeDef USBD_Device;
 
 /** @addtogroup STM32F4xx_HAL_Examples
@@ -73,6 +76,9 @@ osThreadId CDCThreadHandle;
 // sends lines to be parsed
 osThreadId CommandHandlerThreadHandle;
 
+osThreadId moveCompletedThreadHandle;
+//TaskHandle_t moveCompletedThreadHandle;
+
 osMutexDef(lcdMutex);
 osMutexId lcdMutex;
 
@@ -86,7 +92,6 @@ osPoolDef(mpool, 16, T_MEAS);                    // Define memory pool
 osPoolId  mpool;
 osMessageQDef(MsgBox, 16, T_MEAS);               // Define message queue
 osMessageQId  MsgBox;
-EventGroupHandle_t xEventGroup;
 
 static void cdcThread(void const *argument);
 static void commandThread(void const *argument);
@@ -108,7 +113,8 @@ extern bool commandLineHandler(const char*);
 extern void TimingTests();
 extern int os_started;
 extern int maincpp();
-extern void issueTicks(void);
+extern bool issueTicks(void);
+extern void moveCompletedThread(void const *argument);
 
 uint32_t start_time()
 {
@@ -172,6 +178,7 @@ int main(void)
 	LCD_LOG_Init();
 	LCD_LOG_ClearTextZone();
 	LCD_LOG_SetHeader((uint8_t *)"Wolf3dWare");
+	LCD_UsrLog("System clock: %1.1f MHz\n", SystemCoreClock/1000000.0F);
 
 	// setup USB CDC
 	SetupVCP();
@@ -194,8 +201,11 @@ int main(void)
 
 	// setup FreeRTOS
 
-	/* Attempt to create the event group. */
-	xEventGroup = xEventGroupCreate();
+	osThreadDef(Tick, moveCompletedThread, osPriorityRealtime, 0, 1000);
+	moveCompletedThreadHandle = osThreadCreate (osThread(Tick), NULL);
+
+	// xTaskCreate( moveCompletedThread, "MoveCompleted", 1000, NULL, 0, &moveCompletedThreadHandle );
+ 	//  	configASSERT( moveCompletedThreadHandle );
 
 	mpool = osPoolCreate(osPool(mpool));                 // create memory pool
 	MsgBox = osMessageCreate(osMessageQ(MsgBox), NULL);  // create msg queue
@@ -212,7 +222,7 @@ int main(void)
 
 	maincpp(); // any cpp setup needed, including assigning pins to the actuators
 
-	Timer_Config(); // setup a 1us counter for performance tests
+	Timer_Config(); // setup a 1us counter for performance tests, and stepticker at 10us
 
 	// use thread safe malloc after this
 	os_started = 1;
@@ -231,6 +241,7 @@ bool serial_reply(const char *buf, size_t len)
 	return n == len;
 }
 
+extern bool host_connected;
 extern void testGpio();
 static void mainThread(void const *argument)
 {
@@ -250,6 +261,14 @@ static void mainThread(void const *argument)
 		} else {
 			//BSP_LED_Toggle(LED4);
 			testGpio();
+			// static bool last_connect_status= false;
+			// if(!host_connected && last_connect_status) {
+			// 	last_connect_status= false;
+			// 	LCD_UsrLog("terminal diconnected\n");
+			// }else if(host_connected && !last_connect_status) {
+			// 	last_connect_status= true;
+			// 	LCD_UsrLog("terminal connected\n");
+			// }
 		}
 	}
 }
@@ -259,6 +278,7 @@ static void mainThread(void const *argument)
 
 // }
 
+// Sends a command to the command thread
 bool dispatch(char *line, int cnt)
 {
 	//line[cnt]= 0;
@@ -373,21 +393,23 @@ static void cdcThread(void const *argument)
 	}
 }
 
+// handles all incoming commands from the USB serial
+// is the only context that is allowed to write to the USB Serial
+static char  cmd_line[MAXLINELEN+1];
 static void commandThread(void const *argument)
 {
 	T_MEAS  *rptr;
 	osEvent  evt;
-	char  line[MAXLINELEN+1];
 	for (;;) {
 		evt = osMessageGet(MsgBox, osWaitForever);  // wait for message
 		if (evt.status == osEventMessage) {
 			rptr = evt.value.p;
 			uint8_t cnt = rptr->len;
-			memcpy(line, rptr->buf, cnt);
+			memcpy(cmd_line, rptr->buf, cnt);
 			osPoolFree(mpool, rptr);                  // free memory allocated for message
-			line[cnt] = 0;
-			//LCD_UsrLog("%s\n", line);
-			commandLineHandler(line);
+			cmd_line[cnt] = 0;
+			//LCD_UsrLog("%s\n", cmd_line);
+			commandLineHandler(cmd_line);
 		}
 	}
 }
@@ -415,6 +437,7 @@ static void commandThread(void const *argument)
  */
 static void SystemClock_Config(void)
 {
+#ifndef SYSCLK168MHZ
 	RCC_ClkInitTypeDef RCC_ClkInitStruct;
 	RCC_OscInitTypeDef RCC_OscInitStruct;
 
@@ -431,8 +454,8 @@ static void SystemClock_Config(void)
 	RCC_OscInitStruct.HSEState = RCC_HSE_ON;
 	RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
 	RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
-	RCC_OscInitStruct.PLL.PLLM = 8;
-	RCC_OscInitStruct.PLL.PLLN = 360;
+	RCC_OscInitStruct.PLL.PLLM = 8;   // 5 (168)
+	RCC_OscInitStruct.PLL.PLLN = 360; // 210 (168)
 	RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
 	RCC_OscInitStruct.PLL.PLLQ = 7;
 	if(HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK) {
@@ -440,7 +463,7 @@ static void SystemClock_Config(void)
 	}
 
 	/* Activate the Over-Drive mode */
-	HAL_PWREx_EnableOverDrive();
+	HAL_PWREx_EnableOverDrive(); // disable (168)
 
 	/* Select PLL as system clock source and configure the HCLK, PCLK1 and PCLK2
 	   clocks dividers */
@@ -452,6 +475,53 @@ static void SystemClock_Config(void)
 	if(HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_5) != HAL_OK) {
 		Error_Handler();
 	}
+
+#else
+/**
+  * @brief  System Clock Configuration
+  *         The system Clock is configured as follow :
+  *            System Clock source            = PLL (HSE)
+  *            SYSCLK(Hz)                     = 168000000
+  *            HCLK(Hz)                       = 168000000
+  *            AHB Prescaler                  = 1
+  *            APB1 Prescaler                 = 4
+  *            APB2 Prescaler                 = 2
+  *            HSE Frequency(Hz)              = 8000000
+  *            PLL_M                          = 8
+  *            PLL_N                          = 336
+  *            PLL_P                          = 2
+  *            PLL_Q                          = 7
+  *            VDD(V)                         = 3.3
+  *            Main regulator output voltage  = Scale1 mode
+  *            Flash Latency(WS)              = 5
+  * @param  None
+  * @retval None
+  */
+
+	RCC_ClkInitTypeDef RCC_ClkInitStruct;
+	RCC_OscInitTypeDef RCC_OscInitStruct;
+
+	/* Enable HSE Oscillator and activate PLL with HSE as source */
+	RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE;
+	RCC_OscInitStruct.HSEState = RCC_HSE_ON;
+	RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
+	RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
+	RCC_OscInitStruct.PLL.PLLM = 8;
+	RCC_OscInitStruct.PLL.PLLN = 336;
+	RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
+	RCC_OscInitStruct.PLL.PLLQ = 7;
+	HAL_RCC_OscConfig(&RCC_OscInitStruct);
+
+
+	/* Select PLL as system clock source and configure the HCLK, PCLK1 and PCLK2
+	clocks dividers */
+	RCC_ClkInitStruct.ClockType = (RCC_CLOCKTYPE_SYSCLK | RCC_CLOCKTYPE_HCLK | RCC_CLOCKTYPE_PCLK1 | RCC_CLOCKTYPE_PCLK2);
+	RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
+	RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
+	RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV4;
+	RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV2;
+	HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_5);
+#endif
 }
 
 static void Timer_Config()
@@ -541,6 +611,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
   * @param  htim: TIM handle
   * @retval None
   */
+uint32_t xst, xet;
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
 	// this is the step ticker
@@ -549,12 +620,14 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 	// }
 
 	// handle stepticker
-	uint32_t s= start_time();
 
-	issueTicks();
-
-	uint32_t e= stop_time();
-	delta_time= e-s;
+	if(!issueTicks()) {
+		xst= start_time();
+		// signal the next block to start, handled in moveCompletedThread
+		BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+ 		vTaskNotifyGiveFromISR( moveCompletedThreadHandle, &xHigherPriorityTaskWoken );
+ 		portYIELD_FROM_ISR( xHigherPriorityTaskWoken );
+	}
 }
 
 /**
