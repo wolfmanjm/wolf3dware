@@ -5,9 +5,11 @@
 	calculateTrapezoid() was designed by Arthur Wolf for Smoothie
 	https://gist.github.com/arthurwolf/ed8cc3bce15ac395d8e7
 */
-#include "Planner.h"
 #include "Kernel.h"
+#include "Planner.h"
+#include "Dispatcher.h"
 #include "Block.h"
+#include "GCode.h"
 #include "MotionControl.h"
 #include "Actuator.h"
 #include "Lock.h"
@@ -18,6 +20,20 @@
 #include <tuple>
 #include <iostream>
 #include <string.h>
+
+
+void Planner::initialize()
+{
+	// register the gcodes this class handles
+	using std::placeholders::_1;
+
+	// G codes
+
+	// M codes
+	THEDISPATCHER.addHandler( Dispatcher::MCODE_HANDLER, 204, std::bind( &Planner::handleConfigurations, this, _1) );
+	THEDISPATCHER.addHandler( Dispatcher::MCODE_HANDLER, 205, std::bind( &Planner::handleConfigurations, this, _1) );
+}
+
 
 static uint32_t id= 0;
 bool Planner::plan(const float *last_target, const float *target, int n_axis,  Actuator *actuators, float rate_mms)
@@ -436,6 +452,38 @@ void Planner::moveAllToReady()
 	}
 	l.unLock();
 }
+
+
+bool Planner::handleConfigurations(GCode& gc)
+{
+	switch(gc.getCode()) {
+		case 204: // M204 Snnn - set acceleration to nnn, Znnn sets z acceleration
+			if (gc.hasArg('S')) {
+        		acceleration = gc.getArg('S');
+        	}
+        	if (gc.hasArg('Z')) {
+        		z_acceleration = gc.getArg('Z');
+        	}
+			break;
+
+		case 205:  // M205 Xnnn - set junction deviation, Z - set Z junction deviation, S - Minimum planner speed
+			if (gc.hasArg('S')) {
+        		minimum_planner_speed = gc.getArg('S');
+        	}
+			if (gc.hasArg('X')) {
+        		junction_deviation = gc.getArg('X');
+        	}
+			if (gc.hasArg('Z')) {
+        		z_junction_deviation = gc.getArg('Z');
+        	}
+			break;
+
+        default: return false;
+	}
+
+	return true;
+}
+
 
 #include "prettyprint.hpp"
 void Planner::dump(std::ostream &o) const

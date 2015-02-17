@@ -14,6 +14,7 @@ class Planner
 public:
 	Planner() {};
 	~Planner(){};
+	void initialize();
 	bool plan(const float *last_target, const float *target, int n_axis, Actuator *actuators, float rate_mms);
 	void dump(std::ostream& o) const;
 
@@ -29,6 +30,8 @@ private:
 	float reversePass(Block &b, float exit_speed);
 	float forwardPass(Block &b, float prev_max_exit_speed);
     void recalculate();
+
+	bool handleConfigurations(GCode&);
 
 	Queue_t lookahead_q;
 	Queue_t ready_q;

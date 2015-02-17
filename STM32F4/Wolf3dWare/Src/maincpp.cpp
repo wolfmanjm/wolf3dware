@@ -31,25 +31,26 @@ bool execute_mode= false;
 uint32_t xdelta= 0;
 
 #define __debugbreak()  { __asm volatile ("bkpt #0"); }
+static const bool INVERTPIN=false;
 
-// define specific pins
-using X_StepPin = GPIOPin<GPIO_PORT_A,GPIO_PIN_5>; // PA5   P2-21
-using X_DirPin  = GPIOPin<GPIO_PORT_A,GPIO_PIN_9>; // PA9   P1-52
-using X_EnbPin  = GPIOPin<GPIO_PORT_A,GPIO_PIN_10>;// PA10  P1-51
-using Y_StepPin = GPIOPin<GPIO_PORT_B,GPIO_PIN_4>; // PB4   P1-25
-using Y_DirPin  = GPIOPin<GPIO_PORT_B,GPIO_PIN_7>; // PB7   P1-24
-using Y_EnbPin  = GPIOPin<GPIO_PORT_C,GPIO_PIN_3>; // PC3   P2-15
-using Z_StepPin = GPIOPin<GPIO_PORT_C,GPIO_PIN_8>; // PC8   P1-55
-using Z_DirPin  = GPIOPin<GPIO_PORT_C,GPIO_PIN_11>;// PC11  P1-44
-using Z_EnbPin  = GPIOPin<GPIO_PORT_C,GPIO_PIN_12>;// PC12  P1-43
-using E_StepPin = GPIOPin<GPIO_PORT_C,GPIO_PIN_13>;// PC13  P1-12
-using E_DirPin  = GPIOPin<GPIO_PORT_D,GPIO_PIN_2>; // PD2   P1-40
-using E_EnbPin  = GPIOPin<GPIO_PORT_D,GPIO_PIN_4>; // PD4   P1-39
+// define specific pins, test 3rd parameter to true if inverted
+using X_StepPin = GPIOPin<GPIO_PORT_A,GPIO_PIN_5,INVERTPIN>; 	// PA5   P2-21
+using X_DirPin  = GPIOPin<GPIO_PORT_A,GPIO_PIN_9,INVERTPIN>;    // PA9   P1-52
+using X_EnbPin  = GPIOPin<GPIO_PORT_A,GPIO_PIN_10,INVERTPIN>;   // PA10  P1-51
+using Y_StepPin = GPIOPin<GPIO_PORT_B,GPIO_PIN_4,INVERTPIN>; 	// PB4   P1-25
+using Y_DirPin  = GPIOPin<GPIO_PORT_B,GPIO_PIN_7,INVERTPIN>;    // PB7   P1-24
+using Y_EnbPin  = GPIOPin<GPIO_PORT_C,GPIO_PIN_3,INVERTPIN>;    // PC3   P2-15
+using Z_StepPin = GPIOPin<GPIO_PORT_C,GPIO_PIN_8,INVERTPIN>; 	// PC8   P1-55
+using Z_DirPin  = GPIOPin<GPIO_PORT_C,GPIO_PIN_11,INVERTPIN>;   // PC11  P1-44
+using Z_EnbPin  = GPIOPin<GPIO_PORT_C,GPIO_PIN_12,INVERTPIN>;   // PC12  P1-43
+using E_StepPin = GPIOPin<GPIO_PORT_C,GPIO_PIN_13,INVERTPIN>;   // PC13  P1-12
+using E_DirPin  = GPIOPin<GPIO_PORT_D,GPIO_PIN_2,INVERTPIN>;    // PD2   P1-40
+using E_EnbPin  = GPIOPin<GPIO_PORT_D,GPIO_PIN_4,INVERTPIN>;    // PD4   P1-39
 
-using LED3Pin   = GPIOPin<GPIO_PORT_G,GPIO_PIN_13>;// LED3
-using LED4Pin   = GPIOPin<GPIO_PORT_G,GPIO_PIN_14>;// LED4
+using LED3Pin   = GPIOPin<GPIO_PORT_G,GPIO_PIN_13>;     // LED3
+using LED4Pin   = GPIOPin<GPIO_PORT_G,GPIO_PIN_14>;     // LED4
 
-using TriggerPin= GPIOPin<GPIO_PORT_D,GPIO_PIN_5>; // PD5
+using TriggerPin= GPIOPin<GPIO_PORT_D,GPIO_PIN_5>;      // PD5
 
 // 11 Spare
 //- PD5 P1-37
@@ -149,7 +150,7 @@ void executeNextBlock()
 	Lock l(READY_Q_MUTEX);
 	l.lock();
 	if(!q.empty()) {
-		Block block= q.back();
+		Block block= q.back(); // incurs a copy as we destroy it in next instruction
 		q.pop_back();
 		l.unLock();
 		THEKERNEL.getMotionControl().issueMove(block);
@@ -329,7 +330,6 @@ extern "C" void tests()
 	Planner::Queue_t& q= THEKERNEL.getPlanner().getQueue();
 	while(!q.empty()) {
 		Block block= q.back();
-		//if(!block.ready()) wait longer
 		q.pop_back();
 		std::cout << "Playing Block: " << block.id << "\n";
 		THEKERNEL.getMotionControl().issueMove(block);

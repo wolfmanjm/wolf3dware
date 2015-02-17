@@ -189,15 +189,18 @@ void MotionControl::resetAxisPosition(char axis, float pos){
 }
 
 // sets up each axis to move
+// Can run in High priority thread or low prio thread
 bool MotionControl::issueMove(const Block& block)
 {
+	Actuator::setCurrentBlock(block); // copies it to the static instance that each Actuator shares (saves memory)
 	moving_mask= 0;
 	auto i= std::max_element(block.steps_to_move.begin(), block.steps_to_move.end());
 	float inv= 1.0F / *i ;
 	for (size_t i = 0; i < block.steps_to_move.size(); ++i) {
-	    if(block.steps_to_move[i] == 0) continue;
-	    //std::cout << "moving axis: " << actuators[i].getAxis() << "\n";
-	    actuators[i].move(block.direction[i], block.steps_to_move[i], block.steps_to_move[i]*inv, block);
+		uint32_t steps= block.steps_to_move[i];
+	    if(steps == 0) continue;
+	    //std::cout << "moving axis: " << actuators[i].getAxis() << "by " << steps << " steps\n";
+	    actuators[i].move(block.direction[i], steps, steps*inv);
 	    moving_mask |= (1<<i);
 	}
 	return true;

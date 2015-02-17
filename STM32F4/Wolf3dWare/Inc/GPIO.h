@@ -21,11 +21,11 @@
 
 // defines a pin with the port and pin mask, must use port definition from above
 // relies on pointer types being 32 bits
-template <uint32_t TPort, uint16_t TPin>
+template <uint32_t TPort, uint16_t TPin, bool inv= false>
 class GPIOPin {
 public:
     static const uint32_t Port = TPort;
     static const uint16_t Pin = TPin;
-    static void set(bool set) {((GPIO_TypeDef*)Port)->BSRR = set ? Pin : Pin<<16; }
+    static void set(bool set) {((GPIO_TypeDef*)Port)->BSRR = (set!=inv) ? Pin : Pin<<16; }
 };
 

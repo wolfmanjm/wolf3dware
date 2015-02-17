@@ -8,6 +8,7 @@ Kernel::Kernel()
 	motion_control= new MotionControl;
 	motion_control->initialize();
 	planner= new Planner();
+	planner->initialize();
 	gcode_processor= new GCodeProcessor();
 }
 
