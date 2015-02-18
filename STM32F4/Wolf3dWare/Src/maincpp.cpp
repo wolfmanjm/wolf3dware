@@ -248,6 +248,8 @@ extern "C" bool commandLineHandler(const char *line)
 	return true;
 }
 
+extern uint32_t xst, xet;
+extern "C" uint32_t stop_time();
 // run ticks in tick ISR, but the pri needs to be 5 otherwise we can't use signals
 static uint32_t currentTick= 0;
 extern "C" bool issueTicks()
@@ -268,12 +270,13 @@ extern "C" bool issueTicks()
 		currentTick= 0;
 		return false;  // signals ISR to yield to the moveCompletedThread
 	}
+	xet= stop_time();
+	uint32_t d= xet-xst;
+	if(d > xdelta) xdelta= d;
 	return true;
 }
 
 // run the block change in this thread when signaled
-extern uint32_t xst, xet;
-extern "C" uint32_t stop_time();
 static uint32_t overflow= 0;
 void moveCompletedThread(void const *argument)
 {
@@ -284,9 +287,6 @@ void moveCompletedThread(void const *argument)
 			if(ulNotifiedValue > 1) overflow++;
 			// get next block
 			executeNextBlock();
-			xet= stop_time();
-			uint32_t d= xet-xst;
-			if(d > xdelta) xdelta= d;
 			TriggerPin::set(false);
 		}
 	}

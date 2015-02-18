@@ -621,8 +621,8 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 
 	// handle stepticker
 
+	xst= start_time();
 	if(!issueTicks()) {
-		xst= start_time();
 		// signal the next block to start, handled in moveCompletedThread
 		BaseType_t xHigherPriorityTaskWoken = pdFALSE;
  		vTaskNotifyGiveFromISR( moveCompletedThreadHandle, &xHigherPriorityTaskWoken );
