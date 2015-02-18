@@ -12,11 +12,13 @@ class Actuator;
 class Planner
 {
 public:
-	Planner() {};
+	Planner();
 	~Planner(){};
+	void reset();
 	void initialize();
 	bool plan(const float *last_target, const float *target, int n_axis, Actuator *actuators, float rate_mms);
 	void dump(std::ostream& o) const;
+	void purge();
 
 	using Queue_t = std::deque<Block>;
 	Queue_t& getLookAheadQueue() { return lookahead_q; }

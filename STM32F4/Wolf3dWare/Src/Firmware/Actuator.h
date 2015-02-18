@@ -16,8 +16,11 @@ public:
 	float mm2steps(float mm) const { return mm*steps_per_mm; }
 	float steps2mm(float steps) const { return steps/steps_per_mm; }
 	void setStepsPermm(float spmm) { steps_per_mm= spmm; }
-	float getMaxRate() const { return max_rate; }
-	void setMaxRate(float mr) { max_rate= mr; }
+	float getStepsPermm() const { return steps_per_mm; }
+	float getMaxSpeed() const { return max_speed; }
+	void setMaxSpeed(float mr) { max_speed= mr; }
+	bool checkMaxSpeed();
+
 	std::tuple<bool,uint32_t> stepsToTarget(float target);
 	bool tick(uint32_t current_tick);
 	char getAxis() const { return axis; }
@@ -43,7 +46,7 @@ private:
 
 	// configuration settings
 	float steps_per_mm;
-	float max_rate;
+	float max_speed;
 
 	// one static block for all the instances to share
 	static Block current_block;

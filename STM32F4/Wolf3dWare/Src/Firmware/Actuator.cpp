@@ -43,6 +43,16 @@ void Actuator::move( bool direction, uint32_t steps_to_move, float axis_ratio)
     moving= true;
 }
 
+bool Actuator::checkMaxSpeed()
+{
+    float step_freq= max_speed * steps_per_mm;
+    if(step_freq > STEP_TICKER_FREQUENCY) {
+        max_speed= floorf(STEP_TICKER_FREQUENCY / steps_per_mm);
+        return false;
+    }
+    return true;
+}
+
 // returns steps to given target in mm, and sets the milestone for steps
 std::tuple<bool, uint32_t> Actuator::stepsToTarget(float target)
 {
@@ -60,7 +70,7 @@ std::tuple<bool, uint32_t> Actuator::stepsToTarget(float target)
 }
 
 // called by step ticker at 100KHz (or faster)
-// Runs is ISR context
+// Runs in ISR context, so NO memory allocation allowed
 bool Actuator::tick(uint32_t current_tick)
 {
     if(!moving) return false;

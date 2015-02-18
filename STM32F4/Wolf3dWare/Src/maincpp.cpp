@@ -24,11 +24,16 @@
 
 using namespace std;
 
-
 // global
 SemaphoreHandle_t READY_Q_MUTEX;
 bool execute_mode= false;
 uint32_t xdelta= 0;
+
+// local
+// signals that the ticks can start to be issued to the actuators
+static volatile bool move_issued= false;
+// count of ticks missed while setting up next move
+static volatile uint32_t waiting_ticks= 0;
 
 #define __debugbreak()  { __asm volatile ("bkpt #0"); }
 static const bool INVERTPIN=false;
@@ -140,6 +145,9 @@ extern "C" int maincpp()
 	mc.getActuator('E').assignHALFunction(Actuator::SET_STEP, [](bool on)  { E_StepPin::set(on); });
 	mc.getActuator('E').assignHALFunction(Actuator::SET_DIR, [](bool on)   { E_DirPin::set(on); });
 	mc.getActuator('E').assignHALFunction(Actuator::SET_ENABLE, [](bool on){ E_EnbPin::set(on);  });
+
+	move_issued= false;
+	waiting_ticks= 0;
 	return 0;
 }
 
@@ -153,16 +161,34 @@ void executeNextBlock()
 		Block block= q.back(); // incurs a copy as we destroy it in next instruction
 		q.pop_back();
 		l.unLock();
-		THEKERNEL.getMotionControl().issueMove(block);
+		// sets up the move with all the actuators involved in this block
+		move_issued= THEKERNEL.getMotionControl().issueMove(block);
 
 	}else{
-		// as the block was empty nothing will be moving now
-		THEKERNEL.getMotionControl().setNothingMoving();
 		l.unLock();
 	}
 }
 
 extern "C" bool serial_reply(const char*, size_t);
+void sendReply(const std::string& str)
+{
+	if(!str.empty()) {
+		if(str.size() < 64) {
+			serial_reply(str.c_str(), str.size());
+		}else{
+			//hack before we fix the cdc out
+			int n= str.size();
+			int off= 0;
+			while(n > 0) {
+				int s= min(63, n);
+				serial_reply(str.substr(off, s).c_str(), s);
+				off+=s;
+				n-=s;
+			}
+		}
+	}
+}
+
 // runs in the commandThread context
 bool handleCommand(const char *line)
 {
@@ -189,6 +215,11 @@ bool handleCommand(const char *line)
 		execute_mode= false;
 		oss << "ok\n";
 
+	}else if(strcmp(line, "kill") == 0) {
+		execute_mode= false;
+		THEKERNEL.getPlanner().purge();
+		oss << "ok\n";
+
 	}else if(strcmp(line, "stats") == 0) {
 		oss << "Worst time: " << xdelta << "uS\nok\n";
 
@@ -197,22 +228,7 @@ bool handleCommand(const char *line)
 		handled= false;
 	}
 
-	std::string str= oss.str();
-	if(!str.empty()) {
-		if(str.size() < 32) {
-			serial_reply(str.c_str(), str.size());
-		}else{
-			//hack before we fix the cdc out
-			int n= str.size();
-			int off= 0;
-			while(n > 0) {
-				int s= min(32, n);
-				serial_reply(str.substr(off, s).c_str(), s);
-				off+=s;
-				n-=s;
-			}
-		}
-	}
+	sendReply(oss.str());
 
 	return handled;
 }
@@ -237,12 +253,12 @@ extern "C" bool commandLineHandler(const char *line)
 	for(auto i : gcodes) {
 		if(THEDISPATCHER.dispatch(i)) {
 			// send the result to the place it came from
-			serial_reply(THEDISPATCHER.getResult().c_str(), THEDISPATCHER.getResult().size());
+			sendReply(THEDISPATCHER.getResult());
 
 		}else{
 			// no handler for this gcode, return ok - nohandler
 			const char *str= "ok - nohandler\n";
-			serial_reply(str, strlen(str));
+			sendReply(std::string(str));
 		}
 	}
 	return true;
@@ -251,23 +267,44 @@ extern "C" bool commandLineHandler(const char *line)
 extern uint32_t xst, xet;
 extern "C" uint32_t stop_time();
 // run ticks in tick ISR, but the pri needs to be 5 otherwise we can't use signals
-static uint32_t currentTick= 0;
+// worst case with 4 axis stepping is 8uS so far
 extern "C" bool issueTicks()
 {
+	static uint32_t current_tick= 0;
 	MotionControl& mc= THEKERNEL.getMotionControl();
 	if(!execute_mode) return true;
 
 	// TODO need to count missed ticks while moveCompletedThread is running
+	if(!move_issued){
+		// nothing asked to move so we don't need to do anything
+		if(waiting_ticks > 0) waiting_ticks++; // this gets incremented if we are waiting for the next move to get setup
+ 		return true;
+ 	}
 
-	if(!mc.isAnythingMoving()) return true; // nothing moving or was moving so move on
+ 	// if we missed some ticks while processing the next move issue them here
+ 	// if waiting_ticks == 0 then nothing was setup to move so we have not missed any ticks
+ 	// if waiting_ticks == 1 then we may have setup a move so we count hown many ticxks we have missed
+ 	// if waiting_ticks > 1 then we have missed waiting_ticks-1 ticks while the next blockj was being setup to move
+ 	while(waiting_ticks > 1) {
+ 		// we issue the number of ticks we missed while setting up the next move
+ 		if(!mc.issueTicks(++current_tick)){
+ 			// too many waiting ticks, we finished all the moves
+ 			move_issued= false;
+ 			current_tick= 0;
+			waiting_ticks= 1;
+ 			return false;
+ 		}
+ 		--waiting_ticks;
+ 	}
 
-	// something is moving or was told to move and may have stopped
-	if(!mc.issueTicks(++currentTick)){
+	// a move was issued to the actuators, tick them until all moves are done
+	if(!mc.issueTicks(++current_tick)){
 		// all moves finished
 		TriggerPin::set(true);
 		// need to protect against getting called again if this takes longer than 10uS
-		mc.setNothingMoving();
-		currentTick= 0;
+		move_issued= false; // this will not get set again until all the actuators have been setup for the next move
+		current_tick= 0;
+		waiting_ticks= 1; // setup to count any missed ticks
 		return false;  // signals ISR to yield to the moveCompletedThread
 	}
 	xet= stop_time();
@@ -284,9 +321,16 @@ void moveCompletedThread(void const *argument)
 		// wait until we have something to process
 		uint32_t ulNotifiedValue= ulTaskNotifyTake( pdTRUE, portMAX_DELAY);
 		if(ulNotifiedValue > 0) {
-			if(ulNotifiedValue > 1) overflow++;
-			// get next block
+			if(ulNotifiedValue > 1) overflow++; // NOTE this cannot happen so remove it FIXME
+
+			// get next block, and setup the next move
 			executeNextBlock();
+
+			if(!move_issued) {
+				// no moves were setup so disable the waiting tick count
+				// if a move was issued then waiting_ticks would have been keeping count of how many we missed
+				waiting_ticks= 0;
+			}
 			TriggerPin::set(false);
 		}
 	}

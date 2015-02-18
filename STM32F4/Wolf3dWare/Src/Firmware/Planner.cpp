@@ -21,6 +21,15 @@
 #include <iostream>
 #include <string.h>
 
+Planner::Planner()
+{
+	reset();
+}
+
+void Planner::reset()
+{
+	memset(previous_unit_vec, 0, sizeof(previous_unit_vec));
+}
 
 void Planner::initialize()
 {
@@ -35,7 +44,7 @@ void Planner::initialize()
 }
 
 
-static uint32_t id= 0;
+static uint32_t id = 0;
 bool Planner::plan(const float *last_target, const float *target, int n_axis,  Actuator *actuators, float rate_mms)
 {
 	//printf("last_target: %f,%f,%f target: %f,%f,%f rate: %f\n", last_target[0], last_target[1], last_target[2], target[0], target[1], target[2], rate_mms);
@@ -43,13 +52,13 @@ bool Planner::plan(const float *last_target, const float *target, int n_axis,  A
 	float deltas[n_axis];
 	float distance = 0.0F;
 	float sos = 0.0F;
-	bool move= false;
+	bool move = false;
 	for (int i = 0; i < n_axis; ++i) {
 		deltas[i] = target[i] - last_target[i];
 		if(deltas[i] == 0) {
 			continue;
 		}
-		move= true;
+		move = true;
 		if(THEKERNEL.getMotionControl().isPrimaryAxis(i)) {
 			sos += powf(deltas[i], 2);
 		}
@@ -57,24 +66,34 @@ bool Planner::plan(const float *last_target, const float *target, int n_axis,  A
 	// nothing moved
 	if(!move) return false;
 
-	if(sos > 0.0F) distance = sqrtf( sos );
-
+	// this is a HACK FIXME we need to be able to handle n axis properly
 	uint8_t xaxis = THEKERNEL.getMotionControl().getAxisActuator('X');
 	uint8_t yaxis = THEKERNEL.getMotionControl().getAxisActuator('Y');
 	uint8_t zaxis = THEKERNEL.getMotionControl().getAxisActuator('Z');
+	uint8_t eaxis = THEKERNEL.getMotionControl().getAxisActuator('E');
+	if(sos > 0.0F){
+		distance = sqrtf( sos );
+	} else {
+		// non primary axis move (like extrude) FIXME it may not be E if there are other non primary axis
+		distance = deltas[eaxis];
+	}
+
 	float unit_vec[3] {deltas[xaxis] / distance, deltas[yaxis] / distance, deltas[zaxis] / distance};
 
-	// Do not move faster than the configured cartesian limits
-	// if ( max_speeds[a] > 0 ) {
-	//     float axis_speed = fabsf(unit_vec[i] * rate_mms);
-	//     if (axis_speed > max_speeds[a])
-	//         rate_mms *= ( max_speeds[a] / axis_speed );
-	// }
-
+	// Do not move faster than the configured max speed for any axis
+	// downgrade the speed to make it right
+	for (int i = 0; i < n_axis; ++i) {
+		if(deltas[i] == 0) continue;
+		float max_speed =  actuators[i].getMaxSpeed(); // in mm/sec
+		float axis_speed = fabsf((deltas[i]/distance) * rate_mms);
+		if (axis_speed > max_speed) {
+			rate_mms *= ( max_speed / axis_speed );
+		}
+	}
 
 	// create the new block
 	Block block;
-	block.id= id++;
+	block.id = id++;
 
 	for (int i = 0; i < n_axis; i++) {
 		std::tuple<bool, uint32_t> r = actuators[i].stepsToTarget(target[i]);
@@ -94,20 +113,15 @@ bool Planner::plan(const float *last_target, const float *target, int n_axis,  A
 
 	block.acceleration = acceleration; // save in block
 
-	// Max number of steps, for all axes
-	block.steps_event_count = std::max({block.steps_to_move[xaxis], block.steps_to_move[yaxis], block.steps_to_move[zaxis]});
+	// Max number of steps, for all axis
+	auto mi= std::max_element(block.steps_to_move.begin(), block.steps_to_move.end());
+	block.steps_event_count = *mi;
 
 	block.millimeters = distance;
 
 	// Calculate speed in mm/sec for each axis. No divide by zero due to previous checks.
-	if( distance > 0.0F ) {
-		block.nominal_speed = rate_mms;           // (mm/s) Always > 0
-		block.nominal_rate = ceilf(block.steps_event_count * rate_mms / distance); // (step/s) Always > 0
-	} else {
-		block.nominal_speed = 0.0F;
-		block.nominal_rate  = 0;
-	}
-
+	block.nominal_speed = rate_mms;           // (mm/s) Always > 0
+	block.nominal_rate = ceilf(block.steps_event_count * rate_mms / distance); // (step/s) Always > 0
 
 	// Compute maximum allowable entry speed at junction by centripetal acceleration approximation.
 	// Let a circle be tangent to both previous and current path line segments, where the junction
@@ -127,7 +141,7 @@ bool Planner::plan(const float *last_target, const float *target, int n_axis,  A
 		float previous_nominal_speed = lookahead_q.front().nominal_speed;
 
 		if (previous_nominal_speed > 0.0F && junction_deviation > 0.0F) {
-			// Compute cosine of angle between previous and current path. (prev_unit_vec is negative)
+			// Compute cosine of angle between previous and current path. (previous_unit_vec is negative)
 			// NOTE: Max junction velocity is computed without sin() or acos() by trig half angle identity.
 			float cos_theta = - previous_unit_vec[0] * unit_vec[0]
 							  - previous_unit_vec[1] * unit_vec[1]
@@ -178,19 +192,19 @@ bool Planner::plan(const float *last_target, const float *target, int n_axis,  A
 	// starting at end of the queue move any block that has recalculate_flag set to false into the ready queue
 	auto curi = lookahead_q.rbegin();
 	while(curi != lookahead_q.rend()) {
-		auto nexti= std::next(curi);
+		auto nexti = std::next(curi);
 		if(nexti == lookahead_q.rend()) break;
 
 		// if both this one and the next one have recalculate flag flase then move this one to ready queue
 		// this always leaves the last entry as a non calculate block and preserves the exit speeds
-		if(!curi->recalculate_flag && !nexti->recalculate_flag){
+		if(!curi->recalculate_flag && !nexti->recalculate_flag) {
 			Lock l(READY_Q_MUTEX); // gets a mutex on this
 			l.lock();
 			ready_q.push_front(*curi);
 			l.unLock();
 			lookahead_q.pop_back();
-			curi= nexti;
-		}else{
+			curi = nexti;
+		} else {
 			// we stop looking when we hit the last block that has is set
 			break;
 		}
@@ -313,7 +327,7 @@ void Planner::recalculate()
 
 		if(curi == lasti) {
 			// special case first entry needs to have recalculate_flag set to false
-			curi->recalculate_flag= false;
+			curi->recalculate_flag = false;
 		}
 
 		/*
@@ -327,8 +341,8 @@ void Planner::recalculate()
 
 		float exit_speed = maxExitSpeed(*curi);
 		while (curi != lookahead_q.begin()) {
-			auto previ= curi;
-			curi= std::prev(curi);
+			auto previ = curi;
+			curi = std::prev(curi);
 
 			// we pass the exit speed of the previous block
 			// so this block can decide if it's accel or decel limited and update its fields as appropriate
@@ -439,7 +453,7 @@ void Planner::calculateTrapezoid(Block &block, float entryspeed, float exitspeed
 	//puts "accelerate_until: #{block.accelerate_until}, decelerate_after: #{block.decelerate_after}, acceleration_per_tick: #{block.acceleration_per_tick}, total_move_ticks: #{block.total_move_ticks}"
 
 	block.initial_rate = initial_rate;
-	block.exit_speed= exitspeed;
+	block.exit_speed = exitspeed;
 }
 
 void Planner::moveAllToReady()
@@ -453,32 +467,41 @@ void Planner::moveAllToReady()
 	l.unLock();
 }
 
+void Planner::purge()
+{
+	Lock l(READY_Q_MUTEX); // gets a mutex on this
+	l.lock();
+	lookahead_q.clear();
+	ready_q.clear();
+	l.unLock();
+	reset();
+}
 
-bool Planner::handleConfigurations(GCode& gc)
+bool Planner::handleConfigurations(GCode &gc)
 {
 	switch(gc.getCode()) {
 		case 204: // M204 Snnn - set acceleration to nnn, Znnn sets z acceleration
 			if (gc.hasArg('S')) {
-        		acceleration = gc.getArg('S');
-        	}
-        	if (gc.hasArg('Z')) {
-        		z_acceleration = gc.getArg('Z');
-        	}
+				acceleration = gc.getArg('S');
+			}
+			if (gc.hasArg('Z')) {
+				z_acceleration = gc.getArg('Z');
+			}
 			break;
 
 		case 205:  // M205 Xnnn - set junction deviation, Z - set Z junction deviation, S - Minimum planner speed
 			if (gc.hasArg('S')) {
-        		minimum_planner_speed = gc.getArg('S');
-        	}
+				minimum_planner_speed = gc.getArg('S');
+			}
 			if (gc.hasArg('X')) {
-        		junction_deviation = gc.getArg('X');
-        	}
+				junction_deviation = gc.getArg('X');
+			}
 			if (gc.hasArg('Z')) {
-        		z_junction_deviation = gc.getArg('Z');
-        	}
+				z_junction_deviation = gc.getArg('Z');
+			}
 			break;
 
-        default: return false;
+		default: return false;
 	}
 
 	return true;
@@ -489,30 +512,30 @@ bool Planner::handleConfigurations(GCode& gc)
 void Planner::dump(std::ostream &o) const
 {
 	for (int i = 0; i < 2; ++i) {
-		Queue_t q= i==0 ? lookahead_q : ready_q;
-		o << (i==0 ? "Look ahead Queue:\n" : "Ready Queue\n");
+		Queue_t q = i == 0 ? lookahead_q : ready_q;
+		o << (i == 0 ? "Look ahead Queue:\n" : "Ready Queue\n");
 		for(auto &b : q) {
 			o <<
-			"Id: " << b.id                         << ", " <<
-			"accelerate_until: " <<  b.accelerate_until          << ", " <<
-			"decelerate_after: " <<  b.decelerate_after          << ", " <<
-			"acceleration_per_tick: " <<  b.acceleration_per_tick     << ", " <<
-			"deceleration_per_tick: " <<  b.deceleration_per_tick     << ", " <<
-			"total_move_ticks: " <<  b.total_move_ticks          << ", " <<
-			"maximum_rate: " <<  b.maximum_rate              << ", " <<
-			"nominal_rate: " <<  b.nominal_rate              << ", " <<
-			"nominal_speed: " <<  b.nominal_speed             << ", " <<
-			"nominal_length_flag: " <<  b.nominal_length_flag << ", " <<
-			"acceleration: " <<  b.acceleration             << ", " <<
-			"millimeters: " <<  b.millimeters               << ", " <<
-			"steps_event_count: " <<  b.steps_event_count         << ", " <<
-			"initial_rate: " <<  b.initial_rate              << ", " <<
-			"max_entry_speed: " <<  b.max_entry_speed           << ", " <<
-			"entry_speed: " <<  b.entry_speed               << ", " <<
-			"exit_speed: " <<  b.exit_speed                << ", " <<
-			"recalculate_flag: " <<  b.recalculate_flag   << "," <<
-			"direction: " <<  b.direction                 << "," <<
-			"steps_to_move: " << b.steps_to_move << "\n";
+			  "Id: " << b.id                         << ", " <<
+			  "accelerate_until: " <<  b.accelerate_until          << ", " <<
+			  "decelerate_after: " <<  b.decelerate_after          << ", " <<
+			  "acceleration_per_tick: " <<  b.acceleration_per_tick     << ", " <<
+			  "deceleration_per_tick: " <<  b.deceleration_per_tick     << ", " <<
+			  "total_move_ticks: " <<  b.total_move_ticks          << ", " <<
+			  "maximum_rate: " <<  b.maximum_rate              << ", " <<
+			  "nominal_rate: " <<  b.nominal_rate              << ", " <<
+			  "nominal_speed: " <<  b.nominal_speed             << ", " <<
+			  "nominal_length_flag: " <<  b.nominal_length_flag << ", " <<
+			  "acceleration: " <<  b.acceleration             << ", " <<
+			  "millimeters: " <<  b.millimeters               << ", " <<
+			  "steps_event_count: " <<  b.steps_event_count         << ", " <<
+			  "initial_rate: " <<  b.initial_rate              << ", " <<
+			  "max_entry_speed: " <<  b.max_entry_speed           << ", " <<
+			  "entry_speed: " <<  b.entry_speed               << ", " <<
+			  "exit_speed: " <<  b.exit_speed                << ", " <<
+			  "recalculate_flag: " <<  b.recalculate_flag   << "," <<
+			  "direction: " <<  b.direction                 << "," <<
+			  "steps_to_move: " << b.steps_to_move << "\n";
 		}
 	}
 }

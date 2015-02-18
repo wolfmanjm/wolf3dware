@@ -17,8 +17,8 @@ MotionControl::MotionControl()
 {
 	inch_mode= false;
 	absolute_mode= true;
-	seek_rate= 1000;
-	feed_rate= 5000;
+	seek_rate= 6000;
+	feed_rate= 6000;
 }
 
 MotionControl::~MotionControl()
@@ -56,9 +56,14 @@ void MotionControl::initialize()
 	THEDISPATCHER.addHandler( Dispatcher::MCODE_HANDLER, 84, std::bind( &MotionControl::handleEnable, this, _1) );
 	THEDISPATCHER.addHandler( Dispatcher::MCODE_HANDLER, 92, std::bind( &MotionControl::handleConfigurations, this, _1) );
 	THEDISPATCHER.addHandler( Dispatcher::MCODE_HANDLER, 114, std::bind( &MotionControl::handleGetPosition, this, _1) );
+	THEDISPATCHER.addHandler( Dispatcher::MCODE_HANDLER, 203, std::bind( &MotionControl::handleConfigurations, this, _1) );
 	THEDISPATCHER.addHandler( Dispatcher::MCODE_HANDLER, 220, std::bind( &MotionControl::handleSetSpeedOverride, this, _1) );
 
-	Actuator xactuator('X'), yactuator('Y'), zactuator('Z'), eactuator('E');
+	// create actuators
+	Actuator xactuator('X');
+	Actuator yactuator('Y');
+	Actuator zactuator('Z');
+	Actuator eactuator('E');
 
 	// set default steps/mm
 	xactuator.setStepsPermm(100);
@@ -66,10 +71,20 @@ void MotionControl::initialize()
 	zactuator.setStepsPermm(400);
 	eactuator.setStepsPermm(750);
 
+	// set default max speed mm/sec
+	xactuator.setMaxSpeed(500);
+	yactuator.setMaxSpeed(500);
+	zactuator.setMaxSpeed(30);
+	eactuator.setMaxSpeed(40);
+	xactuator.checkMaxSpeed();
+	yactuator.checkMaxSpeed();
+	zactuator.checkMaxSpeed();
+	eactuator.checkMaxSpeed();
+
 	addActuator(xactuator, true);
 	addActuator(yactuator, true);
 	addActuator(zactuator, true);
-	addActuator(eactuator, false);
+	addActuator(eactuator, false); // not a primary axis
 }
 
 bool MotionControl::handleEnable(GCode& gc)
@@ -96,6 +111,7 @@ bool MotionControl::handleEnable(GCode& gc)
 	return true;
 }
 
+// M220
 bool MotionControl::handleSetSpeedOverride(GCode& gc)
 {
 	if (gc.hasArg('S')) {
@@ -164,13 +180,31 @@ bool MotionControl::handleConfigurations(GCode& gc)
 				auto i= axis_actuator_map.find(arg.first);
 				if(i != axis_actuator_map.end()) {
 					actuators[i->second].setStepsPermm(toMillimeters(arg.second));
+					if(!actuators[i->second].checkMaxSpeed()) {
+						THEDISPATCHER.getOS().printf("// WARNING maxspeed for axis %c exceeds maximum steps/sec\n", arg.first);
+					}
 				}
 			}
 			for(auto& a : actuators) {
-				THEDISPATCHER.getOS().printf("%c:%1.4f ", a.getAxis(), a.mm2steps(1));
+				THEDISPATCHER.getOS().printf("%c:%1.4f ", a.getAxis(), a.getStepsPermm());
 			}
 			THEDISPATCHER.getOS().setAppendNL();
-			//checkMaxActuatorSpeeds();
+			break;
+
+		 case 203: // M203 - Set maximum cartesian feedrates in mm/sec, ( TODO M203.1 - set Maximum actuator feedrates in mm/sec )
+			for(auto& arg : gc.getArgs()) {
+				auto i= axis_actuator_map.find(arg.first);
+				if(i != axis_actuator_map.end()) {
+					actuators[i->second].setMaxSpeed(arg.second);
+					if(!actuators[i->second].checkMaxSpeed()) {
+						THEDISPATCHER.getOS().printf("// WARNING maxspeed for axis %c exceeds maximum steps/sec\n", arg.first);
+					}
+				}
+			}
+			for(auto& a : actuators) {
+				THEDISPATCHER.getOS().printf("%c:%1.4f ", a.getAxis(), a.getMaxSpeed());
+			}
+			THEDISPATCHER.getOS().setAppendNL();
 			break;
 
 		default: return false;
@@ -179,6 +213,7 @@ bool MotionControl::handleConfigurations(GCode& gc)
 	return true;
 }
 
+// M114, M114.1
 bool MotionControl::handleGetPosition(GCode& gc)
 {
 	bool raw= (gc.getSubcode() == 1);
@@ -191,6 +226,7 @@ bool MotionControl::handleGetPosition(GCode& gc)
 	return true;
 }
 
+// G92
 bool MotionControl::handleSetAxisPosition(GCode& gc)
 {
 	if(gc.hasNoArgs()) {
@@ -200,6 +236,7 @@ bool MotionControl::handleSetAxisPosition(GCode& gc)
 			resetAxisPosition(i.first, toMillimeters(i.second));
 		}
 	}
+	THEKERNEL.getPlanner().reset();
 	return true;
 }
 
@@ -231,7 +268,7 @@ bool MotionControl::issueMove(const Block& block)
 		actuators[i].move(block.direction[i], steps, steps*inv);
 		moving_mask |= (1<<i);
 	}
-	return true;
+	return moving_mask != 0;
 }
 
 // runs in ISR context
