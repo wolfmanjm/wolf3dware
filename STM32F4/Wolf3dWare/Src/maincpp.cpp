@@ -120,6 +120,8 @@ extern "C" void testGpio()
 	tog= !tog;
 }
 
+extern "C" size_t writeFlash(void *, size_t, uint32_t);
+extern "C" size_t readFlash(void *, size_t, uint32_t);
 
 extern "C" void moveCompletedThread(void const *argument);
 
@@ -130,6 +132,15 @@ extern "C" int maincpp()
 	// creates Kernel singleton and other singletons and Initializes MotionControl
 	MotionControl& mc= THEKERNEL.getMotionControl();
 
+	// assign the HAL function for Non volatile memory in the Kernel
+	//THEKERNEL.assignHALFunction(Kernel::NV_INIT, [](void*,size_t)  { HAL_FLASH_INIT(); });
+	THEKERNEL.assignHALFunction(Kernel::NV_WRITE, writeFlash);
+	THEKERNEL.assignHALFunction(Kernel::NV_READ, readFlash);
+
+	// initialize Kernel and its modules
+	THEKERNEL.initialize();
+
+	// setup the pins
 	initializePins();
 
 	// Setup pins for each Actuator

@@ -36,6 +36,8 @@ private:
     Dispatcher() {};
     Dispatcher(Dispatcher const &) = delete;
     void operator=(Dispatcher const &) = delete;
+    bool handleConfigurationCommands(GCode& gc);
+
     // use multimap as multiple handlers may be needed per gcode
     Handlers_t gcode_handlers;
     Handlers_t mcode_handlers;

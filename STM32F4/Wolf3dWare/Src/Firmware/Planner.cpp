@@ -41,6 +41,7 @@ void Planner::initialize()
 	// M codes
 	THEDISPATCHER.addHandler( Dispatcher::MCODE_HANDLER, 204, std::bind( &Planner::handleConfigurations, this, _1) );
 	THEDISPATCHER.addHandler( Dispatcher::MCODE_HANDLER, 205, std::bind( &Planner::handleConfigurations, this, _1) );
+	THEDISPATCHER.addHandler( Dispatcher::MCODE_HANDLER, 500, std::bind( &Planner::handleSaveConfiguration, this, _1) );
 }
 
 
@@ -475,6 +476,13 @@ void Planner::purge()
 	ready_q.clear();
 	l.unLock();
 	reset();
+}
+
+bool Planner::handleSaveConfiguration(GCode &gc)
+{
+	THEDISPATCHER.getOS().printf("M204 S%1.4f Z%1.4f\n", acceleration, z_acceleration);
+	THEDISPATCHER.getOS().printf("M205 S%1.4f X%1.4f Z%1.4f\n", minimum_planner_speed, junction_deviation, z_junction_deviation);
+	return true;
 }
 
 bool Planner::handleConfigurations(GCode &gc)

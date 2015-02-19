@@ -205,7 +205,7 @@ int main(void)
 	moveCompletedThreadHandle = osThreadCreate (osThread(Tick), NULL);
 
 	// xTaskCreate( moveCompletedThread, "MoveCompleted", 1000, NULL, 0, &moveCompletedThreadHandle );
- 	//  	configASSERT( moveCompletedThreadHandle );
+	//  	configASSERT( moveCompletedThreadHandle );
 
 	mpool = osPoolCreate(osPool(mpool));                 // create memory pool
 	MsgBox = osMessageCreate(osMessageQ(MsgBox), NULL);  // create msg queue
@@ -226,7 +226,6 @@ int main(void)
 
 	// use thread safe malloc after this
 	os_started = 1;
-
 
 	osKernelStart();
 
@@ -249,11 +248,11 @@ static void mainThread(void const *argument)
 		const TickType_t xTicksToWait = pdMS_TO_TICKS( 1000 );
 		uint32_t ulNotifiedValue;
 		BaseType_t xResult = xTaskNotifyWait( 0,          /* Don't clear bits on entry. */
-                                   			  0xFFFFFFFF,  /* Clear all bits on exit. */
-                                   			  &ulNotifiedValue, /* Stores the notified value. */
-                                 			  xTicksToWait );
+											  0xFFFFFFFF,  /* Clear all bits on exit. */
+											  &ulNotifiedValue, /* Stores the notified value. */
+											  xTicksToWait );
 
-        if( xResult == pdPASS ) {
+		if( xResult == pdPASS ) {
 			if( ulNotifiedValue & BUTTON_BIT ) {
 				BSP_LED_Toggle(LED3);
 			}
@@ -300,9 +299,9 @@ void setCDCEventFromISR()
 	static BaseType_t xHigherPriorityTaskWoken;
 	xHigherPriorityTaskWoken= pdFALSE;
 
-    vTaskNotifyGiveFromISR( CDCThreadHandle, &xHigherPriorityTaskWoken );
+	vTaskNotifyGiveFromISR( CDCThreadHandle, &xHigherPriorityTaskWoken );
 
-    portYIELD_FROM_ISR( xHigherPriorityTaskWoken );
+	portYIELD_FROM_ISR( xHigherPriorityTaskWoken );
 }
 
 //#define MD5TEST
@@ -312,7 +311,7 @@ static void MDPrint (MD5_CTX *mdContext)
 {
   int i;
   for (i = 0; i < 16; i++){
-  	LCD_UsrLog("%02x", mdContext->digest[i]);
+	LCD_UsrLog("%02x", mdContext->digest[i]);
   }
   LCD_UsrLog("\n");
 }
@@ -342,27 +341,27 @@ static void cdcThread(void const *argument)
 			cnt= 0;
 			LCD_UsrLog("Started MD5\n");
 			continue;
-  		}
-  		if(testing && c == 26) {
-  			testing= false;
+		}
+		if(testing && c == 26) {
+			testing= false;
 			LCD_UsrLog("Ended MD5\n");
 			if(cnt > 0) {
-  				MD5Update (&mdContext, line, cnt);
- 				cnt= 0;
-  			}
+				MD5Update (&mdContext, line, cnt);
+				cnt= 0;
+			}
 			MD5Final (&mdContext);
-  			MDPrint (&mdContext);
-  			continue;
-  		}
+			MDPrint (&mdContext);
+			continue;
+		}
 
 		if(testing) {
 			line[cnt++]= c;
 			if(cnt >= sizeof(line)) {
-  				MD5Update (&mdContext, line, cnt);
-  				cnt= 0;
-  			}
+				MD5Update (&mdContext, line, cnt);
+				cnt= 0;
+			}
 			//LCD_UsrLog("Added %c\n", c);
-  			continue;
+			continue;
 		}
 
 #endif
@@ -558,34 +557,34 @@ static void Timer_Config()
 
 	// setup the stepticker timer interrupt
 
-    /* Compute the prescaler value to have TIM3 counter clock equal to 1Mhz */
-    uwPrescalerValue = (uint32_t) ((SystemCoreClock / 2) / 1000000) - 1;
+	/* Compute the prescaler value to have TIM3 counter clock equal to 1Mhz */
+	uwPrescalerValue = (uint32_t) ((SystemCoreClock / 2) / 1000000) - 1;
 
-    /* Set TIMx instance */
-    StepTickerTimHandle.Instance = STEPTICKER_TIMx;
+	/* Set TIMx instance */
+	StepTickerTimHandle.Instance = STEPTICKER_TIMx;
 
-    /* Initialize TIM3 peripheral as follows:
-         + Period = xxx where 10000/xxx Hz
-         + Prescaler = ((SystemCoreClock/2)/10000) - 1
-         + ClockDivision = 0
-         + Counter direction = Up
-    */
-    StepTickerTimHandle.Init.Period = 10 - 1; // set period to trigger interrupt at 10us or 100KHz
-    StepTickerTimHandle.Init.Prescaler = uwPrescalerValue;
-    StepTickerTimHandle.Init.ClockDivision = 0;
-    StepTickerTimHandle.Init.CounterMode = TIM_COUNTERMODE_UP;
+	/* Initialize TIM3 peripheral as follows:
+		 + Period = xxx where 10000/xxx Hz
+		 + Prescaler = ((SystemCoreClock/2)/10000) - 1
+		 + ClockDivision = 0
+		 + Counter direction = Up
+	*/
+	StepTickerTimHandle.Init.Period = 10 - 1; // set period to trigger interrupt at 10us or 100KHz
+	StepTickerTimHandle.Init.Prescaler = uwPrescalerValue;
+	StepTickerTimHandle.Init.ClockDivision = 0;
+	StepTickerTimHandle.Init.CounterMode = TIM_COUNTERMODE_UP;
 
-    if(HAL_TIM_Base_Init(&StepTickerTimHandle) != HAL_OK) {
-        /* Initialization Error */
-        Error_Handler();
-    }
+	if(HAL_TIM_Base_Init(&StepTickerTimHandle) != HAL_OK) {
+		/* Initialization Error */
+		Error_Handler();
+	}
 
-    /*##-2- Start the TIM Base generation in interrupt mode ####################*/
-    /* Start Channel1 */
-    if(HAL_TIM_Base_Start_IT(&StepTickerTimHandle) != HAL_OK) {
-        /* Starting Error */
-        Error_Handler();
-    }
+	/*##-2- Start the TIM Base generation in interrupt mode ####################*/
+	/* Start Channel1 */
+	if(HAL_TIM_Base_Start_IT(&StepTickerTimHandle) != HAL_OK) {
+		/* Starting Error */
+		Error_Handler();
+	}
 
 
 }
@@ -625,8 +624,8 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 	if(!issueTicks()) {
 		// signal the next block to start, handled in moveCompletedThread
 		BaseType_t xHigherPriorityTaskWoken = pdFALSE;
- 		vTaskNotifyGiveFromISR( moveCompletedThreadHandle, &xHigherPriorityTaskWoken );
- 		portYIELD_FROM_ISR( xHigherPriorityTaskWoken );
+		vTaskNotifyGiveFromISR( moveCompletedThreadHandle, &xHigherPriorityTaskWoken );
+		portYIELD_FROM_ISR( xHigherPriorityTaskWoken );
 	}
 }
 
@@ -661,12 +660,226 @@ void assert_failed(uint8_t *file, uint32_t line)
 }
 #endif
 
-/**
-  * @}
-  */
+// Non volatile storage area in flash
+/* Base address of the Flash sectors Bank 1 */
+#define ADDR_FLASH_SECTOR_0     ((uint32_t)0x08000000) /* Base @ of Sector 0, 16 Kbytes */
+#define ADDR_FLASH_SECTOR_1     ((uint32_t)0x08004000) /* Base @ of Sector 1, 16 Kbytes */
+#define ADDR_FLASH_SECTOR_2     ((uint32_t)0x08008000) /* Base @ of Sector 2, 16 Kbytes */
+#define ADDR_FLASH_SECTOR_3     ((uint32_t)0x0800C000) /* Base @ of Sector 3, 16 Kbytes */
+#define ADDR_FLASH_SECTOR_4     ((uint32_t)0x08010000) /* Base @ of Sector 4, 64 Kbytes */
+#define ADDR_FLASH_SECTOR_5     ((uint32_t)0x08020000) /* Base @ of Sector 5, 128 Kbytes */
+#define ADDR_FLASH_SECTOR_6     ((uint32_t)0x08040000) /* Base @ of Sector 6, 128 Kbytes */
+#define ADDR_FLASH_SECTOR_7     ((uint32_t)0x08060000) /* Base @ of Sector 7, 128 Kbytes */
+#define ADDR_FLASH_SECTOR_8     ((uint32_t)0x08080000) /* Base @ of Sector 8, 128 Kbytes */
+#define ADDR_FLASH_SECTOR_9     ((uint32_t)0x080A0000) /* Base @ of Sector 9, 128 Kbytes */
+#define ADDR_FLASH_SECTOR_10    ((uint32_t)0x080C0000) /* Base @ of Sector 10, 128 Kbytes */
+#define ADDR_FLASH_SECTOR_11    ((uint32_t)0x080E0000) /* Base @ of Sector 11, 128 Kbytes */
+
+/* Base address of the Flash sectors Bank 2 */
+#define ADDR_FLASH_SECTOR_12     ((uint32_t)0x08100000) /* Base @ of Sector 0, 16 Kbytes */
+#define ADDR_FLASH_SECTOR_13     ((uint32_t)0x08104000) /* Base @ of Sector 1, 16 Kbytes */
+#define ADDR_FLASH_SECTOR_14     ((uint32_t)0x08108000) /* Base @ of Sector 2, 16 Kbytes */
+#define ADDR_FLASH_SECTOR_15     ((uint32_t)0x0810C000) /* Base @ of Sector 3, 16 Kbytes */
+#define ADDR_FLASH_SECTOR_16     ((uint32_t)0x08110000) /* Base @ of Sector 4, 64 Kbytes */
+#define ADDR_FLASH_SECTOR_17     ((uint32_t)0x08120000) /* Base @ of Sector 5, 128 Kbytes */
+#define ADDR_FLASH_SECTOR_18     ((uint32_t)0x08140000) /* Base @ of Sector 6, 128 Kbytes */
+#define ADDR_FLASH_SECTOR_19     ((uint32_t)0x08160000) /* Base @ of Sector 7, 128 Kbytes */
+#define ADDR_FLASH_SECTOR_20     ((uint32_t)0x08180000) /* Base @ of Sector 8, 128 Kbytes  */
+#define ADDR_FLASH_SECTOR_21     ((uint32_t)0x081A0000) /* Base @ of Sector 9, 128 Kbytes  */
+#define ADDR_FLASH_SECTOR_22     ((uint32_t)0x081C0000) /* Base @ of Sector 10, 128 Kbytes */
+#define ADDR_FLASH_SECTOR_23     ((uint32_t)0x081E0000) /* Base @ of Sector 11, 128 Kbytes */
 
 /**
-  * @}
+  * @brief  Gets the sector of a given address
+  * @param  None
+  * @retval The sector of a given address
   */
+static uint32_t GetSector(uint32_t Address)
+{
+  uint32_t sector = 0;
+
+  if((Address < ADDR_FLASH_SECTOR_1) && (Address >= ADDR_FLASH_SECTOR_0))
+  {
+	sector = FLASH_SECTOR_0;
+  }
+  else if((Address < ADDR_FLASH_SECTOR_2) && (Address >= ADDR_FLASH_SECTOR_1))
+  {
+	sector = FLASH_SECTOR_1;
+  }
+  else if((Address < ADDR_FLASH_SECTOR_3) && (Address >= ADDR_FLASH_SECTOR_2))
+  {
+	sector = FLASH_SECTOR_2;
+  }
+  else if((Address < ADDR_FLASH_SECTOR_4) && (Address >= ADDR_FLASH_SECTOR_3))
+  {
+	sector = FLASH_SECTOR_3;
+  }
+  else if((Address < ADDR_FLASH_SECTOR_5) && (Address >= ADDR_FLASH_SECTOR_4))
+  {
+	sector = FLASH_SECTOR_4;
+  }
+  else if((Address < ADDR_FLASH_SECTOR_6) && (Address >= ADDR_FLASH_SECTOR_5))
+  {
+	sector = FLASH_SECTOR_5;
+  }
+  else if((Address < ADDR_FLASH_SECTOR_7) && (Address >= ADDR_FLASH_SECTOR_6))
+  {
+	sector = FLASH_SECTOR_6;
+  }
+  else if((Address < ADDR_FLASH_SECTOR_8) && (Address >= ADDR_FLASH_SECTOR_7))
+  {
+	sector = FLASH_SECTOR_7;
+  }
+  else if((Address < ADDR_FLASH_SECTOR_9) && (Address >= ADDR_FLASH_SECTOR_8))
+  {
+	sector = FLASH_SECTOR_8;
+  }
+  else if((Address < ADDR_FLASH_SECTOR_10) && (Address >= ADDR_FLASH_SECTOR_9))
+  {
+	sector = FLASH_SECTOR_9;
+  }
+  else if((Address < ADDR_FLASH_SECTOR_11) && (Address >= ADDR_FLASH_SECTOR_10))
+  {
+	sector = FLASH_SECTOR_10;
+  }
+  else if((Address < ADDR_FLASH_SECTOR_12) && (Address >= ADDR_FLASH_SECTOR_11))
+  {
+	sector = FLASH_SECTOR_11;
+  }
+  else if((Address < ADDR_FLASH_SECTOR_13) && (Address >= ADDR_FLASH_SECTOR_12))
+  {
+	sector = FLASH_SECTOR_12;
+  }
+  else if((Address < ADDR_FLASH_SECTOR_14) && (Address >= ADDR_FLASH_SECTOR_13))
+  {
+	sector = FLASH_SECTOR_13;
+  }
+  else if((Address < ADDR_FLASH_SECTOR_15) && (Address >= ADDR_FLASH_SECTOR_14))
+  {
+	sector = FLASH_SECTOR_14;
+  }
+  else if((Address < ADDR_FLASH_SECTOR_16) && (Address >= ADDR_FLASH_SECTOR_15))
+  {
+	sector = FLASH_SECTOR_15;
+  }
+  else if((Address < ADDR_FLASH_SECTOR_17) && (Address >= ADDR_FLASH_SECTOR_16))
+  {
+	sector = FLASH_SECTOR_16;
+  }
+  else if((Address < ADDR_FLASH_SECTOR_18) && (Address >= ADDR_FLASH_SECTOR_17))
+  {
+	sector = FLASH_SECTOR_17;
+  }
+  else if((Address < ADDR_FLASH_SECTOR_19) && (Address >= ADDR_FLASH_SECTOR_18))
+  {
+	sector = FLASH_SECTOR_18;
+  }
+  else if((Address < ADDR_FLASH_SECTOR_20) && (Address >= ADDR_FLASH_SECTOR_19))
+  {
+	sector = FLASH_SECTOR_19;
+  }
+  else if((Address < ADDR_FLASH_SECTOR_21) && (Address >= ADDR_FLASH_SECTOR_20))
+  {
+	sector = FLASH_SECTOR_20;
+  }
+  else if((Address < ADDR_FLASH_SECTOR_22) && (Address >= ADDR_FLASH_SECTOR_21))
+  {
+	sector = FLASH_SECTOR_21;
+  }
+  else if((Address < ADDR_FLASH_SECTOR_23) && (Address >= ADDR_FLASH_SECTOR_22))
+  {
+	sector = FLASH_SECTOR_22;
+  }
+  else/*(Address < FLASH_END_ADDR) && (Address >= ADDR_FLASH_SECTOR_23))*/
+  {
+	sector = FLASH_SECTOR_23;
+  }
+
+  return sector;
+}
+
+#define FLASH_USER_START_ADDR   ADDR_FLASH_SECTOR_23   /* Start @ of user Flash area */
+#define FLASH_USER_END_ADDR     ADDR_FLASH_SECTOR_23   /* End @ of user Flash area */
+
+/*Variable used for Erase procedure*/
+static FLASH_EraseInitTypeDef EraseInitStruct;
+
+size_t writeFlash(void *buf, size_t len, uint32_t offset)
+{
+	__disable_irq();
+	uint32_t FirstSector = 0, NbOfSectors = 0, Address = 0;
+	uint32_t SectorError = 0;
+	bool stat= true;
+
+	 /* Unlock the Flash to enable the flash control register access *************/
+	HAL_FLASH_Unlock();
+
+	  /* Erase the user Flash area (area defined by FLASH_USER_START_ADDR and FLASH_USER_END_ADDR) ***********/
+
+	/* Get the 1st sector to erase */
+	FirstSector = GetSector(FLASH_USER_START_ADDR);
+	/* Get the number of sector to erase from 1st sector*/
+	NbOfSectors = GetSector(FLASH_USER_END_ADDR) - FirstSector + 1;
+
+	/* Fill EraseInit structure*/
+	EraseInitStruct.TypeErase = FLASH_TYPEERASE_SECTORS;
+	EraseInitStruct.VoltageRange = FLASH_VOLTAGE_RANGE_3;
+	EraseInitStruct.Sector = FirstSector;
+	EraseInitStruct.NbSectors = NbOfSectors;
+
+	/* Note: If an erase operation in Flash memory also concerns data in the data or instruction cache,
+	 you have to make sure that these data are rewritten before they are accessed during code
+	 execution. If this cannot be done safely, it is recommended to flush the caches by setting the
+	 DCRST and ICRST bits in the FLASH_CR register. */
+	if(HAL_FLASHEx_Erase(&EraseInitStruct, &SectorError) == HAL_OK) {
+		/* Program the user Flash area word by word  ***********/
+		Address = FLASH_USER_START_ADDR;
+		for (int i = 0; i < len; i+=4) {
+			uint32_t data= *((uint32_t*)buf);
+			if (HAL_FLASH_Program(FLASH_TYPEPROGRAM_WORD, Address, data) == HAL_OK) {
+		  		Address += 4;
+		  		buf += 4;
+
+			} else {
+				/* Error occurred while writing data in Flash memory.
+				 User can add here some code to deal with this error */
+				/*
+				  FLASH_ErrorTypeDef errorcode = HAL_FLASH_GetError();
+				*/
+				//Error_Handler();
+				stat= false;
+				break;
+			}
+		}
+
+	}else{
+		/*
+		  Error occurred while sector erase.
+		  User can add here some code to deal with this error.
+		  SectorError will contain the faulty sector and then to know the code error on this sector,
+		  user can call function 'HAL_FLASH_GetError()'
+		*/
+		  /*
+			FLASH_ErrorTypeDef errorcode = HAL_FLASH_GetError();
+		  */
+		//Error_Handler();
+		stat= false;
+	}
+
+	/* Lock the Flash to disable the flash control register access (recommended
+	 to protect the FLASH memory against possible unwanted operation) *********/
+	HAL_FLASH_Lock();
+	__enable_irq();
+
+	if(!stat) return 0;
+	return len;
+}
+
+size_t readFlash(void *buf, size_t len, uint32_t offset)
+{
+	// just copy the data
+	memcpy(buf, (void *)(FLASH_USER_START_ADDR+offset), len);
+	return len;
+}
 
 /************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/

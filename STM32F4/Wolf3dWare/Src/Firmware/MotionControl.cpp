@@ -59,6 +59,8 @@ void MotionControl::initialize()
 	THEDISPATCHER.addHandler( Dispatcher::MCODE_HANDLER, 203, std::bind( &MotionControl::handleConfigurations, this, _1) );
 	THEDISPATCHER.addHandler( Dispatcher::MCODE_HANDLER, 220, std::bind( &MotionControl::handleSetSpeedOverride, this, _1) );
 
+	THEDISPATCHER.addHandler( Dispatcher::MCODE_HANDLER, 500, std::bind( &MotionControl::handleSaveConfiguration, this, _1) );
+
 	// create actuators
 	Actuator xactuator('X');
 	Actuator yactuator('Y');
@@ -168,6 +170,22 @@ bool MotionControl::handleSettings(GCode& gc)
 		default: return false;
 	}
 
+	return true;
+}
+
+// M500, M500.3 (M503) save or display configuration
+bool MotionControl::handleSaveConfiguration(GCode& gc)
+{
+	THEDISPATCHER.getOS().printf("M92 ");
+	for(auto& a : actuators) {
+		THEDISPATCHER.getOS().printf("%c%1.4f ", a.getAxis(), a.getMaxSpeed());
+	}
+	THEDISPATCHER.getOS().printf("\n");
+	THEDISPATCHER.getOS().printf("M203 ");
+	for(auto& a : actuators) {
+		THEDISPATCHER.getOS().printf("%c%1.4f ", a.getAxis(), a.getStepsPermm());
+	}
+	THEDISPATCHER.getOS().printf("\n");
 	return true;
 }
 

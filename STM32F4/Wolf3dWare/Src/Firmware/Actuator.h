@@ -59,7 +59,7 @@ private:
 	float axis_ratio;
 	uint32_t last_milestone_steps{0};
 	uint32_t current_step_position{0};
-	HAL_function_t hal_functions[N_HAL_FUNCTIONS] ;
+	HAL_function_t hal_functions[N_HAL_FUNCTIONS];
 	char axis;
 	struct {
 		bool direction:1;

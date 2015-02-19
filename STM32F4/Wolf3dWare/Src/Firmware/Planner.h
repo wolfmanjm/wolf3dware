@@ -34,6 +34,7 @@ private:
     void recalculate();
 
 	bool handleConfigurations(GCode&);
+	bool handleSaveConfiguration(GCode &gc);
 
 	Queue_t lookahead_q;
 	Queue_t ready_q;
