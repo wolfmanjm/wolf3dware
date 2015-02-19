@@ -32,6 +32,7 @@ private:
 	float reversePass(Block &b, float exit_speed);
 	float forwardPass(Block &b, float prev_max_exit_speed);
     void recalculate();
+	bool isSoloMove(const Block& block, char axis);
 
 	bool handleConfigurations(GCode&);
 	bool handleSaveConfiguration(GCode &gc);
@@ -41,9 +42,8 @@ private:
 
     float previous_unit_vec[3];
 
-    float acceleration{2000};
-    float z_acceleration{100};
+    float default_acceleration{2000};
     float junction_deviation{0.05F};
-    float z_junction_deviation{0};
+    float z_junction_deviation{-1};
     float minimum_planner_speed{0};
 };

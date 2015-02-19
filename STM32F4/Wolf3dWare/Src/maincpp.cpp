@@ -34,6 +34,7 @@ uint32_t xdelta= 0;
 static volatile bool move_issued= false;
 // count of ticks missed while setting up next move
 static volatile uint32_t waiting_ticks= 0;
+static uint32_t overflow= 0;
 
 #define __debugbreak()  { __asm volatile ("bkpt #0"); }
 static const bool INVERTPIN=false;
@@ -233,6 +234,7 @@ bool handleCommand(const char *line)
 
 	}else if(strcmp(line, "stats") == 0) {
 		oss << "Worst time: " << xdelta << "uS\nok\n";
+		oss << "worst Overflow: " << overflow << " ticks\nok\n";
 
 	}else{
 		oss << "Unknown command: " << line << "\n";
@@ -261,7 +263,7 @@ extern "C" bool commandLineHandler(const char *line)
 	GCodeProcessor::GCodes_t gcodes= gp.parse(line);
 
 	// dispatch gcode to MotionControl and Planner
-	for(auto i : gcodes) {
+	for(auto& i : gcodes) {
 		if(THEDISPATCHER.dispatch(i)) {
 			// send the result to the place it came from
 			sendReply(THEDISPATCHER.getResult());
@@ -291,6 +293,7 @@ extern "C" bool issueTicks()
 		if(waiting_ticks > 0) waiting_ticks++; // this gets incremented if we are waiting for the next move to get setup
  		return true;
  	}
+ 	if(waiting_ticks > overflow) overflow= waiting_ticks;
 
  	// if we missed some ticks while processing the next move issue them here
  	// if waiting_ticks == 0 then nothing was setup to move so we have not missed any ticks
@@ -325,14 +328,13 @@ extern "C" bool issueTicks()
 }
 
 // run the block change in this thread when signaled
-static uint32_t overflow= 0;
 void moveCompletedThread(void const *argument)
 {
 	for(;;) {
 		// wait until we have something to process
 		uint32_t ulNotifiedValue= ulTaskNotifyTake( pdTRUE, portMAX_DELAY);
 		if(ulNotifiedValue > 0) {
-			if(ulNotifiedValue > 1) overflow++; // NOTE this cannot happen so remove it FIXME
+			//if(ulNotifiedValue > 1) overflow++; // NOTE this cannot happen so remove it FIXME
 
 			// get next block, and setup the next move
 			executeNextBlock();
@@ -357,7 +359,7 @@ extern "C" void tests()
 	GCodeProcessor::GCodes_t gcodes= gp.parse("G1 X100 Y0 E1.0 F6000 G1 X100 Y100 E2.0 G1 X0 Y100 E3.0 G1 X0 Y0 E4.0 G1 X100 Y50 E4.75 M114");
 
 	// dispatch gcode to MotionControl and Planner
-	for(auto i : gcodes) {
+	for(auto& i : gcodes) {
 		if(THEDISPATCHER.dispatch(i)) {
 			// TODO send the result to the place it came from
 			std::cout << THEDISPATCHER.getResult();

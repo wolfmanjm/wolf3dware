@@ -83,6 +83,10 @@ void MotionControl::initialize()
 	zactuator.checkMaxSpeed();
 	eactuator.checkMaxSpeed();
 
+	// set default axis accelerations
+	zactuator.setAcceleration(100);
+	eactuator.setAcceleration(500);
+
 	addActuator(xactuator, true);
 	addActuator(yactuator, true);
 	addActuator(zactuator, true);

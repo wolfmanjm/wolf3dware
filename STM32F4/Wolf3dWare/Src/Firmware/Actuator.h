@@ -20,6 +20,8 @@ public:
 	float getMaxSpeed() const { return max_speed; }
 	void setMaxSpeed(float mr) { max_speed= mr; }
 	bool checkMaxSpeed();
+	void setAcceleration(float a) { acceleration= a; }
+	float getAcceleration() const { return acceleration; }
 
 	std::tuple<bool,uint32_t> stepsToTarget(float target);
 	bool tick(uint32_t current_tick);
@@ -46,7 +48,8 @@ private:
 
 	// configuration settings
 	float steps_per_mm;
-	float max_speed;
+	float max_speed{500}; // mm/sec
+	float acceleration{0}; // mm/sec²
 
 	// one static block for all the instances to share
 	static Block current_block;

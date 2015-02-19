@@ -44,6 +44,18 @@ void Planner::initialize()
 	THEDISPATCHER.addHandler( Dispatcher::MCODE_HANDLER, 500, std::bind( &Planner::handleSaveConfiguration, this, _1) );
 }
 
+// check to see if this axis is the only one moving
+// the steps_to_move must have been set in block
+bool Planner::isSoloMove(const Block& block, char axis)
+{
+	uint8_t ai= THEKERNEL.getMotionControl().getAxisActuator(axis);
+	for(auto i : block.steps_to_move) {
+		if(i != 0 && i != ai) {
+			return false;
+		}
+	}
+	return true;
+}
 
 static uint32_t id = 0;
 bool Planner::plan(const float *last_target, const float *target, int n_axis,  Actuator *actuators, float rate_mms)
@@ -67,28 +79,49 @@ bool Planner::plan(const float *last_target, const float *target, int n_axis,  A
 	// nothing moved
 	if(!move) return false;
 
+	// set if none of the primary axis is moving
+	bool auxilliary_move= false;
+	if(sos > 0.0F){
+		distance = sqrtf( sos );
+
+	} else {
+		// non primary axis move (like extrude)
+		// select the biggest one (usually just E)
+		auto mi= std::max_element(&deltas[0], &deltas[n_axis], [](float a, float b){ return std::abs(a) < std::abs(b); } );
+		distance = *mi;
+		auxilliary_move= true;
+	}
+
 	// this is a HACK FIXME we need to be able to handle n axis properly
 	uint8_t xaxis = THEKERNEL.getMotionControl().getAxisActuator('X');
 	uint8_t yaxis = THEKERNEL.getMotionControl().getAxisActuator('Y');
 	uint8_t zaxis = THEKERNEL.getMotionControl().getAxisActuator('Z');
-	uint8_t eaxis = THEKERNEL.getMotionControl().getAxisActuator('E');
-	if(sos > 0.0F){
-		distance = sqrtf( sos );
-	} else {
-		// non primary axis move (like extrude) FIXME it may not be E if there are other non primary axis
-		distance = deltas[eaxis];
-	}
+	// uint8_t eaxis = THEKERNEL.getMotionControl().getAxisActuator('E');
 
+	// TODO what if we have 4 primary axis? does this become unit_vec[4]?
 	float unit_vec[3] {deltas[xaxis] / distance, deltas[yaxis] / distance, deltas[zaxis] / distance};
+
+	// use default acceleration to start with
+	float acceleration = default_acceleration;
 
 	// Do not move faster than the configured max speed for any axis
 	// downgrade the speed to make it right
+	// also check the acceleration against the axis acceleration, and downgrade if needed
 	for (int i = 0; i < n_axis; ++i) {
 		if(deltas[i] == 0) continue;
-		float max_speed =  actuators[i].getMaxSpeed(); // in mm/sec
+		// adjust speed
+		float max_speed = actuators[i].getMaxSpeed(); // in mm/sec
 		float axis_speed = fabsf((deltas[i]/distance) * rate_mms);
 		if (axis_speed > max_speed) {
 			rate_mms *= ( max_speed / axis_speed );
+		}
+		// adjust acceleration
+		float ma =  actuators[i].getAcceleration(); // in mm/sec²
+		if(ma > 0.0F) {  // if axis does not have acceleration set then it uses the default_acceleration
+			float ca = fabsf((deltas[i]/distance) * acceleration);
+			if (ca > ma) {
+				acceleration *= ( ma / ca );
+			}
 		}
 	}
 
@@ -96,23 +129,14 @@ bool Planner::plan(const float *last_target, const float *target, int n_axis,  A
 	Block block;
 	block.id = id++;
 
+	block.acceleration = acceleration; // save acceleration in block
+
+	// set direction and steps to move for each axis
 	for (int i = 0; i < n_axis; i++) {
 		std::tuple<bool, uint32_t> r = actuators[i].stepsToTarget(target[i]);
 		block.direction.push_back(std::get<0>(r));
 		block.steps_to_move.push_back(labs(std::get<1>(r)));
 	}
-
-	float acceleration = this->acceleration;
-	float junction_deviation = this->junction_deviation;
-
-	// use either regular acceleration or a z only move accleration
-	if(block.steps_to_move[xaxis] == 0 && block.steps_to_move[yaxis] == 0) {
-		// z only move
-		if(this->z_acceleration > 0.0F) acceleration = this->z_acceleration;
-		if(this->z_junction_deviation >= 0.0F) junction_deviation = this->z_junction_deviation;
-	}
-
-	block.acceleration = acceleration; // save in block
 
 	// Max number of steps, for all axis
 	auto mi= std::max_element(block.steps_to_move.begin(), block.steps_to_move.end());
@@ -124,42 +148,60 @@ bool Planner::plan(const float *last_target, const float *target, int n_axis,  A
 	block.nominal_speed = rate_mms;           // (mm/s) Always > 0
 	block.nominal_rate = ceilf(block.steps_event_count * rate_mms / distance); // (step/s) Always > 0
 
-	// Compute maximum allowable entry speed at junction by centripetal acceleration approximation.
-	// Let a circle be tangent to both previous and current path line segments, where the junction
-	// deviation is defined as the distance from the junction to the closest edge of the circle,
-	// colinear with the circle center. The circular segment joining the two paths represents the
-	// path of centripetal acceleration. Solve for max velocity based on max acceleration about the
-	// radius of the circle, defined indirectly by junction deviation. This may be also viewed as
-	// path width or max_jerk in the previous grbl version. This approach does not actually deviate
-	// from path, but used as a robust way to compute cornering speeds, as it takes into account the
-	// nonlinearities of both the junction angle and junction velocity.
+	// default junction deviation
+	float junction_deviation = this->junction_deviation;
 
-	// NOTE however it does not take into account independent axis, in most cartesian X and Y and Z are totally independent
-	// and this allows one to stop with little to no decleration in many cases. This is particualrly bad on leadscrew based systems that will skip steps.
+	// if z_junction_deviation >= 0 and this is a z only move, then set the special z_junction_deviation
+	// we also set unit_vec to zero if z_junction_deviation == 0 so next move starts at zero to
+	if(z_junction_deviation >= 0.0F && isSoloMove(block, 'Z')) {
+		junction_deviation= z_junction_deviation;
+		if(junction_deviation == 0.0F) {
+			memset(unit_vec, 0, sizeof(unit_vec));
+		}
+	}
+
 	float vmax_junction = minimum_planner_speed; // Set default max junction speed
+	if(!auxilliary_move && junction_deviation > 0.0F && (previous_unit_vec[0] != 0.0F || previous_unit_vec[1] != 0.0F || previous_unit_vec[2] != 0.0F)) {
+		// if the primary axis do not move then treat it as if it always starts at 0
+		// if the previous_unit_vec is all zeroes also start at 0
+		// So if this move is a retract, or the previous was a retract then we will start at 0 speed
+		// or if z_junction_deviation is 0 or previous move was solo z and ZJD is 0 then we also start at 0
 
-	if (!lookahead_q.empty()) {
-		float previous_nominal_speed = lookahead_q.front().nominal_speed;
+		// Compute maximum allowable entry speed at junction by centripetal acceleration approximation.
+		// Let a circle be tangent to both previous and current path line segments, where the junction
+		// deviation is defined as the distance from the junction to the closest edge of the circle,
+		// colinear with the circle center. The circular segment joining the two paths represents the
+		// path of centripetal acceleration. Solve for max velocity based on max acceleration about the
+		// radius of the circle, defined indirectly by junction deviation. This may be also viewed as
+		// path width or max_jerk in the previous grbl version. This approach does not actually deviate
+		// from path, but used as a robust way to compute cornering speeds, as it takes into account the
+		// nonlinearities of both the junction angle and junction velocity.
 
-		if (previous_nominal_speed > 0.0F && junction_deviation > 0.0F) {
-			// Compute cosine of angle between previous and current path. (previous_unit_vec is negative)
-			// NOTE: Max junction velocity is computed without sin() or acos() by trig half angle identity.
-			float cos_theta = - previous_unit_vec[0] * unit_vec[0]
-							  - previous_unit_vec[1] * unit_vec[1]
-							  - previous_unit_vec[2] * unit_vec[2] ;
+		// NOTE however it does not take into account independent axis, in most cartesian X and Y and Z are totally independent
+		// and this allows one to stop with little to no decleration in many cases. This is particularly bad on leadscrew based systems that will skip steps.
 
-			// Skip and use default max junction speed for 0 degree acute junction.
-			if (cos_theta < 0.95F) {
-				vmax_junction = std::min(previous_nominal_speed, block.nominal_speed);
-				// Skip and avoid divide by zero for straight junctions at 180 degrees. Limit to min() of nominal speeds.
-				if (cos_theta > -0.95F) {
-					// Compute maximum junction velocity based on maximum acceleration and junction deviation
-					float sin_theta_d2 = sqrtf(0.5F * (1.0F - cos_theta)); // Trig half angle identity. Always positive.
-					vmax_junction = std::min(vmax_junction, sqrtf(acceleration * junction_deviation * sin_theta_d2 / (1.0F - sin_theta_d2)));
+		if (!lookahead_q.empty()) {
+			float previous_nominal_speed = lookahead_q.front().nominal_speed;
+
+			if (previous_nominal_speed > 0.0F) {
+				// Compute cosine of angle between previous and current path. (previous_unit_vec is negative)
+				// NOTE: Max junction velocity is computed without sin() or acos() by trig half angle identity.
+				float cos_theta = - previous_unit_vec[0] * unit_vec[0]
+								  - previous_unit_vec[1] * unit_vec[1]
+								  - previous_unit_vec[2] * unit_vec[2] ;
+
+				// Skip and use default max junction speed for 0 degree acute junction.
+				if (cos_theta < 0.95F) {
+					vmax_junction = std::min(previous_nominal_speed, block.nominal_speed);
+					// Skip and avoid divide by zero for straight junctions at 180 degrees. Limit to min() of nominal speeds.
+					if (cos_theta > -0.95F) {
+						// Compute maximum junction velocity based on maximum acceleration and junction deviation
+						float sin_theta_d2 = sqrtf(0.5F * (1.0F - cos_theta)); // Trig half angle identity. Always positive.
+						vmax_junction = std::min(vmax_junction, sqrtf(acceleration * junction_deviation * sin_theta_d2 / (1.0F - sin_theta_d2)));
+					}
 				}
 			}
 		}
-
 	}
 
 	block.max_entry_speed = vmax_junction;
@@ -480,7 +522,15 @@ void Planner::purge()
 
 bool Planner::handleSaveConfiguration(GCode &gc)
 {
-	THEDISPATCHER.getOS().printf("M204 S%1.4f Z%1.4f\n", acceleration, z_acceleration);
+	THEDISPATCHER.getOS().printf("M204 S%1.4f ", default_acceleration);
+	for(auto& a : THEKERNEL.getMotionControl().getActuators()) {
+		float acc= a.getAcceleration();
+		if(acc > 0.0F) {
+			THEDISPATCHER.getOS().printf("%c%1.4f ", a.getAxis(), acc);
+		}
+	}
+	THEDISPATCHER.getOS().printf("\n");
+
 	THEDISPATCHER.getOS().printf("M205 S%1.4f X%1.4f Z%1.4f\n", minimum_planner_speed, junction_deviation, z_junction_deviation);
 	return true;
 }
@@ -488,13 +538,17 @@ bool Planner::handleSaveConfiguration(GCode &gc)
 bool Planner::handleConfigurations(GCode &gc)
 {
 	switch(gc.getCode()) {
-		case 204: // M204 Snnn - set acceleration to nnn, Znnn sets z acceleration
+		case 204: // M204 Snnn - set default acceleration to nnn, Xnnn sets X acceleration, ... , Znnn sets z acceleration etc
 			if (gc.hasArg('S')) {
-				acceleration = gc.getArg('S');
+				default_acceleration = gc.getArg('S');
 			}
-			if (gc.hasArg('Z')) {
-				z_acceleration = gc.getArg('Z');
+			for(auto& a : THEKERNEL.getMotionControl().getActuators()) {
+				char axis= a.getAxis();
+				if(gc.hasArg(axis)){
+					a.setAcceleration(gc.getArg(axis));
+				}
 			}
+
 			break;
 
 		case 205:  // M205 Xnnn - set junction deviation, Z - set Z junction deviation, S - Minimum planner speed

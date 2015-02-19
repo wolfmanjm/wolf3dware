@@ -28,6 +28,7 @@ public:
 	void setNothingMoving() { moving_mask= 0; }
 
 	Actuator& getActuator(char axis);
+	std::vector<Actuator>& getActuators() { return actuators; }
 
 private:
 	bool handleG0G1(GCode&);
