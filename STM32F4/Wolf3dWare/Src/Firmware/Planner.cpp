@@ -49,8 +49,8 @@ void Planner::initialize()
 bool Planner::isSoloMove(const Block& block, char axis)
 {
 	uint8_t ai= THEKERNEL.getMotionControl().getAxisActuator(axis);
-	for(auto i : block.steps_to_move) {
-		if(i != 0 && i != ai) {
+	for (size_t i = 0; i < block.steps_to_move.size(); ++i) {
+		if(block.steps_to_move[i] != 0 && i != ai) {
 			return false;
 		}
 	}
