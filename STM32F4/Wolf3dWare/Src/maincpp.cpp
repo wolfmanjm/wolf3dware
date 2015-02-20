@@ -45,7 +45,7 @@ using X_DirPin  = GPIO(A, 9,INVERTPIN); // PA9   P1-52
 using X_EnbPin  = GPIO(A,10,INVERTPIN); // PA10  P1-51
 using Y_StepPin = GPIO(B, 4,INVERTPIN); // PB4   P1-25
 using Y_DirPin  = GPIO(B, 7,INVERTPIN); // PB7   P1-24
-using Y_EnbPin  = GPIO(C, 3,INVERTPIN); // PC3   P2-15
+using Y_EnbPin  = GPIO(D, 7,INVERTPIN); // PD7   P1-35
 using Z_StepPin = GPIO(C, 8,INVERTPIN); // PC8   P1-55
 using Z_DirPin  = GPIO(C,11,INVERTPIN); // PC11  P1-44
 using Z_EnbPin  = GPIO(C,12,INVERTPIN); // PC12  P1-43
@@ -53,16 +53,19 @@ using E_StepPin = GPIO(C,13,INVERTPIN); // PC13  P1-12
 using E_DirPin  = GPIO(D, 2,INVERTPIN); // PD2   P1-40
 using E_EnbPin  = GPIO(D, 4,INVERTPIN); // PD4   P1-39
 
-using LED3Pin   = GPIO(G, 13);     // LED3
-using LED4Pin   = GPIO(G, 14);     // LED4
+using LED3Pin   = GPIO(G,13);           // PG13  LED3
+using LED4Pin   = GPIO(G,14);           // PG14  LED4
 
-using TriggerPin= GPIO(D, 5);     // PD5
+using TriggerPin= GPIO(D, 5);           // PD5
 
 // 11 Spare
+// PC3   P2-15 - ADC1-IN13
 //- PD5 P1-37
 // PD7 P1-35
 // PE2 -> PE6 P1-15,P1-16,P1-13,P1-14 ,P1-11
-// PF6 P2-3
+// PE5      - PWM TIM9 PP2 Channel1
+// PE6      - PWM TIM9 PP2 Channel2
+// PF6 P2-3 - ADC3-IN4
 // PG2 P2-62
 // PG3 P2-61
 // PG9 P1-33
@@ -156,8 +159,9 @@ void executeNextBlock()
 	}
 }
 
+// TODO add a task to write responses to host as different tasks may need accesst
 extern "C" bool serial_reply(const char*, size_t);
-void sendReply(const std::string& str)
+static void sendReply(const std::string& str)
 {
 	if(!str.empty()) {
 		if(str.size() < 64) {

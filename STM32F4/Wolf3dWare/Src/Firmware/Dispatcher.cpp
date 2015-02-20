@@ -27,7 +27,7 @@ bool Dispatcher::dispatch(GCode& gc)
 	}
 
 	// special case is M500 - M503
-	if(gc.getCode() >= 500 && gc.getCode() <= 503) {
+	if(gc.hasM() && gc.getCode() >= 500 && gc.getCode() <= 503) {
 		ret= handleConfigurationCommands(gc);
 	}
 

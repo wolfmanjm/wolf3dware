@@ -44,4 +44,7 @@ public:
 	}
 };
 
+// Use this macro to define a pin, Port is A-G pin is 0-31, the
+// optional 3rd parameter is true to invert the pin, default is false not
+// inverted
 #define GPIO(PORT,PIN,...) GPIOPin<GPIO_PORT_##PORT, GPIO_PIN_##PIN, RCC_AHB1ENR_GPIO##PORT##EN, ##__VA_ARGS__>;
