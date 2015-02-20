@@ -241,7 +241,7 @@ bool serial_reply(const char *buf, size_t len)
 }
 
 extern bool host_connected;
-extern void testGpio();
+extern bool testGpio();
 static void mainThread(void const *argument)
 {
 	while(1) {

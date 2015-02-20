@@ -39,24 +39,24 @@ static uint32_t overflow= 0;
 #define __debugbreak()  { __asm volatile ("bkpt #0"); }
 static const bool INVERTPIN=false;
 
-// define specific pins, test 3rd parameter to true if inverted
-using X_StepPin = GPIOPin<GPIO_PORT_A,GPIO_PIN_5,INVERTPIN>; 	// PA5   P2-21
-using X_DirPin  = GPIOPin<GPIO_PORT_A,GPIO_PIN_9,INVERTPIN>;    // PA9   P1-52
-using X_EnbPin  = GPIOPin<GPIO_PORT_A,GPIO_PIN_10,INVERTPIN>;   // PA10  P1-51
-using Y_StepPin = GPIOPin<GPIO_PORT_B,GPIO_PIN_4,INVERTPIN>; 	// PB4   P1-25
-using Y_DirPin  = GPIOPin<GPIO_PORT_B,GPIO_PIN_7,INVERTPIN>;    // PB7   P1-24
-using Y_EnbPin  = GPIOPin<GPIO_PORT_C,GPIO_PIN_3,INVERTPIN>;    // PC3   P2-15
-using Z_StepPin = GPIOPin<GPIO_PORT_C,GPIO_PIN_8,INVERTPIN>; 	// PC8   P1-55
-using Z_DirPin  = GPIOPin<GPIO_PORT_C,GPIO_PIN_11,INVERTPIN>;   // PC11  P1-44
-using Z_EnbPin  = GPIOPin<GPIO_PORT_C,GPIO_PIN_12,INVERTPIN>;   // PC12  P1-43
-using E_StepPin = GPIOPin<GPIO_PORT_C,GPIO_PIN_13,INVERTPIN>;   // PC13  P1-12
-using E_DirPin  = GPIOPin<GPIO_PORT_D,GPIO_PIN_2,INVERTPIN>;    // PD2   P1-40
-using E_EnbPin  = GPIOPin<GPIO_PORT_D,GPIO_PIN_4,INVERTPIN>;    // PD4   P1-39
+// define specific pins, set 3rd parameter to true if inverted
+using X_StepPin = GPIO(A, 5,INVERTPIN);	// PA5   P2-21
+using X_DirPin  = GPIO(A, 9,INVERTPIN); // PA9   P1-52
+using X_EnbPin  = GPIO(A,10,INVERTPIN); // PA10  P1-51
+using Y_StepPin = GPIO(B, 4,INVERTPIN); // PB4   P1-25
+using Y_DirPin  = GPIO(B, 7,INVERTPIN); // PB7   P1-24
+using Y_EnbPin  = GPIO(C, 3,INVERTPIN); // PC3   P2-15
+using Z_StepPin = GPIO(C, 8,INVERTPIN); // PC8   P1-55
+using Z_DirPin  = GPIO(C,11,INVERTPIN); // PC11  P1-44
+using Z_EnbPin  = GPIO(C,12,INVERTPIN); // PC12  P1-43
+using E_StepPin = GPIO(C,13,INVERTPIN); // PC13  P1-12
+using E_DirPin  = GPIO(D, 2,INVERTPIN); // PD2   P1-40
+using E_EnbPin  = GPIO(D, 4,INVERTPIN); // PD4   P1-39
 
-using LED3Pin   = GPIOPin<GPIO_PORT_G,GPIO_PIN_13>;     // LED3
-using LED4Pin   = GPIOPin<GPIO_PORT_G,GPIO_PIN_14>;     // LED4
+using LED3Pin   = GPIO(G, 13);     // LED3
+using LED4Pin   = GPIO(G, 14);     // LED4
 
-using TriggerPin= GPIOPin<GPIO_PORT_D,GPIO_PIN_5>;      // PD5
+using TriggerPin= GPIO(D, 5);     // PD5
 
 // 11 Spare
 //- PD5 P1-37
@@ -69,56 +69,31 @@ using TriggerPin= GPIOPin<GPIO_PORT_D,GPIO_PIN_5>;      // PD5
 
 static void initializePins()
 {
-	// There maybe a better way to do this it is a little inconvenient this way
+	// set pins to output, and initially low
+	X_StepPin::output(false);
+	X_DirPin::output(false);
+	X_EnbPin::output(false);
+	Y_StepPin::output(false);
+	Y_DirPin::output(false);
+	Y_EnbPin::output(false);
+	Z_StepPin::output(false);
+	Z_DirPin::output(false);
+	Z_EnbPin::output(false);
+	E_StepPin::output(false);
+	E_DirPin::output(false);
+	E_EnbPin::output(false);
 
-	GPIO_InitTypeDef  GPIO_InitStruct;
+	TriggerPin::output(false);
 
-  	/* Enable the GPIO Clocks */
-	__GPIOA_CLK_ENABLE();
-	__GPIOB_CLK_ENABLE();
-	__GPIOC_CLK_ENABLE();
-	__GPIOD_CLK_ENABLE();
-
-	/* Configure the GPIO pins for output */
-	GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-	GPIO_InitStruct.Pull = GPIO_PULLUP;
-	GPIO_InitStruct.Speed = GPIO_SPEED_FAST;
-
-	// PA
-	GPIO_InitStruct.Pin = GPIO_PIN_5|GPIO_PIN_9|GPIO_PIN_10;
-	HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
-	// PB
-	GPIO_InitStruct.Pin = GPIO_PIN_4|GPIO_PIN_7;
-	HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
-	// PC
-	GPIO_InitStruct.Pin = GPIO_PIN_3|GPIO_PIN_8|GPIO_PIN_11|GPIO_PIN_12|GPIO_PIN_13;
-	HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
-	// PD
-	GPIO_InitStruct.Pin = GPIO_PIN_2|GPIO_PIN_4|GPIO_PIN_5;
-	HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
-
-	// init all to low
-	// HAL_GPIO_WritePin(GPIO_PORT[Led], GPIO_PIN[Led], GPIO_PIN_RESET);
-	{X_StepPin::set(false);}
-	{X_DirPin::set(false);}
-	{X_EnbPin::set(false);}
-	{Y_StepPin::set(false);}
-	{Y_DirPin::set(false);}
-	{Y_EnbPin::set(false);}
-	{Z_StepPin::set(false);}
-	{Z_DirPin::set(false);}
-	{Z_EnbPin::set(false);}
-	{E_StepPin::set(false);}
-	{E_DirPin::set(false);}
-	{E_EnbPin::set(false);}
-	{TriggerPin::set(false);}
+	//LED4Pin::output(false);
 }
 
-extern "C" void testGpio()
+extern "C" bool testGpio()
 {
 	static bool tog= false;
 	LED4Pin::set(tog);
 	tog= !tog;
+	return LED4Pin::get();
 }
 
 extern "C" size_t writeFlash(void *, size_t, uint32_t);
