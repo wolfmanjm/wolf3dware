@@ -233,8 +233,9 @@ bool handleCommand(const char *line)
 		oss << "ok\n";
 
 	}else if(strcmp(line, "stats") == 0) {
-		oss << "Worst time: " << xdelta << "uS\nok\n";
-		oss << "worst Overflow: " << overflow << " ticks\nok\n";
+		oss << "Worst time: " << xdelta << "uS\n";
+		oss << "worst overflow: " << overflow << " ticks\n";
+		oss << "ok\n";
 
 	}else{
 		oss << "Unknown command: " << line << "\n";

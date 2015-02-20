@@ -280,7 +280,7 @@ void MotionControl::resetAxisPosition(char axis, float pos){
 bool MotionControl::issueMove(const Block& block)
 {
 	Actuator::setCurrentBlock(block); // copies it to the static instance that each Actuator shares (saves memory)
-	moving_mask= 0;
+	//moving_mask= 0; // this could be used to optimize a bit
 	auto i= std::max_element(block.steps_to_move.begin(), block.steps_to_move.end());
 	float inv= 1.0F / *i ;
 	for (size_t i = 0; i < block.steps_to_move.size(); ++i) {
@@ -288,9 +288,10 @@ bool MotionControl::issueMove(const Block& block)
 		if(steps == 0) continue;
 		//std::cout << "moving axis: " << actuators[i].getAxis() << "by " << steps << " steps\n";
 		actuators[i].move(block.direction[i], steps, steps*inv);
-		moving_mask |= (1<<i);
+		//moving_mask |= (1<<i);
 	}
-	return moving_mask != 0;
+	//return moving_mask != 0;
+	return true;
 }
 
 // runs in ISR context

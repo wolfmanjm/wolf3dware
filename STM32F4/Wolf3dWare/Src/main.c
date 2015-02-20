@@ -254,12 +254,12 @@ static void mainThread(void const *argument)
 
 		if( xResult == pdPASS ) {
 			if( ulNotifiedValue & BUTTON_BIT ) {
-				BSP_LED_Toggle(LED3);
+				BSP_LED_Toggle(LED4);
 			}
 			LCD_UsrLog("stepticker: %lu us\n", delta_time);
 		} else {
-			//BSP_LED_Toggle(LED4);
-			testGpio();
+			BSP_LED_Toggle(LED3);
+			//testGpio();
 			// static bool last_connect_status= false;
 			// if(!host_connected && last_connect_status) {
 			// 	last_connect_status= false;
@@ -636,6 +636,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
   */
 static void Error_Handler(void)
 {
+	BSP_LED_Toggle(LED4);
 	__debugbreak();
 	while(1) {
 	}
