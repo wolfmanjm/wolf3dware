@@ -27,7 +27,7 @@
 static ADC_HandleTypeDef    AdcHandle;
 
 /* Variable used to get converted value */
-__IO uint16_t uhADCxConvertedValue = 0;
+__IO uint16_t uhADCxConvertedValue[8];
 
 #define __debugbreak()  { __asm volatile ("bkpt #0"); }
 static void Error_Handler(void)
@@ -66,7 +66,7 @@ void InitializeADC()
 	/*##-2- Configure ADC regular channel ######################################*/
 	sConfig.Channel = ADCx_CHANNEL;
 	sConfig.Rank = 1;
-	sConfig.SamplingTime = ADC_SAMPLETIME_480CYCLES; // ADC_SAMPLETIME_3CYCLES; 144 is 7.4us/sample, 480 is 23.4us/sample
+	sConfig.SamplingTime = ADC_SAMPLETIME_480CYCLES; //  144 is 7.4us/sample, 480 is 23.4us/sample
 	sConfig.Offset = 0;
 
 	if(HAL_ADC_ConfigChannel(&AdcHandle, &sConfig) != HAL_OK) {
@@ -75,24 +75,11 @@ void InitializeADC()
 	}
 
 	/*##-3- Start the conversion process and enable interrupt ##################*/
-	if(HAL_ADC_Start_DMA(&AdcHandle, (uint32_t *)&uhADCxConvertedValue, 1) != HAL_OK) {
+	if(HAL_ADC_Start_DMA(&AdcHandle, (uint32_t *)&uhADCxConvertedValue[0], 8) != HAL_OK) {
 		/* Start Conversation Error */
 		Error_Handler();
 	}
 
-}
-
-/**
-  * @brief  Conversion complete callback in non blocking mode
-  * @param  AdcHandle : AdcHandle handle
-  * @note   This example shows a simple way to report end of conversion, and
-  *         you can add your own implementation.
-  * @retval None
-  */
-void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *AdcHandle)
-{
-	/* Turn LED3 on: Transfer process is correct */
-	//BSP_LED_On(LED3);
 }
 
 /**
@@ -131,8 +118,8 @@ void HAL_ADC_MspInit(ADC_HandleTypeDef *hadc)
 	hdma_adc.Init.Direction = DMA_PERIPH_TO_MEMORY;
 	hdma_adc.Init.PeriphInc = DMA_PINC_DISABLE;
 	hdma_adc.Init.MemInc = DMA_MINC_ENABLE;
-	hdma_adc.Init.PeriphDataAlignment = DMA_PDATAALIGN_WORD;
-	hdma_adc.Init.MemDataAlignment = DMA_MDATAALIGN_WORD;
+	hdma_adc.Init.PeriphDataAlignment = DMA_PDATAALIGN_HALFWORD;
+	hdma_adc.Init.MemDataAlignment = DMA_MDATAALIGN_HALFWORD;
 	hdma_adc.Init.Mode = DMA_CIRCULAR;
 	hdma_adc.Init.Priority = DMA_PRIORITY_MEDIUM;
 	hdma_adc.Init.FIFOMode = DMA_FIFOMODE_DISABLE;
@@ -191,13 +178,30 @@ extern uint32_t start_time();
 extern uint32_t stop_time();
 void ADCx_DMA_IRQHandler(void)
 {
+	// if(time_cnt++ == 0) adc_start= start_time();
+	// else if(time_cnt >= 100){
+	// 	adc_ave_time= stop_time() - adc_start;
+	// 	time_cnt= 0;
+	// }
+
+	HAL_DMA_IRQHandler(AdcHandle.DMA_Handle);
+
+}
+
+/**
+  * @brief  Conversion complete callback in non blocking mode
+  * @param  AdcHandle : AdcHandle handle
+  * @note   This example shows a simple way to report end of conversion, and
+  *         you can add your own implementation.
+  * @retval None
+  */
+void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *AdcHandle)
+{
+	/* Turn LED3 on: Transfer process is correct */
+	//BSP_LED_On(LED3);
 	if(time_cnt++ == 0) adc_start= start_time();
 	else if(time_cnt >= 100){
 		adc_ave_time= stop_time() - adc_start;
 		time_cnt= 0;
 	}
-
-
-	HAL_DMA_IRQHandler(AdcHandle.DMA_Handle);
-
 }

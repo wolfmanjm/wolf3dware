@@ -250,7 +250,7 @@ bool serial_reply(const char *buf, size_t len)
 	return n == len;
 }
 
-extern __IO uint16_t uhADCxConvertedValue;
+extern __IO uint16_t uhADCxConvertedValue[];
 extern bool host_connected;
 extern bool testGpio();
 static void mainThread(void const *argument)
@@ -268,8 +268,10 @@ static void mainThread(void const *argument)
 				BSP_LED_Toggle(LED4);
 			}
 			//LCD_UsrLog("stepticker: %lu us\n", delta_time);
-			LCD_UsrLog("ADC: %u\n", uhADCxConvertedValue);
-			LCD_UsrLog("ADC time: %lu\n", adc_ave_time);
+			for (int i = 0; i < 8; ++i) {
+				LCD_UsrLog("%u,", uhADCxConvertedValue[i]);
+			}
+			LCD_UsrLog("\nADC time: %lu\n", adc_ave_time);
 
 		} else {
 			BSP_LED_Toggle(LED3);
