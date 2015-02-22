@@ -21,6 +21,7 @@
 #include <assert.h>
 #include <malloc.h>
 #include <string.h>
+#include <algorithm>
 
 using namespace std;
 
@@ -97,6 +98,21 @@ extern "C" bool testGpio()
 	LED4Pin::set(tog);
 	tog= !tog;
 	return LED4Pin::get();
+}
+
+// example of reading the DMA filled ADC buffer and taking the 4 middle values as average
+extern __IO uint16_t uhADCxConvertedValue[];
+uint16_t readADC()
+{
+	// grap the dma buffer
+	std::deque<uint16_t> buf(uhADCxConvertedValue, uhADCxConvertedValue+8);
+	// sort
+  	std::sort (buf.begin(), buf.end());
+  	// eliminate first and last two
+  	buf.pop_back(); buf.pop_back();
+  	buf.pop_front(); buf.pop_front();
+  	uint16_t sum= std::accumulate(buf.begin(), buf.end(), 0);
+  	return roundf(sum/4.0F); // return the average
 }
 
 extern "C" size_t writeFlash(void *, size_t, uint32_t);
@@ -215,6 +231,10 @@ bool handleCommand(const char *line)
 		oss << "Worst time: " << xdelta << "uS\n";
 		oss << "worst overflow: " << overflow << " ticks\n";
 		oss << "ok\n";
+
+	}else if(strcmp(line, "adc") == 0) {
+		uint16_t adc= readADC();
+		oss << adc << "\nok\n";
 
 	}else{
 		oss << "Unknown command: " << line << "\n";

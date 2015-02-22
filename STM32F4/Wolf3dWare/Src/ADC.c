@@ -199,9 +199,39 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *AdcHandle)
 {
 	/* Turn LED3 on: Transfer process is correct */
 	//BSP_LED_On(LED3);
+	// gets called every 185.5 us
 	if(time_cnt++ == 0) adc_start= start_time();
 	else if(time_cnt >= 100){
 		adc_ave_time= stop_time() - adc_start;
 		time_cnt= 0;
 	}
 }
+/*
+From http://stm32f4-discovery.com/2014/04/library-06-ad-converter-on-stm32f4xx/
+
+CHANNEL 		ADC1	ADC2	ADC3
+APB				2		2		2
+ADC Channel 0	PA0		PA0		PA0
+ADC Channel 1	PA1		PA1		PA1
+ADC Channel 2	PA2		PA2		PA2
+ADC Channel 3	PA3		PA3		PA3
+ADC Channel 4	PA4		PA4		PF6
+ADC Channel 5	PA5		PA5		PF7
+ADC Channel 6	PA6		PA6		PF8
+ADC Channel 7	PA7		PA7		PF9
+ADC Channel 8	PB0		PB0		PF10
+ADC Channel 9	PB1		PB1		PF3
+ADC Channel 10	PC0		PC0		PC0
+ADC Channel 11	PC1		PC1		PC1
+ADC Channel 12	PC2		PC2		PC2
+ADC Channel 13	PC3		PC3		PC3
+ADC Channel 14	PC4		PC4		PF4
+ADC Channel 15	PC5		PC5		PF5
+
+
+Table 3. DMA2 request mapping
+http://www.st.com/web/en/resource/technical/document/application_note/DM00046011.pdf
+page 9
+
+
+*/
