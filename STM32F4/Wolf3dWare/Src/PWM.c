@@ -18,13 +18,13 @@ static void Error_Handler(void)
 	}
 }
 
-void setPWM(int channel, float percent)
+void setPWM(uint8_t channel, uint8_t percent)
 {
 	// percentage of 1KHz
 	uint16_t p= (1000.0F * percent/100.0) + 0.5F;
 	switch(channel) {
-		case 1: TIMx->CCR1 = p; break;
-		case 2: TIMx->CCR2 = p; break;
+		case 0: TIMx->CCR1 = p; break;
+		case 1: TIMx->CCR2 = p; break;
 	}
 }
 

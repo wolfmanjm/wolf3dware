@@ -27,13 +27,21 @@
 static ADC_HandleTypeDef    AdcHandle;
 
 /* Variable used to get converted value */
-__IO uint16_t uhADCxConvertedValue[8];
+uint16_t uhADCxConvertedValue[8];
 
 #define __debugbreak()  { __asm volatile ("bkpt #0"); }
 static void Error_Handler(void)
 {
 	__debugbreak();
 	while(1) {
+	}
+}
+
+uint16_t* getADC(uint8_t ch)
+{
+	switch(ch) {
+		case 0: return uhADCxConvertedValue;
+		default: return 0;
 	}
 }
 

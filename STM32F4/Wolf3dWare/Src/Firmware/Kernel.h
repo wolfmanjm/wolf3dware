@@ -46,5 +46,6 @@ private:
 	MotionControl *motion_control;
 	Planner *planner;
 	GCodeProcessor *gcode_processor;
+
     HAL_function_t hal_functions[N_HAL_FUNCTIONS];
 };

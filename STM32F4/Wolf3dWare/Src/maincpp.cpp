@@ -6,6 +6,8 @@
 #include "Firmware/Block.h"
 #include "Firmware/Planner.h"
 #include "Firmware/Actuator.h"
+#include "Firmware/Tools/TemperatureControl.h"
+#include "Firmware/Tools/Thermistor.h"
 
 #include "Lock.h"
 #include "GPIO.h"
@@ -27,6 +29,8 @@ using namespace std;
 
 // global
 SemaphoreHandle_t READY_Q_MUTEX;
+SemaphoreHandle_t TEMPERATURE_MUTEX;
+
 bool execute_mode= false;
 uint32_t xdelta= 0;
 
@@ -104,7 +108,7 @@ extern "C" bool testGpio()
 extern __IO uint16_t uhADCxConvertedValue[];
 uint16_t readADC()
 {
-	// grap the dma buffer
+	// grab the dma buffer
 	std::deque<uint16_t> buf(uhADCxConvertedValue, uhADCxConvertedValue+8);
 	// sort
   	std::sort (buf.begin(), buf.end());
@@ -117,12 +121,15 @@ uint16_t readADC()
 
 extern "C" size_t writeFlash(void *, size_t, uint32_t);
 extern "C" size_t readFlash(void *, size_t, uint32_t);
+extern "C" void setPWM(uint8_t channel, uint8_t percent);
+extern "C"  uint16_t* getADC(uint8_t ch);
 
 extern "C" void moveCompletedThread(void const *argument);
 
 extern "C" int maincpp()
 {
 	READY_Q_MUTEX= xSemaphoreCreateMutex();
+	TEMPERATURE_MUTEX= xSemaphoreCreateMutex();
 
 	// creates Kernel singleton and other singletons and Initializes MotionControl
 	MotionControl& mc= THEKERNEL.getMotionControl();
@@ -151,6 +158,21 @@ extern "C" int maincpp()
 	mc.getActuator('E').assignHALFunction(Actuator::SET_STEP, [](bool on)  { E_StepPin::set(on); });
 	mc.getActuator('E').assignHALFunction(Actuator::SET_DIR, [](bool on)   { E_DirPin::set(on); });
 	mc.getActuator('E').assignHALFunction(Actuator::SET_ENABLE, [](bool on){ E_EnbPin::set(on);  });
+
+	// Setup the Temperature Control and sensors
+	static Thermistor thermistor0(0);
+	thermistor0.assignHALFunction(Thermistor::GET_ADC, getADC);
+
+	// static Thermistor thermistor1(1);
+	// thermistor1.assignHALFunction(Thermistor::GET_ADC, getADC);
+
+	static TemperatureControl tc("T", 0, thermistor0);
+	tc.assignHALFunction(TemperatureControl::SET_PWM, setPWM);
+	tc.initialize();
+
+	// static TemperatureControl bc("B", 1, thermistor1);
+	// bc.assignHALFunction(TemperatureControl::SET_PWM, setPWM);
+	// bc.initialize();
 
 	move_issued= false;
 	waiting_ticks= 0;
