@@ -58,6 +58,7 @@ void MotionControl::initialize()
 	THEDISPATCHER.addHandler( Dispatcher::MCODE_HANDLER, 114, std::bind( &MotionControl::handleGetPosition, this, _1) );
 	THEDISPATCHER.addHandler( Dispatcher::MCODE_HANDLER, 203, std::bind( &MotionControl::handleConfigurations, this, _1) );
 	THEDISPATCHER.addHandler( Dispatcher::MCODE_HANDLER, 220, std::bind( &MotionControl::handleSetSpeedOverride, this, _1) );
+	THEDISPATCHER.addHandler( Dispatcher::MCODE_HANDLER, 400, std::bind( &MotionControl::handleWaitForMoves, this, _1) );
 
 	THEDISPATCHER.addHandler( Dispatcher::MCODE_HANDLER, 500, std::bind( &MotionControl::handleSaveConfiguration, this, _1) );
 
@@ -114,6 +115,25 @@ bool MotionControl::handleEnable(GCode& gc)
 			}else return false;
 			break;
 	}
+	return true;
+}
+
+void MotionControl::waitForMoves()
+{
+	// Wait for the queue to empty
+	THEKERNEL.getPlanner().moveAllToReady();
+
+	// block until we are told the queue is empty
+	// FIXME this is the dumb way to do it
+	while(!THEKERNEL.getPlanner().getReadyQueue().empty()) {
+		THEKERNEL.delay(100);
+	}
+}
+
+// M400
+bool MotionControl::handleWaitForMoves(GCode& gc)
+{
+	waitForMoves();
 	return true;
 }
 

@@ -33,6 +33,8 @@ public:
         NV_INIT,
         NV_WRITE,
         NV_READ,
+        // Task/Thread delay/suspend for n milliseconds
+        DELAY,
 
         N_HAL_FUNCTIONS
     };
@@ -41,6 +43,7 @@ public:
 
     size_t nonVolatileWrite(void *buf, size_t len, uint32_t offset) { return hal_functions[NV_WRITE] ? hal_functions[NV_WRITE](buf, len, offset) : 0;  }
     size_t nonVolatileRead(void *buf, size_t len, uint32_t offset) { return hal_functions[NV_READ] ? hal_functions[NV_READ](buf, len, offset) : 0; }
+    void delay(uint32_t ms) { if(hal_functions[DELAY]) hal_functions[DELAY](nullptr, 0, ms); }
 
 private:
 	MotionControl *motion_control;

@@ -7,6 +7,7 @@
 #include "../Kernel.h"
 #include "../Dispatcher.h"
 #include "../GCode.h"
+#include "../MotionControl.h"
 
 #include <math.h>
 
@@ -28,14 +29,6 @@ TemperatureControl::~TemperatureControl()
 	if(read_temperature_timer_handle != nullptr)
 		xTimerDelete(read_temperature_timer_handle, 10);
 }
-
-// void TemperatureControl::on_main_loop(void *argument)
-// {
-// 	if (this->min_temp_violated) {
-// 		THEKERNEL->streams->printf("Error: MINTEMP triggered. Check your temperature sensors!\n");
-// 		this->min_temp_violated = false;
-// 	}
-// }
 
 // required so we can marshall the method for the callback
 void temperatureTimerCallback( TimerHandle_t pxTimer )
@@ -148,7 +141,7 @@ bool TemperatureControl::onGcodeReceived(GCode& gc)
 			// get or save any sensor specific optional values
 			TempSensor::sensor_options_t options;
 			if(sensor.getOptional(options) && !options.empty()) {
-				THEDISPATCHER.getOS().printf(";Optional temp sensor specific settings:\nM305 S%d", pool_index);
+				THEDISPATCHER.getOS().printf("M305 S%d", pool_index);
 				for(auto &i : options) {
 					THEDISPATCHER.getOS().printf(" %c%1.18f", i.first, i.second);
 				}
@@ -160,12 +153,11 @@ bool TemperatureControl::onGcodeReceived(GCode& gc)
 	}
 
 	if( ( gc.getCode() == 104 || gc.getCode() == 109 ) && gc.hasArg('S')) {
-		// this only gets handled if it is not controlled by the tool manager or is active in the toolmanager
 		active = true;
-
 		if(active) {
-			// TODO required so temp change happens in order need to wait on a barrier/rendevous
-			//THEKERNEL->conveyor->wait_for_empty_queue();
+			// required so temp change happens in order
+			// this waits until all the previous moves have completed
+			THEKERNEL.getMotionControl().waitForMoves();
 
 			float v = gc.getArg('S');
 			setDesiredTemperature(v);
@@ -176,8 +168,7 @@ bool TemperatureControl::onGcodeReceived(GCode& gc)
 					// this gets sent immediately
 					//THEKERNEL.OOBPrintf("%s:%3.1f /%3.1f @%d\n", designator.c_str(), get_temperature(), ((target_temperature == 0) ? 0.0F : target_temperature), pwm_out);
 					// wait 1 second
-					const TickType_t xDelay = pdMS_TO_TICKS( 1000 );
-					vTaskDelay( xDelay );
+					THEKERNEL.delay(1000);
 				}
 			}
 		}
@@ -221,12 +212,15 @@ void TemperatureControl::readTemperatureTick()
 
 	if(std::isinf(temperature)) {
 		// temperature read error
-		min_temp_violated = true;
-		target_temperature = 0;
-		pwm_out= 0;
-		if(!readonly) {
-			// turn heater off
-			setPWM(pool_index, 0);
+		if(!min_temp_violated) {
+			//THEKERNEL.OOBPrintf("Error: MINTEMP triggered. Check your temperature sensors!\n");
+			min_temp_violated = true;
+			target_temperature = 0;
+			pwm_out= 0;
+			if(!readonly) {
+				// turn heater off
+				setPWM(pool_index, 0);
+			}
 		}
 
 	}else if(target_temperature > 0) {

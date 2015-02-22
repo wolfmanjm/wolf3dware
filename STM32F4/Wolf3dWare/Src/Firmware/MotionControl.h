@@ -24,6 +24,8 @@ public:
 	bool isPrimaryAxis(uint8_t i) const { return primary_axis[i]; }
 	bool issueMove(const Block& block);
 	bool issueTicks(uint32_t current_tick);
+	void waitForMoves();
+
 	// bool isAnythingMoving() const { return moving_mask != 0; }
 	// void setNothingMoving() { moving_mask= 0; }
 
@@ -39,6 +41,7 @@ private:
 	bool handleEnable(GCode& gc);
 	bool handleConfigurations(GCode& gc);
 	bool handleSaveConfiguration(GCode& gc);
+	bool handleWaitForMoves(GCode& gc);
 
 	float toMillimeters( float value ){ return this->inch_mode ? value * 25.4F : value; }
 	float fromMillimeters(float value){ return this->inch_mode ? value / 25.4F : value; }

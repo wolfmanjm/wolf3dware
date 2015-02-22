@@ -55,20 +55,6 @@
 
 USBD_HandleTypeDef USBD_Device;
 
-/** @addtogroup STM32F4xx_HAL_Examples
-  * @{
-  */
-
-/** @addtogroup GPIO_EXTI
-  * @{
-  */
-
-/* Private typedef -----------------------------------------------------------*/
-/* Private define ------------------------------------------------------------*/
-/* Private macro -------------------------------------------------------------*/
-/* Private variables ---------------------------------------------------------*/
-/* Private function prototypes -----------------------------------------------*/
-
 osThreadId MainThreadHandle;
 
 // reads lins from CDC
@@ -314,9 +300,7 @@ void setCDCEventFromISR()
 {
 	static BaseType_t xHigherPriorityTaskWoken;
 	xHigherPriorityTaskWoken= pdFALSE;
-
 	vTaskNotifyGiveFromISR( CDCThreadHandle, &xHigherPriorityTaskWoken );
-
 	portYIELD_FROM_ISR( xHigherPriorityTaskWoken );
 }
 

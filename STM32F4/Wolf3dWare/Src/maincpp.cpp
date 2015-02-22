@@ -119,6 +119,13 @@ uint16_t readADC()
   	return roundf(sum/4.0F); // return the average
 }
 
+static size_t doDelay(void *, size_t, uint32_t ms)
+{
+	const TickType_t xDelay = pdMS_TO_TICKS(ms);
+	vTaskDelay( xDelay );
+	return 0;
+}
+
 extern "C" size_t writeFlash(void *, size_t, uint32_t);
 extern "C" size_t readFlash(void *, size_t, uint32_t);
 extern "C" void setPWM(uint8_t channel, uint8_t percent);
@@ -138,6 +145,9 @@ extern "C" int maincpp()
 	//THEKERNEL.assignHALFunction(Kernel::NV_INIT, [](void*,size_t)  { HAL_FLASH_INIT(); });
 	THEKERNEL.assignHALFunction(Kernel::NV_WRITE, writeFlash);
 	THEKERNEL.assignHALFunction(Kernel::NV_READ, readFlash);
+
+	// also a HAL independent task delay
+	THEKERNEL.assignHALFunction(Kernel::DELAY, doDelay);
 
 	// initialize Kernel and its modules
 	THEKERNEL.initialize();
