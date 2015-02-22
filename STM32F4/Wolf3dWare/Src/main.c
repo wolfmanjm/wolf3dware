@@ -104,6 +104,7 @@ static void Timer_Config(void);
 TIM_HandleTypeDef PerformanceTimHandle;
 TIM_HandleTypeDef StepTickerTimHandle;
 volatile uint32_t delta_time= 0;
+extern volatile uint32_t adc_ave_time;
 
 #define BUTTON_BIT 0x01
 
@@ -117,6 +118,7 @@ extern bool issueTicks(void);
 extern void moveCompletedThread(void const *argument);
 extern void InitializePWM();
 extern void setPWM(int channel, float percent);
+extern void InitializeADC();
 
 uint32_t start_time()
 {
@@ -191,8 +193,10 @@ int main(void)
 	USBD_Start(&USBD_Device);
 
 	// TEST PWM
-	InitializePWM();
-	setPWM(1, 25.0F);
+	//InitializePWM();
+	//setPWM(1, 25.0F);
+
+	InitializeADC();
 
 	// for (int i = 0; i < 100; ++i) {
 	//  TIMx->CNT= 0;
@@ -246,6 +250,7 @@ bool serial_reply(const char *buf, size_t len)
 	return n == len;
 }
 
+extern __IO uint16_t uhADCxConvertedValue;
 extern bool host_connected;
 extern bool testGpio();
 static void mainThread(void const *argument)
@@ -262,7 +267,10 @@ static void mainThread(void const *argument)
 			if( ulNotifiedValue & BUTTON_BIT ) {
 				BSP_LED_Toggle(LED4);
 			}
-			LCD_UsrLog("stepticker: %lu us\n", delta_time);
+			//LCD_UsrLog("stepticker: %lu us\n", delta_time);
+			LCD_UsrLog("ADC: %u\n", uhADCxConvertedValue);
+			LCD_UsrLog("ADC time: %lu\n", adc_ave_time);
+
 		} else {
 			BSP_LED_Toggle(LED3);
 			//testGpio();
@@ -626,7 +634,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 
 	// handle stepticker
 
-	xst= start_time();
+	//xst= start_time();
 	if(!issueTicks()) {
 		// signal the next block to start, handled in moveCompletedThread
 		BaseType_t xHigherPriorityTaskWoken = pdFALSE;

@@ -59,13 +59,13 @@ using LED4Pin   = GPIO(G,14);           // PG14  LED4
 using TriggerPin= GPIO(D, 5);           // PD5
 
 // 11 Spare
-// PC3   P2-15 - ADC1-IN13
+// PC3   P2-15 - ADC1-IN13 adc channel13 DMA channel 0 stream 0 or 4
 //- PD5 P1-37
 // PD7 P1-35
 // PE2 -> PE6 P1-15,P1-16,P1-13,P1-14 ,P1-11
 // PE5      - PWM TIM9 PP2 Channel1
 // PE6      - PWM TIM9 PP2 Channel2
-// PF6 P2-3 - ADC3-IN4
+// PF6 P2-3 - ADC3-IN4 adc channel4 DMA channel 2 stream 0 or 1
 // PG2 P2-62
 // PG3 P2-61
 // PG9 P1-33

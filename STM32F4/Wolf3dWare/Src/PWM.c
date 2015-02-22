@@ -9,17 +9,6 @@
 #define GPIO_PIN_CHANNEL2              GPIO_PIN_6
 
 
-#define  PERIOD_VALUE       (1000 - 1)  /* Period Value 2Khz */
-#define  PULSE1_VALUE       100           /* Capture Compare 1 Value  */
-#define  PULSE2_VALUE       249        /* Capture Compare 2 Value  */
-
-TIM_HandleTypeDef    TimHandle;
-
-/* Timer Output Compare Configuration Structure declaration */
-TIM_OC_InitTypeDef sConfig;
-
-/* Counter Prescaler value */
-uint32_t uhPrescalerValue = 0;
 
 #define __debugbreak()  { __asm volatile ("bkpt #0"); }
 static void Error_Handler(void)
@@ -31,6 +20,7 @@ static void Error_Handler(void)
 
 void setPWM(int channel, float percent)
 {
+	// percentage of 1KHz
 	uint16_t p= (1000.0F * percent/100.0) + 0.5F;
 	switch(channel) {
 		case 1: TIMx->CCR1 = p; break;
@@ -38,46 +28,15 @@ void setPWM(int channel, float percent)
 	}
 }
 
+static TIM_HandleTypeDef TimHandle;
+static TIM_OC_InitTypeDef sConfig;
+
 void InitializePWM()
 {
-
-	/* Compute the prescaler value to have TIMx counter clock equal to 1 MHz */
-	uhPrescalerValue = (uint32_t) ((SystemCoreClock / 2) / 1000000) - 1;
-
-	/*##-1- Configure the TIM peripheral #######################################*/
-	/* -----------------------------------------------------------------------
-	TIM3 Configuration: generate 4 PWM signals with 4 different duty cycles.
-
-	  In this example TIM3 input clock (TIM3CLK) is set to 2 * APB1 clock (PCLK1),
-	  since APB1 prescaler is different from 1.
-		TIM3CLK = 2 * PCLK1
-		PCLK1 = HCLK / 4
-		=> TIM3CLK = HCLK / 2 = SystemCoreClock /2
-
-	  To get TIM3 counter clock at 21 MHz, the prescaler is computed as follows:
-		 Prescaler = (TIM3CLK / TIM3 counter clock) - 1
-		 Prescaler = ((SystemCoreClock /2) /21 MHz) - 1
-
-	  To get TIM3 output clock at 30 KHz, the period (ARR)) is computed as follows:
-		 ARR = (TIM3 counter clock / TIM3 output clock) - 1
-			 = 665
-
-	  TIM3 Channel1 duty cycle = (TIM3_CCR1/ TIM3_ARR)* 100 = 50%
-	  TIM3 Channel2 duty cycle = (TIM3_CCR2/ TIM3_ARR)* 100 = 37.5%
-
-
-	----------------------------------------------------------------------- */
-
-	/* Initialize TIMx peripheral as follow:
-		 + Prescaler = (SystemCoreClock/2)/21000000
-		 + Period = 665
-		 + ClockDivision = 0
-		 + Counter direction = Up
-	*/
 	TimHandle.Instance = TIMx;
-
-	TimHandle.Init.Prescaler = uhPrescalerValue;
-	TimHandle.Init.Period = PERIOD_VALUE;
+	/* Compute the prescaler value to have TIMx counter clock equal to 1 MHz */
+	TimHandle.Init.Prescaler = (uint32_t) ((SystemCoreClock) / 1000000) - 1;
+	TimHandle.Init.Period = (1000 - 1);  /* Period Value PWM frequency 1Khz */
 	TimHandle.Init.ClockDivision = 0;
 	TimHandle.Init.CounterMode = TIM_COUNTERMODE_UP;
 	if(HAL_TIM_PWM_Init(&TimHandle) != HAL_OK) {
@@ -87,6 +46,8 @@ void InitializePWM()
 
 	/*##-2- Configure the PWM channels #########################################*/
 	/* Common configuration for all channels */
+	const uint32_t PULSE1_VALUE= 1000/10;           /* 10% Capture Compare 1 Value  */
+	const uint32_t PULSE2_VALUE= 1000/2;           /* Capture Compare 2 Value  */
 	sConfig.OCMode = TIM_OCMODE_PWM1;
 	sConfig.OCPolarity = TIM_OCPOLARITY_HIGH;
 	sConfig.OCFastMode = TIM_OCFAST_DISABLE;
