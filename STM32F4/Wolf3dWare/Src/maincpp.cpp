@@ -262,6 +262,7 @@ bool handleCommand(const char *line)
 	}else if(strcmp(line, "kill") == 0) {
 		execute_mode= false;
 		THEKERNEL.getPlanner().purge();
+		THEKERNEL.getMotionControl().resetAxisPositions();
 		oss << "ok\n";
 
 	}else if(strcmp(line, "stats") == 0) {

@@ -18,8 +18,9 @@ private:
 	bool handleFlowRateSetting(GCode&);
 	bool handleRetract(GCode& gc);
 	bool handleG0G1(GCode& gc);
-
+	float calculateVolumetricMultiplier(float dia);
 	void setScale();
+
 	uint8_t pool_index; // tells us which temoerature cointrol we are associated with
 
 	float filament_diameter{3.0};

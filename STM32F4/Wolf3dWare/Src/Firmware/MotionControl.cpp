@@ -164,6 +164,12 @@ bool MotionControl::handleG0G1(GCode& gc)
 		char c= actuator_axis_lut[i];
 		if( gc.hasArg(c) ) {
 			float d= toMillimeters(gc.getArg(c));
+			if(gc.getCode() == 1) {
+				// Only for G1 apply the scale
+				// scale can be used for volumetric extrusion and/or filament
+				// flowrate adjustment or convert from any units to mm, usually from mm³ to mm
+				d *= actuators[i].getScale();
+			}
 			// TODO absolute mode may need to be per actuator, as E can be in relative
 			target[i] = (absolute_mode) ? d : last_milestone[i] + d;
 		}else{
@@ -250,7 +256,7 @@ bool MotionControl::handleConfigurations(GCode& gc)
 				}
 			}
 			for(auto& a : actuators) {
-				THEDISPATCHER.getOS().printf("%c:%1.4f ", a.getAxis(), a.getStepsPermm());
+				THEDISPATCHER.getOS().printf("%c:%1.4fx%1.4f ", a.getAxis(), a.getStepsPermm(), a.getScale());
 			}
 			THEDISPATCHER.getOS().setAppendNL();
 			break;
@@ -284,7 +290,11 @@ bool MotionControl::handleGetPosition(GCode& gc)
 	THEDISPATCHER.getOS().printf("C: ");
 	for (size_t i = 0; i < actuators.size(); ++i) {
 		char c= actuator_axis_lut[i];
-		THEDISPATCHER.getOS().printf("%c:%1.3f ", c, raw ? actuators[i].getCurrentPositionInSteps() : fromMillimeters(last_milestone[i]));
+		THEDISPATCHER.getOS().printf("%c:%1.3f", c, raw ? actuators[i].getCurrentPositionInSteps() : fromMillimeters(last_milestone[i]));
+		if(!raw && actuators[i].getScale() != 1.0F) {
+			THEDISPATCHER.getOS().printf("(%1.3f)", fromMillimeters(last_milestone[i])/actuators[i].getScale());
+		}
+		THEDISPATCHER.getOS().printf(" ");
 	}
 	THEDISPATCHER.getOS().setPrependOK();
 	return true;

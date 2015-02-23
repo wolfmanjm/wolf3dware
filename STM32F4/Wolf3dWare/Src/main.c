@@ -179,7 +179,7 @@ int main(void)
 	USBD_Start(&USBD_Device);
 
 	// TEST PWM
-	//InitializePWM();
+	InitializePWM();
 	//setPWM(1, 25.0F);
 
 	InitializeADC();

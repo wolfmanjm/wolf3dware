@@ -27,6 +27,21 @@ void Extruder::initialize()
 	THEDISPATCHER.addHandler( Dispatcher::MCODE_HANDLER, 207, std::bind( &Extruder::handleRetractSettings, this, _1) );
 	THEDISPATCHER.addHandler( Dispatcher::MCODE_HANDLER, 208, std::bind( &Extruder::handleUnRetractSettings, this, _1) );
 	THEDISPATCHER.addHandler( Dispatcher::MCODE_HANDLER, 221, std::bind( &Extruder::handleFlowRateSetting, this, _1) );
+
+	// set up intial scale if filament diameter is set
+	if(filament_diameter > 0.01F) {
+		volumetric_multiplier= calculateVolumetricMultiplier(filament_diameter);
+		setScale();
+	}
+}
+
+float Extruder::calculateVolumetricMultiplier(float dia)
+{
+	if(dia > 0) {
+		return(1.0F / (powf(dia / 2, 2) * (float)M_PI));
+	}
+
+	return 1.0F;
 }
 
 void Extruder::setScale()
@@ -84,19 +99,14 @@ bool Extruder::handleRetract(GCode& gc)
 	}
 
 	{
-		// NOTE we want these to be in mm not mm³ so we need to offset the
-		// volumetric scale we do that by dividing by the current scale so it
-		// ends up 1.0, we get the scale for both in case for some odd reason
-		// the filament or flow rate is changed in between the G10 and G11
+		// NOTE we want these to be in mm not mm³ so we use G0
 		Actuator& a= THEKERNEL.getMotionControl().getActuator('E');
 		GCode newgc;
 		if(gc.getCode() == 10) { // G10 retract
-			float scale= a.getScale();
-			newgc.setCommand('G', 0).addArg('E', retract_length/scale).addArg('F', retract_feedrate);
+			newgc.setCommand('G', 0).addArg('E', retract_length).addArg('F', retract_feedrate);
 
 		}else{ // G11 unretract
-			float scale= a.getScale();
-			newgc.setCommand('G', 0).addArg('E', -(retract_length+retract_recover_length)/scale).addArg('F', retract_recover_feedrate);
+			newgc.setCommand('G', 0).addArg('E', -(retract_length+retract_recover_length)).addArg('F', retract_recover_feedrate);
 		}
 		THEDISPATCHER.dispatch(newgc);
 	}
@@ -119,7 +129,7 @@ bool Extruder::handleRetract(GCode& gc)
 	return true;
 }
 
-// M200 Dnnn set filaent diameter and enable volumetric extrusion
+// M200 Dnnn set filament diameter and enable volumetric extrusion
 bool Extruder::handleFilamentDiameter(GCode& gc)
 {
 	if(gc.hasArg('D')) {
@@ -128,7 +138,7 @@ bool Extruder::handleFilamentDiameter(GCode& gc)
 
 		filament_diameter = gc.getArg('D');
 		if(filament_diameter > 0.01F) {
-			volumetric_multiplier = 1.0F / (powf(filament_diameter / 2, 2) * (float)M_PI);
+			volumetric_multiplier = calculateVolumetricMultiplier(filament_diameter);
 		}else{
 			volumetric_multiplier = 1.0F;
 		}
@@ -148,6 +158,12 @@ bool Extruder::handleFilamentDiameter(GCode& gc)
 // M207 - set retract length S[positive mm] F[feedrate mm/min] Z[additional zlift/hop] Q[zlift feedrate mm/min]
 bool Extruder::handleRetractSettings(GCode& gc)
 {
+	if(gc.hasNoArgs()) {
+		THEDISPATCHER.getOS().printf("retract length: %1.4fmm, feedrate: %1.4fmm/sec, z lift length: %1.4fmm, zlift feedrate: %1.4fmm/sec\n",
+			retract_length, retract_feedrate, retract_zlift_length, retract_zlift_feedrate);
+		return true;
+	}
+
 	if(gc.hasArg('S')) retract_length = gc.getArg('S');
 	if(gc.hasArg('F')) retract_feedrate = gc.getArg('F')/60.0F; // specified in mm/min converted to mm/sec
 	if(gc.hasArg('Z')) retract_zlift_length = gc.getArg('Z');
@@ -158,6 +174,12 @@ bool Extruder::handleRetractSettings(GCode& gc)
 // M208 - set retract recover length S[positive mm surplus to the M207 S*] F[feedrate mm/min]
 bool Extruder::handleUnRetractSettings(GCode& gc)
 {
+	if(gc.hasNoArgs()) {
+		THEDISPATCHER.getOS().printf("recover extra length: %1.4fmm, recover feedrate: %1.4fmm/sec\n",
+			retract_recover_length, retract_recover_feedrate);
+		return true;
+	}
+
 	if(gc.hasArg('S')) retract_recover_length = gc.getArg('S');
 	if(gc.hasArg('F')) retract_recover_feedrate = gc.getArg('F')/60.0F; // specified in mm/min converted to mm/sec
 	return true;
