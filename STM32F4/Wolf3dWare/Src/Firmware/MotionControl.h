@@ -4,6 +4,7 @@
 #include <map>
 #include <bitset>
 #include <stdint.h>
+#include <stack>
 
 class GCode;
 class Actuator;
@@ -42,6 +43,7 @@ private:
 	bool handleConfigurations(GCode& gc);
 	bool handleSaveConfiguration(GCode& gc);
 	bool handleWaitForMoves(GCode& gc);
+	bool handlePushState(GCode& gc);
 
 	float toMillimeters( float value ){ return this->inch_mode ? value * 25.4F : value; }
 	float fromMillimeters(float value){ return this->inch_mode ? value / 25.4F : value; }
@@ -56,6 +58,8 @@ private:
 	std::vector<bool> primary_axis;
 
 	std::vector<float> last_milestone;
+	using saved_state_t = std::tuple<float, float, bool> ; // save current feedrate and absolute mode
+	std::stack<saved_state_t> state_stack;                 // saves state from M120
 
 	struct {
 		bool absolute_mode:1;

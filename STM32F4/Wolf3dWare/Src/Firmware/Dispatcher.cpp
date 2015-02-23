@@ -12,6 +12,8 @@ using namespace std;
 //#define LOG_WARNING printf
 #define LOG_WARNING(...)
 
+// NOTE this can be called recursively by commands handlers that need to issue
+// their own commands
 bool Dispatcher::dispatch(GCode& gc)
 {
 	auto& handler= gc.hasG() ? gcode_handlers : mcode_handlers;

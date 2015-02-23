@@ -8,6 +8,7 @@
 #include "Firmware/Actuator.h"
 #include "Firmware/Tools/TemperatureControl.h"
 #include "Firmware/Tools/Thermistor.h"
+#include "Firmware/Tools/Extruder.h"
 
 #include "Lock.h"
 #include "GPIO.h"
@@ -183,6 +184,10 @@ extern "C" int maincpp()
 	// static TemperatureControl bc("B", 1, thermistor1);
 	// bc.assignHALFunction(TemperatureControl::SET_PWM, setPWM);
 	// bc.initialize();
+
+	// use same index as the associated temperature control
+	static Extruder ex(0);
+	ex.initialize();
 
 	move_issued= false;
 	waiting_ticks= 0;

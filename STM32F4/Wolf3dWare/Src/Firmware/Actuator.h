@@ -12,6 +12,7 @@ public:
 	Actuator(char axis) : axis(axis), moving(false), enabled(false) {};
 	~Actuator(){};
 	static void setCurrentBlock(const Block& block) { current_block= block; }
+
 	void move( bool direction, uint32_t steps_to_move, float axis_ratio);
 	float mm2steps(float mm) const { return mm*steps_per_mm; }
 	float steps2mm(float steps) const { return steps/steps_per_mm; }
@@ -22,6 +23,8 @@ public:
 	bool checkMaxSpeed();
 	void setAcceleration(float a) { acceleration= a; }
 	float getAcceleration() const { return acceleration; }
+	void setScale(float sc) { scale= sc; }
+	float getScale() const { return scale; }
 
 	std::tuple<bool,uint32_t> stepsToTarget(float target);
 	bool tick(uint32_t current_tick);
@@ -60,6 +63,7 @@ private:
 	uint32_t next_accel_event;
 	float steps_per_tick;
 	float axis_ratio;
+	float scale{1.0F};
 	uint32_t last_milestone_steps{0};
 	uint32_t current_step_position{0};
 	HAL_function_t hal_functions[N_HAL_FUNCTIONS];

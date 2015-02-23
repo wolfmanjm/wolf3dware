@@ -8,7 +8,7 @@
 Block Actuator::current_block;
 
 // Note Actuator::setCurerntBlock() must be called before this gets called
-void Actuator::move( bool direction, uint32_t steps_to_move, float axis_ratio)
+void Actuator::move( bool direction, uint32_t steps_to_move, float ratio)
 {
     this->steps_to_move = steps_to_move;
     // set direction pin
@@ -18,8 +18,9 @@ void Actuator::move( bool direction, uint32_t steps_to_move, float axis_ratio)
     // set the actual direction pin now so it has lots of time before the first step pulse
     hal_functions[SET_DIR](direction);
 
-    // need to scale by the axis ratio
-    this->axis_ratio = axis_ratio;
+    // need to scale by the axis ratio and an arbitrary scale
+    // scale can be used for volumetric extrusion and/or filament flowrate adjustment
+    axis_ratio = ratio * scale;
 
     next_accel_event = current_block.total_move_ticks + 1;  // Do nothing by default ( cruising/plateau )
     acceleration_change = 0;

@@ -56,6 +56,8 @@ void MotionControl::initialize()
 	THEDISPATCHER.addHandler( Dispatcher::MCODE_HANDLER, 84, std::bind( &MotionControl::handleEnable, this, _1) );
 	THEDISPATCHER.addHandler( Dispatcher::MCODE_HANDLER, 92, std::bind( &MotionControl::handleConfigurations, this, _1) );
 	THEDISPATCHER.addHandler( Dispatcher::MCODE_HANDLER, 114, std::bind( &MotionControl::handleGetPosition, this, _1) );
+	THEDISPATCHER.addHandler( Dispatcher::MCODE_HANDLER, 120, std::bind( &MotionControl::handlePushState, this, _1) );
+	THEDISPATCHER.addHandler( Dispatcher::MCODE_HANDLER, 121, std::bind( &MotionControl::handlePushState, this, _1) );
 	THEDISPATCHER.addHandler( Dispatcher::MCODE_HANDLER, 203, std::bind( &MotionControl::handleConfigurations, this, _1) );
 	THEDISPATCHER.addHandler( Dispatcher::MCODE_HANDLER, 220, std::bind( &MotionControl::handleSetSpeedOverride, this, _1) );
 	THEDISPATCHER.addHandler( Dispatcher::MCODE_HANDLER, 400, std::bind( &MotionControl::handleWaitForMoves, this, _1) );
@@ -180,6 +182,26 @@ bool MotionControl::handleG0G1(GCode& gc)
 
 	// update last_target
 	std::copy(target, target+n_axis, last_milestone.begin());
+	return true;
+}
+
+// M120/121 push/pop state
+bool MotionControl::handlePushState(GCode& gc)
+{
+	if(gc.getCode() == 120) { // push state
+		bool b= absolute_mode;
+		saved_state_t s(feed_rate, seek_rate, b);
+		state_stack.push(s);
+
+	}else{ // pop state
+		if(!state_stack.empty()) {
+			auto s= state_stack.top();
+			state_stack.pop();
+			feed_rate= std::get<0>(s);
+			seek_rate= std::get<1>(s);
+			absolute_mode= std::get<2>(s);
+		}
+	}
 	return true;
 }
 

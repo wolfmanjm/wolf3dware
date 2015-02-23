@@ -160,6 +160,7 @@ bool Planner::plan(const float *last_target, const float *target, int n_axis,  A
 		}
 	}
 
+	// FIXME junction deviation is not a good way to handle junctions, look at third order and blended moves
 	float vmax_junction = minimum_planner_speed; // Set default max junction speed
 	if(!auxilliary_move && junction_deviation > 0.0F && (previous_unit_vec[0] != 0.0F || previous_unit_vec[1] != 0.0F || previous_unit_vec[2] != 0.0F)) {
 		// if the primary axis do not move then treat it as if it always starts at 0
@@ -238,7 +239,7 @@ bool Planner::plan(const float *last_target, const float *target, int n_axis,  A
 		auto nexti = std::next(curi);
 		if(nexti == lookahead_q.rend()) break;
 
-		// if both this one and the next one have recalculate flag flase then move this one to ready queue
+		// if both this one and the next one have recalculate flag false then move this one to ready queue
 		// this always leaves the last entry as a non calculate block and preserves the exit speeds
 		if(!curi->recalculate_flag && !nexti->recalculate_flag) {
 			Lock l(READY_Q_MUTEX); // gets a mutex on this
