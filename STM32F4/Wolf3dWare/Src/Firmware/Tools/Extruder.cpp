@@ -54,8 +54,9 @@ void Extruder::setScale()
 // G0 or G1
 bool Extruder::handleG0G1(GCode& gc)
 {
-	if(retracted && gc.hasArg('Z')) {
+	if(retracted && !in_retract && gc.hasArg('Z')) {
 		// NOTE we cancel the zlift restore for the following G11 as we have moved to an absolute Z which we need to stay at
+		// but we will get this for the Z lift the G10 issued  so make sure we have finished that
 		cancel_zlift_restore= true;
 	}
 	return true;
@@ -64,6 +65,8 @@ bool Extruder::handleG0G1(GCode& gc)
 // G10 & G11 firmware retract
 bool Extruder::handleRetract(GCode& gc)
 {
+	in_retract= true; // marks it to detect recursion
+
 	// check we are in the correct state of retract or unretract
 	if(gc.getCode() == 10 && !retracted) {
 		retracted= true;
@@ -72,8 +75,10 @@ bool Extruder::handleRetract(GCode& gc)
 	} else if(gc.getCode() == 11 && retracted){
 		retracted= false;
 
-	} else
+	} else {
+		in_retract= false;
 		return true; // ignore duplicates
+	}
 
 	// we inject the moves into the queue
 
@@ -100,7 +105,6 @@ bool Extruder::handleRetract(GCode& gc)
 
 	{
 		// NOTE we want these to be in mm not mm³ so we use G0
-		Actuator& a= THEKERNEL.getMotionControl().getActuator('E');
 		GCode newgc;
 		if(gc.getCode() == 10) { // G10 retract
 			newgc.setCommand('G', 0).addArg('E', retract_length).addArg('F', retract_feedrate);
@@ -125,7 +129,7 @@ bool Extruder::handleRetract(GCode& gc)
 		THEDISPATCHER.dispatch(newgc);
 	}
 
-
+	in_retract= false;
 	return true;
 }
 

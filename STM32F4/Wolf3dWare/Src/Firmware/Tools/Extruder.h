@@ -7,7 +7,7 @@ class GCode;
 class Extruder
 {
 public:
-	Extruder(uint8_t i) : pool_index(i), retracted(false), cancel_zlift_restore(false) {};
+	Extruder(uint8_t i) : pool_index(i), retracted(false), cancel_zlift_restore(false), in_retract(false) {};
 	~Extruder() {};
 	void initialize();
 
@@ -29,12 +29,13 @@ private:
 	float retract_length{1.0F};
 	float retract_feedrate{30.0F};
 	float retract_zlift_length{0.0F};
-	float retract_zlift_feedrate{0.0F};
+	float retract_zlift_feedrate{100.0F};
 	float retract_recover_length{0.0F};
 	float retract_recover_feedrate{8.0F};
 
 	struct {
 		bool retracted:1;
 		bool cancel_zlift_restore:1;
+		bool in_retract:1;
 	};
 };
