@@ -1,5 +1,7 @@
 #include "stm32f4xx_hal.h"
 
+#include <math.h>
+
 #define TIMx                           TIM9
 #define TIMx_CLK_ENABLE                __HAL_RCC_TIM9_CLK_ENABLE
 
@@ -11,6 +13,7 @@
 
 
 #define __debugbreak()  { __asm volatile ("bkpt #0"); }
+
 static void Error_Handler(void)
 {
 	__debugbreak();
@@ -18,18 +21,26 @@ static void Error_Handler(void)
 	}
 }
 
-void setPWM(uint8_t channel, uint8_t percent)
-{
-	// percentage of 1KHz
-	uint16_t p= (1000.0F * percent/100.0) + 0.5F;
-	switch(channel) {
-		case 0: TIMx->CCR1 = p-1; break;
-		case 1: TIMx->CCR2 = p-1; break;
-	}
-}
-
 static TIM_HandleTypeDef TimHandle;
 static TIM_OC_InitTypeDef sConfig;
+
+void setPWM(uint8_t channel, float percent)
+{
+	// percentage of 1KHz
+	uint32_t p= roundf(10.0F * percent); // (1000.0F * percent/100.0F) + 0.5F;
+	//sConfig.Pulse = p;
+	switch(channel) {
+		case 0:
+			//HAL_TIM_PWM_ConfigChannel(&TimHandle, &sConfig, TIM_CHANNEL_1);
+			TIMx->CCR1 = p;
+			break;
+
+		case 1:
+			//HAL_TIM_PWM_ConfigChannel(&TimHandle, &sConfig, TIM_CHANNEL_2);
+			TIMx->CCR2 = p;
+			break;
+	}
+}
 
 void InitializePWM()
 {
@@ -46,8 +57,8 @@ void InitializePWM()
 
 	/*##-2- Configure the PWM channels #########################################*/
 	/* Common configuration for all channels */
-	const uint32_t PULSE1_VALUE= 1000/10;           /* 10% Capture Compare 1 Value  */
-	const uint32_t PULSE2_VALUE= 1000/2;           /* Capture Compare 2 Value  */
+	const uint32_t PULSE1_VALUE= 0;           /* Capture Compare 1 Value  */
+	const uint32_t PULSE2_VALUE= 1000;        /* Capture Compare 2 Value  */
 	sConfig.OCMode = TIM_OCMODE_PWM1;
 	sConfig.OCPolarity = TIM_OCPOLARITY_HIGH;
 	sConfig.OCFastMode = TIM_OCFAST_DISABLE;

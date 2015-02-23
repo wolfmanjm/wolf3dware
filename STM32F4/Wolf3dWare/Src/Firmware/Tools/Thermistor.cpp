@@ -13,6 +13,7 @@
 #include <algorithm>
 #include <string>
 #include <deque>
+#include <string.h>
 
 Thermistor::Thermistor(uint8_t index)
 {
@@ -177,9 +178,11 @@ int Thermistor::newThermistorReading()
         // not setup for this channel
         return 0;
     }
-
     // grab the dma buffer
-    std::deque<uint16_t> buf(dma_bufb, dma_bufb+8);
+    uint16_t b[8];
+    memcpy(b, dma_bufb, sizeof(b));
+    std::deque<uint16_t> buf(b, b+8);
+
     // sort
     std::sort (buf.begin(), buf.end());
     // eliminate first and last two

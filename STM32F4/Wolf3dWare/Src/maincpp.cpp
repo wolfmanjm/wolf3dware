@@ -28,6 +28,8 @@
 
 using namespace std;
 
+#define PRINTER3D
+
 // global
 SemaphoreHandle_t READY_Q_MUTEX;
 SemaphoreHandle_t TEMPERATURE_MUTEX;
@@ -129,8 +131,10 @@ static size_t doDelay(void *, size_t, uint32_t ms)
 
 extern "C" size_t writeFlash(void *, size_t, uint32_t);
 extern "C" size_t readFlash(void *, size_t, uint32_t);
-extern "C" void setPWM(uint8_t channel, uint8_t percent);
-extern "C"  uint16_t* getADC(uint8_t ch);
+extern "C" void setPWM(uint8_t channel, float percent);
+extern "C" uint16_t* getADC(uint8_t ch);
+extern "C" void InitializePWM();
+extern "C" void InitializeADC();
 
 extern "C" void moveCompletedThread(void const *argument);
 
@@ -170,6 +174,11 @@ extern "C" int maincpp()
 	mc.getActuator('E').assignHALFunction(Actuator::SET_DIR, [](bool on)   { E_DirPin::set(on); });
 	mc.getActuator('E').assignHALFunction(Actuator::SET_ENABLE, [](bool on){ E_EnbPin::set(on);  });
 
+#ifdef PRINTER3D
+	// needed for hotend
+	InitializePWM(); // PWM control
+	InitializeADC(); // ADC control
+
 	// Setup the Temperature Control and sensors
 	static Thermistor thermistor0(0);
 	thermistor0.assignHALFunction(Thermistor::GET_ADC, getADC);
@@ -186,8 +195,10 @@ extern "C" int maincpp()
 	// bc.initialize();
 
 	// use same index as the associated temperature control
-	static Extruder ex(0);
+	// specify which axis is the extruder
+	static Extruder ex('E', 0);
 	ex.initialize();
+#endif
 
 	move_issued= false;
 	waiting_ticks= 0;

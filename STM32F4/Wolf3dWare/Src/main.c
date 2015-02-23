@@ -102,9 +102,6 @@ extern int os_started;
 extern int maincpp();
 extern bool issueTicks(void);
 extern void moveCompletedThread(void const *argument);
-extern void InitializePWM();
-extern void setPWM(int channel, float percent);
-extern void InitializeADC();
 
 uint32_t start_time()
 {
@@ -177,12 +174,6 @@ int main(void)
 	USBD_RegisterClass(&USBD_Device, &USBD_CDC);
 	USBD_CDC_RegisterInterface(&USBD_Device, &USBD_CDC_Template_fops);
 	USBD_Start(&USBD_Device);
-
-	// TEST PWM
-	InitializePWM();
-	//setPWM(1, 25.0F);
-
-	InitializeADC();
 
 	// for (int i = 0; i < 100; ++i) {
 	//  TIMx->CNT= 0;

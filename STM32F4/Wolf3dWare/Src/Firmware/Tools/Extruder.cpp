@@ -47,7 +47,7 @@ float Extruder::calculateVolumetricMultiplier(float dia)
 void Extruder::setScale()
 {
 	// apply to the Extruder E axis
-	Actuator& a= THEKERNEL.getMotionControl().getActuator('E');
+	Actuator& a= THEKERNEL.getMotionControl().getActuator(axis);
 	a.setScale(volumetric_multiplier*extruder_multiplier);
 }
 
@@ -107,10 +107,10 @@ bool Extruder::handleRetract(GCode& gc)
 		// NOTE we want these to be in mm not mm³ so we use G0
 		GCode newgc;
 		if(gc.getCode() == 10) { // G10 retract
-			newgc.setCommand('G', 0).addArg('E', retract_length).addArg('F', retract_feedrate);
+			newgc.setCommand('G', 0).addArg(axis, retract_length).addArg('F', retract_feedrate);
 
 		}else{ // G11 unretract
-			newgc.setCommand('G', 0).addArg('E', -(retract_length+retract_recover_length)).addArg('F', retract_recover_feedrate);
+			newgc.setCommand('G', 0).addArg(axis, -(retract_length+retract_recover_length)).addArg('F', retract_recover_feedrate);
 		}
 		THEDISPATCHER.dispatch(newgc);
 	}

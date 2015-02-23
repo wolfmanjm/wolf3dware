@@ -75,7 +75,7 @@ bool TemperatureControl::onGcodeReceived(GCode& gc)
 	AutoLock l(lock);
 
 	if( gc.getCode() == 105) {
-		THEDISPATCHER.getOS().printf("%s:%3.1f /%3.1f @%d", designator.c_str(), getTemperature(), target_temperature, pwm_out);
+		THEDISPATCHER.getOS().printf("%s:%3.1f /%3.1f @%1.2f", designator.c_str(), getTemperature(), target_temperature, pwm_out);
 		THEDISPATCHER.getOS().setPrependOK();
 		return true;
 	}
@@ -128,7 +128,7 @@ bool TemperatureControl::onGcodeReceived(GCode& gc)
 				max_pwm= gc.getArg('Y');
 
 		}else if(!gc.hasArg('S')) {
-			THEDISPATCHER.getOS().printf("%s(S%d): Pf:%g If:%g Df:%g X(I_max):%g max_pwm: %d pwm_out:%d\n", designator.c_str(), pool_index, p_factor, i_factor / PIDdt, d_factor * PIDdt, i_max, max_pwm, pwm_out);
+			THEDISPATCHER.getOS().printf("%s(S%d): Pf:%g If:%g Df:%g X(I_max):%g max_pwm: %d pwm_out:%1.2f\n", designator.c_str(), pool_index, p_factor, i_factor / PIDdt, d_factor * PIDdt, i_max, max_pwm, pwm_out);
 		}
 		return true;
 
@@ -166,7 +166,7 @@ bool TemperatureControl::onGcodeReceived(GCode& gc)
 			if( gc.getCode() == 109) {
 				while ( getTemperature() < target_temperature ) {
 					// this gets sent immediately
-					//THEKERNEL.OOBPrintf("%s:%3.1f /%3.1f @%d\n", designator.c_str(), get_temperature(), ((target_temperature == 0) ? 0.0F : target_temperature), pwm_out);
+					//THEKERNEL.OOBPrintf("%s:%3.1f /%3.1f @%1.2f\n", designator.c_str(), get_temperature(), ((target_temperature == 0) ? 0.0F : target_temperature), pwm_out);
 					// wait 1 second
 					THEKERNEL.delay(1000);
 				}
@@ -278,7 +278,7 @@ void TemperatureControl::pidProcess(float temperature)
 
 	}
 
-	pwm_out= roundf(o);
+	pwm_out= o;
 	setPWM(pool_index, pwm_out);
 	last_input = temperature;
 }

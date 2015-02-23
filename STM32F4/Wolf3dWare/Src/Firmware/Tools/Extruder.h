@@ -7,7 +7,7 @@ class GCode;
 class Extruder
 {
 public:
-	Extruder(uint8_t i) : pool_index(i), retracted(false), cancel_zlift_restore(false), in_retract(false) {};
+	Extruder(char axis, uint8_t i) : axis(axis), pool_index(i), retracted(false), cancel_zlift_restore(false), in_retract(false) {};
 	~Extruder() {};
 	void initialize();
 
@@ -21,8 +21,6 @@ private:
 	float calculateVolumetricMultiplier(float dia);
 	void setScale();
 
-	uint8_t pool_index; // tells us which temoerature cointrol we are associated with
-
 	float filament_diameter{3.0};
 	float volumetric_multiplier{1.0F};
 	float extruder_multiplier{1.0F};
@@ -32,6 +30,9 @@ private:
 	float retract_zlift_feedrate{100.0F};
 	float retract_recover_length{0.0F};
 	float retract_recover_feedrate{8.0F};
+
+	char axis;
+	uint8_t pool_index; // tells us which temoerature cointrol we are associated with
 
 	struct {
 		bool retracted:1;

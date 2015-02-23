@@ -28,7 +28,7 @@ class TemperatureControl {
         {
             SET_PWM
         };
-        using HAL_function_t = std::function<void(uint8_t, uint8_t)>;
+        using HAL_function_t = std::function<void(uint8_t, float)>;
         void assignHALFunction(HAL_FUNCTION_INDEX i, HAL_function_t fnc) { if(i == SET_PWM) setPWM= fnc; }
 
     private:
@@ -54,8 +54,8 @@ class TemperatureControl {
 
         // PID runtime
         float i_max{100};
-        uint8_t max_pwm{100}; // percentage
-        uint8_t pwm_out{0};
+        float max_pwm{100}; // percentage
+        float pwm_out{0};
         float last_reading{0};
         float hysteresis{2};
         float i_term{0};
