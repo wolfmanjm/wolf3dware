@@ -90,20 +90,20 @@ bool Extruder::handleRetract(GCode& gc)
 	// handle zlift restore which happens before the unretract
 	if(retract_zlift_length > 0 && gc.getCode() == 11 && !cancel_zlift_restore) {
 		// NOTE we do not do this if cancel_zlift_restore is set to true, which happens if there is an absolute Z move inbetween G10 and G11
-		THEDISPATCHER.dispatch('G', 0, 'Z', -retract_zlift_length, 'F', retract_zlift_feedrate, 0);
+		THEDISPATCHER.dispatch('G', 0, 'Z', -retract_zlift_length, 'F', retract_zlift_feedrate*60.0F, 0);
 	}
 
 	// NOTE we want these to be in mm not mm³ so we use G0
 	if(gc.getCode() == 10) { // G10 retract
-		THEDISPATCHER.dispatch('G', 0, axis, retract_length, 'F', retract_feedrate, 0);
+		THEDISPATCHER.dispatch('G', 0, axis, retract_length, 'F', retract_feedrate*60.0F, 0);
 
 	}else{ // G11 unretract
-		THEDISPATCHER.dispatch('G', 0, axis, -(retract_length+retract_recover_length), 'F', retract_recover_feedrate, 0);
+		THEDISPATCHER.dispatch('G', 0, axis, -(retract_length+retract_recover_length), 'F', retract_recover_feedrate*60.0F, 0);
 	}
 
 	// handle zlift which happens after retract
 	if(retract_zlift_length > 0 && gc.getCode() == 10) {
-		THEDISPATCHER.dispatch('G', 0, 'Z', retract_zlift_length, 'F', retract_zlift_feedrate, 0);
+		THEDISPATCHER.dispatch('G', 0, 'Z', retract_zlift_length, 'F', retract_zlift_feedrate*60.0F, 0);
 	}
 
 	// pop state, restores feedrates and absolute mode
@@ -187,7 +187,7 @@ bool Extruder::handleFlowRateSetting(GCode& gc)
 bool Extruder::handleSaveConfiguration(GCode& gc)
 {
 	THEDISPATCHER.getOS().printf("M200 D%1.4f\n", filament_diameter);
-	THEDISPATCHER.getOS().printf("M207 S%1.4f F%1.4f Z%1.4f Q%1.4f\n", retract_length, retract_feedrate, retract_zlift_length, retract_zlift_feedrate);
-	THEDISPATCHER.getOS().printf("M208 S%1.4f F%1.4f\n", retract_recover_length, retract_recover_feedrate);
+	THEDISPATCHER.getOS().printf("M207 S%1.4f F%1.4f Z%1.4f Q%1.4f\n", retract_length, retract_feedrate*60.0F, retract_zlift_length, retract_zlift_feedrate*60.0F);
+	THEDISPATCHER.getOS().printf("M208 S%1.4f F%1.4f\n", retract_recover_length, retract_recover_feedrate*60.0F);
 	return true;
 }

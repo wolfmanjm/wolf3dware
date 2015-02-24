@@ -230,12 +230,12 @@ bool MotionControl::handleSaveConfiguration(GCode& gc)
 {
 	THEDISPATCHER.getOS().printf("M92 ");
 	for(auto& a : actuators) {
-		THEDISPATCHER.getOS().printf("%c%1.4f ", a.getAxis(), a.getMaxSpeed());
+		THEDISPATCHER.getOS().printf("%c%1.4f ", a.getAxis(), a.getStepsPermm());
 	}
 	THEDISPATCHER.getOS().printf("\n");
 	THEDISPATCHER.getOS().printf("M203 ");
 	for(auto& a : actuators) {
-		THEDISPATCHER.getOS().printf("%c%1.4f ", a.getAxis(), a.getStepsPermm());
+		THEDISPATCHER.getOS().printf("%c%1.4f ", a.getAxis(), a.getMaxSpeed());
 	}
 	THEDISPATCHER.getOS().printf("\n");
 	return true;

@@ -3,6 +3,8 @@
 #include "FreeRTOS.h"
 #include "semphr.h"
 
+#include <mutex>
+
 // the predefined mutexts that have been created and maybe used by this lock
 extern SemaphoreHandle_t READY_Q_MUTEX;
 extern SemaphoreHandle_t TEMPERATURE_MUTEX;
@@ -16,7 +18,7 @@ public:
 	{
 		xSemaphoreTake(xSemaphore, portMAX_DELAY);
 	}
-	void unLock()
+	void unlock()
 	{
 		xSemaphoreGive( xSemaphore );
 	};
@@ -25,11 +27,5 @@ private:
 	SemaphoreHandle_t xSemaphore;
 };
 
-class AutoLock
-{
-public:
-	AutoLock(Lock& l) : lock(l) { l.lock(); }
-	~AutoLock() { lock.unLock(); }
-private:
-	Lock& lock;
-};
+// just an alias for the std::lock_guard RAII-style lock
+using AutoLock = std::lock_guard<Lock>;

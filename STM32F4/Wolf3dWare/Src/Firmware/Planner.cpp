@@ -245,7 +245,7 @@ bool Planner::plan(const float *last_target, const float *target, int n_axis,  A
 			Lock l(READY_Q_MUTEX); // gets a mutex on this
 			l.lock();
 			ready_q.push_front(*curi);
-			l.unLock();
+			l.unlock();
 			lookahead_q.pop_back();
 			curi = nexti;
 		} else {
@@ -508,7 +508,7 @@ void Planner::moveAllToReady()
 		ready_q.push_front(lookahead_q.back());
 		lookahead_q.pop_back();
 	}
-	l.unLock();
+	l.unlock();
 }
 
 void Planner::purge()
@@ -517,7 +517,7 @@ void Planner::purge()
 	l.lock();
 	lookahead_q.clear();
 	ready_q.clear();
-	l.unLock();
+	l.unlock();
 	reset();
 }
 

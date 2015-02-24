@@ -128,14 +128,14 @@ bool TemperatureControl::onGcodeReceived(GCode& gc)
 				max_pwm= gc.getArg('Y');
 
 		}else if(!gc.hasArg('S')) {
-			THEDISPATCHER.getOS().printf("%s(S%d): Pf:%g If:%g Df:%g X(I_max):%g max_pwm: %d pwm_out:%1.2f\n", designator.c_str(), pool_index, p_factor, i_factor / PIDdt, d_factor * PIDdt, i_max, max_pwm, pwm_out);
+			THEDISPATCHER.getOS().printf("%s(S%d): Pf:%1.4f If:%1.4f Df:%1.4f X(I_max):%1.2f max_pwm: %1.2f pwm_out:%1.2f\n", designator.c_str(), pool_index, p_factor, i_factor / PIDdt, d_factor * PIDdt, i_max, max_pwm, pwm_out);
 		}
 		return true;
 
 	}
 
 	if (gc.getCode() == 500) { // M500 saves some volatile settings to non volatile storage
-		THEDISPATCHER.getOS().printf("M301 S%d P%1.4f I%1.4f D%1.4f X%1.4f Y%d\n", pool_index, p_factor, i_factor / PIDdt, d_factor * PIDdt, i_max, max_pwm);
+		THEDISPATCHER.getOS().printf("M301 S%d P%1.4f I%1.4f D%1.4f X%1.4f Y%1.4f\n", pool_index, p_factor, i_factor / PIDdt, d_factor * PIDdt, i_max, max_pwm);
 
 		if(sensor_settings) {
 			// get or save any sensor specific optional values

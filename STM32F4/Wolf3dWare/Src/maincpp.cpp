@@ -138,10 +138,8 @@ static uint16_t readADC()
    return roundf(sum/4.0F); // return the average
 }
 
-extern void testMemoryBarrier();
 extern "C" int maincpp()
 {
-	testMemoryBarrier();
 	READY_Q_MUTEX= xSemaphoreCreateMutex();
 	TEMPERATURE_MUTEX= xSemaphoreCreateMutex();
 
@@ -221,12 +219,12 @@ void executeNextBlock()
 	if(!q.empty()) {
 		Block block= q.back(); // incurs a copy as we destroy it in next instruction
 		q.pop_back();
-		l.unLock();
+		l.unlock();
 		// sets up the move with all the actuators involved in this block
 		move_issued= THEKERNEL.getMotionControl().issueMove(block);
 
 	}else{
-		l.unLock();
+		l.unlock();
 	}
 }
 
@@ -471,19 +469,4 @@ extern "C" void tests()
 
 	//malloc_stats();
 #endif
-}
-
-#include <atomic>
-uint8_t tarray[16];
-uint8_t tlock;
-// test memory barrier
-void testMemoryBarrier()
-{
-	tlock= 1;
-	std::atomic_thread_fence(std::memory_order_acquire);
-	for (int i = 0; i < 16; ++i) {
-	    tarray[i]= i;
-	}
-	std::atomic_thread_fence(std::memory_order_release);
-	tlock= 0;
 }

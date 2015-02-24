@@ -114,7 +114,7 @@ bool Dispatcher::handleConfigurationCommands(GCode& gc)
 			return true;
 
 		}else if(gc.getSubcode() == 0){
-			writeConfiguration();
+			return writeConfiguration();
 		}
 
 	}else if(gc.getCode() == 501) {
