@@ -108,19 +108,6 @@ extern "C" bool testGpio()
 }
 
 // example of reading the DMA filled ADC buffer and taking the 4 middle values as average
-extern __IO uint16_t uhADCxConvertedValue[];
-uint16_t readADC()
-{
-	// grab the dma buffer
-	std::deque<uint16_t> buf(uhADCxConvertedValue, uhADCxConvertedValue+8);
-	// sort
-  	std::sort (buf.begin(), buf.end());
-  	// eliminate first and last two
-  	buf.pop_back(); buf.pop_back();
-  	buf.pop_front(); buf.pop_front();
-  	uint16_t sum= std::accumulate(buf.begin(), buf.end(), 0);
-  	return roundf(sum/4.0F); // return the average
-}
 
 static size_t doDelay(void *, size_t, uint32_t ms)
 {
@@ -135,11 +122,26 @@ extern "C" void setPWM(uint8_t channel, float percent);
 extern "C" uint16_t* getADC(uint8_t ch);
 extern "C" void InitializePWM();
 extern "C" void InitializeADC();
-
 extern "C" void moveCompletedThread(void const *argument);
 
+static uint16_t readADC()
+{
+	uint16_t *adc_buf= getADC(0);
+   // grab the dma buffer
+   std::deque<uint16_t> buf(adc_buf, adc_buf+8);
+   // sort
+   std::sort (buf.begin(), buf.end());
+   // eliminate first and last two
+   buf.pop_back(); buf.pop_back();
+   buf.pop_front(); buf.pop_front();
+   uint16_t sum= std::accumulate(buf.begin(), buf.end(), 0);
+   return roundf(sum/4.0F); // return the average
+}
+
+extern void testMemoryBarrier();
 extern "C" int maincpp()
 {
+	testMemoryBarrier();
 	READY_Q_MUTEX= xSemaphoreCreateMutex();
 	TEMPERATURE_MUTEX= xSemaphoreCreateMutex();
 
@@ -202,6 +204,11 @@ extern "C" int maincpp()
 
 	move_issued= false;
 	waiting_ticks= 0;
+
+	// load configuration from non volatile storage
+	THEDISPATCHER.loadConfiguration(); // same as M501
+	//sendReply(THEDISPATCHER.getResult());
+
 	return 0;
 }
 
@@ -223,7 +230,7 @@ void executeNextBlock()
 	}
 }
 
-// TODO add a task to write responses to host as different tasks may need accesst
+// TODO add a task to write responses to host as different tasks may need access
 extern "C" bool serial_reply(const char*, size_t);
 static void sendReply(const std::string& str)
 {
@@ -282,8 +289,12 @@ bool handleCommand(const char *line)
 		oss << "ok\n";
 
 	}else if(strcmp(line, "adc") == 0) {
-		uint16_t adc= readADC();
-		oss << adc << "\nok\n";
+		for (int i = 0; i < 10; ++i) {
+			uint16_t adc= readADC();
+			oss << adc << ", ";
+			THEKERNEL.delay(50);
+		}
+		oss << "\n";
 
 	}else{
 		oss << "Unknown command: " << line << "\n";
@@ -460,4 +471,19 @@ extern "C" void tests()
 
 	//malloc_stats();
 #endif
+}
+
+#include <atomic>
+uint8_t tarray[16];
+uint8_t tlock;
+// test memory barrier
+void testMemoryBarrier()
+{
+	tlock= 1;
+	std::atomic_thread_fence(std::memory_order_acquire);
+	for (int i = 0; i < 16; ++i) {
+	    tarray[i]= i;
+	}
+	std::atomic_thread_fence(std::memory_order_release);
+	tlock= 0;
 }

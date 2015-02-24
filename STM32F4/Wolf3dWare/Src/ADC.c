@@ -1,5 +1,7 @@
 #include "stm32f4xx_hal.h"
 
+#include <string.h>
+
 #define ADCx                            ADC3
 #define ADCx_CLK_ENABLE()               __HAL_RCC_ADC3_CLK_ENABLE()
 #define DMAx_CLK_ENABLE()               __HAL_RCC_DMA2_CLK_ENABLE()
@@ -26,8 +28,11 @@
 
 static ADC_HandleTypeDef    AdcHandle;
 
-/* Variable used to get converted value */
-uint16_t uhADCxConvertedValue[8];
+// externally accesible buffer
+static uint16_t adc_buffer[8];
+
+/* Variable used to get converted value DMA */
+static uint16_t uhADCxConvertedValue[8];
 
 #define __debugbreak()  { __asm volatile ("bkpt #0"); }
 static void Error_Handler(void)
@@ -40,7 +45,7 @@ static void Error_Handler(void)
 uint16_t* getADC(uint8_t ch)
 {
 	switch(ch) {
-		case 0: return uhADCxConvertedValue;
+		case 0: return adc_buffer;
 		default: return 0;
 	}
 }
@@ -213,7 +218,9 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *AdcHandle)
 		adc_ave_time= stop_time() - adc_start;
 		time_cnt= 0;
 	}
+	memcpy(adc_buffer, uhADCxConvertedValue, sizeof(adc_buffer));
 }
+
 /*
 From http://stm32f4-discovery.com/2014/04/library-06-ad-converter-on-stm32f4xx/
 

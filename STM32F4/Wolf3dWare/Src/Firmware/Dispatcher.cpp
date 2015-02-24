@@ -6,6 +6,7 @@
 #include <ctype.h>
 #include <cmath>
 #include <string.h>
+#include <cstdarg>
 
 using namespace std;
 
@@ -54,6 +55,32 @@ bool Dispatcher::dispatch(GCode& gc)
 	return ret;
 }
 
+// convenience to dispatch a one off command
+// Usage: dispatch('M', 123, [subcode,] 'X', 456, 'Y', 789, ..., 0); // must terminate with 0
+// dispatch('M', 123, 0);
+bool Dispatcher::dispatch(char cmd, uint16_t code, ...)
+{
+	GCode gc;
+    va_list args;
+    va_start(args, code);
+    char c= va_arg(args, int); // get first arg
+    if(c > 0 && c < 'A') { // infer subcommand
+		gc.setCommand(cmd, code, (uint16_t)c);
+		c= va_arg(args, int); // get next arg
+	}else{
+		gc.setCommand(cmd, code);
+	}
+
+    while(c != 0) {
+    	float v= (float)va_arg(args, double);
+    	gc.addArg(c, v);
+    	c= va_arg(args, int); // get next arg
+    }
+
+    va_end(args);
+    return dispatch(gc);
+}
+
 Dispatcher::Handlers_t::iterator Dispatcher::addHandler(HANDLER_NAME gcode, uint16_t code, Handler_t fnc)
 {
 	Handlers_t::iterator ret;
@@ -87,80 +114,90 @@ bool Dispatcher::handleConfigurationCommands(GCode& gc)
 			return true;
 
 		}else if(gc.getSubcode() == 0){
-			// write stream to non volatile memory
-			// prepend magic number so we know there is a valid configuration saved
-			std::string str= "CONF";
-			str.append(output_stream.str());
-			str.append(4, 0); // terminate with 4 nuls
-			output_stream.clear(); // clear to save some memory
-			size_t n= str.size();
-			size_t r= THEKERNEL.nonVolatileWrite((void *)str.data(), n, 0);
-			if(r == n) {
-				output_stream.printf("Configuration saved\n");
-			}else{
-				output_stream.printf("Failed to save configuration, needed to write %d, wrote %d\n", n, r);
-			}
-			return true;
+			writeConfiguration();
 		}
 
 	}else if(gc.getCode() == 501) {
-		// load configuration from non volatile memory
-		char buf[64];
-		size_t r= THEKERNEL.nonVolatileRead(buf, 4, 0);
-		if(r == 4) {
-			if(strncmp(buf, "CONF", 4) == 0) {
-				size_t off= 4;
-				// read everything until we get some nulls
-				std::string str;
-				do {
-					r= THEKERNEL.nonVolatileRead(buf, sizeof(buf), off);
-					if(r != sizeof(buf)) {
-						output_stream.printf("Read failed\n");
-						return true;
-					}
-					str.append(buf, r);
-					off += r;
-				}while(str.find('\0') == string::npos);
-
-				// foreach line dispatch it
-				std::stringstream ss(str);
-				std::string line;
-				std::vector<string> lines;
-				GCodeProcessor& gp= THEKERNEL.getGCodeProcessor();
-			    while(std::getline(ss, line, '\n')){
-      				if(line.find('\0') != string::npos) break; // hit the end
-      				lines.push_back(line);
-      				// Parse the Gcode
-					GCodeProcessor::GCodes_t gcodes= gp.parse(line.c_str());
-					// dispatch it
-					for(auto& i : gcodes) {
-						if(i.getCode() >= 500 && i.getCode() <= 503) continue; // avoid recursion death
-						dispatch(i);
-    				}
-    			}
-    			for(auto& s : lines) {
-    				output_stream.printf("Loaded %s\n", s.c_str());
-    			}
-
-			}else{
-				output_stream.printf("No saved configuration\n");
-			}
-
-		}else{
-			output_stream.printf("Failed to read saved configuration\n");
-		}
-		return true;
+		return loadConfiguration();
 
 	}else if(gc.getCode() == 502) {
 		// delete the saved configuration
 		uint32_t zero= 0xFFFFFFFFUL;
 		if(THEKERNEL.nonVolatileWrite(&zero, 4, 0) == 4) {
-			output_stream.printf("Saved configuration deleted - reset to restore defaults\n");
+			output_stream.printf("// Saved configuration deleted - reset to restore defaults\n");
 		}else{
-			output_stream.printf("Failed to delete saved configuration\n");
+			output_stream.printf("// Failed to delete saved configuration\n");
 		}
 		return true;
 	}
 
 	return false;
+}
+
+bool Dispatcher::writeConfiguration()
+{
+	// write stream to non volatile memory
+	// prepend magic number so we know there is a valid configuration saved
+	std::string str= "CONF";
+	str.append(output_stream.str());
+	str.append(4, 0); // terminate with 4 nuls
+	output_stream.clear(); // clear to save some memory
+	size_t n= str.size();
+	size_t r= THEKERNEL.nonVolatileWrite((void *)str.data(), n, 0);
+	if(r == n) {
+		output_stream.printf("// Configuration saved\n");
+	}else{
+		output_stream.printf("// Failed to save configuration, needed to write %d, wrote %d\n", n, r);
+	}
+	return true;
+}
+
+bool Dispatcher::loadConfiguration()
+{
+	// load configuration from non volatile memory
+	char buf[64];
+	size_t r= THEKERNEL.nonVolatileRead(buf, 4, 0);
+	if(r == 4) {
+		if(strncmp(buf, "CONF", 4) == 0) {
+			size_t off= 4;
+			// read everything until we get some nulls
+			std::string str;
+			do {
+				r= THEKERNEL.nonVolatileRead(buf, sizeof(buf), off);
+				if(r != sizeof(buf)) {
+					output_stream.printf("// Read failed\n");
+					return true;
+				}
+				str.append(buf, r);
+				off += r;
+			}while(str.find('\0') == string::npos);
+
+			// foreach line dispatch it
+			std::stringstream ss(str);
+			std::string line;
+			std::vector<string> lines;
+			GCodeProcessor& gp= THEKERNEL.getGCodeProcessor();
+		    while(std::getline(ss, line, '\n')){
+  				if(line.find('\0') != string::npos) break; // hit the end
+  				lines.push_back(line);
+  				// Parse the Gcode
+				GCodeProcessor::GCodes_t gcodes= gp.parse(line.c_str());
+				// dispatch it
+				for(auto& i : gcodes) {
+					if(i.getCode() >= 500 && i.getCode() <= 503) continue; // avoid recursion death
+					dispatch(i);
+				}
+			}
+			for(auto& s : lines) {
+				output_stream.printf("// Loaded %s\n", s.c_str());
+			}
+
+		}else{
+			output_stream.printf("// No saved configuration\n");
+		}
+
+	}else{
+		output_stream.printf("// Failed to read saved configuration\n");
+	}
+	return true;
 }

@@ -173,12 +173,12 @@ float Thermistor::adcValueToTemperature(int adc_value)
 // reading the DMA filled ADC buffer of 8 readings and taking the 4 middle values as average
 int Thermistor::newThermistorReading()
 {
-    uint16_t *dma_bufb= getADC(pool_index); // get a pointer to the DMA buffer
+    uint16_t *dma_bufb= getADC(pool_index); // get a pointer to the copy of the DMA buffer
     if(dma_bufb == nullptr) {
         // not setup for this channel
         return 0;
     }
-    // grab the dma buffer
+    // grab the buffer
     uint16_t b[8];
     memcpy(b, dma_bufb, sizeof(b));
     std::deque<uint16_t> buf(b, b+8);

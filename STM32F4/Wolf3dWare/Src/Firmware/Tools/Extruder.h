@@ -18,10 +18,11 @@ private:
 	bool handleFlowRateSetting(GCode&);
 	bool handleRetract(GCode& gc);
 	bool handleG0G1(GCode& gc);
+	bool handleSaveConfiguration(GCode& gc);
 	float calculateVolumetricMultiplier(float dia);
 	void setScale();
 
-	float filament_diameter{3.0};
+	float filament_diameter{0.0F};
 	float volumetric_multiplier{1.0F};
 	float extruder_multiplier{1.0F};
 	float retract_length{1.0F};

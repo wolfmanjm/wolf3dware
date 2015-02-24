@@ -27,6 +27,7 @@ void Extruder::initialize()
 	THEDISPATCHER.addHandler( Dispatcher::MCODE_HANDLER, 207, std::bind( &Extruder::handleRetractSettings, this, _1) );
 	THEDISPATCHER.addHandler( Dispatcher::MCODE_HANDLER, 208, std::bind( &Extruder::handleUnRetractSettings, this, _1) );
 	THEDISPATCHER.addHandler( Dispatcher::MCODE_HANDLER, 221, std::bind( &Extruder::handleFlowRateSetting, this, _1) );
+	THEDISPATCHER.addHandler( Dispatcher::MCODE_HANDLER, 500, std::bind( &Extruder::handleSaveConfiguration, this, _1) );
 
 	// set up intial scale if filament diameter is set
 	if(filament_diameter > 0.01F) {
@@ -81,53 +82,32 @@ bool Extruder::handleRetract(GCode& gc)
 	}
 
 	// we inject the moves into the queue
-
-	{
-		// push state
-		GCode newgc;
-		newgc.setCommand('M', 120);
-		THEDISPATCHER.dispatch(newgc);
-	}
-	{
-		// set relative mode
-		GCode newgc;
-		newgc.setCommand('G', 91);
-		THEDISPATCHER.dispatch(newgc);
-	}
+	// push state
+	THEDISPATCHER.dispatch('M', 120, 0);
+	// set relative mode
+	THEDISPATCHER.dispatch('G', 91, 0);
 
 	// handle zlift restore which happens before the unretract
 	if(retract_zlift_length > 0 && gc.getCode() == 11 && !cancel_zlift_restore) {
 		// NOTE we do not do this if cancel_zlift_restore is set to true, which happens if there is an absolute Z move inbetween G10 and G11
-		GCode newgc;
-		newgc.setCommand('G', 0).addArg('Z', -retract_zlift_length).addArg('F', retract_zlift_feedrate);
-		THEDISPATCHER.dispatch(newgc);
+		THEDISPATCHER.dispatch('G', 0, 'Z', -retract_zlift_length, 'F', retract_zlift_feedrate, 0);
 	}
 
-	{
-		// NOTE we want these to be in mm not mm³ so we use G0
-		GCode newgc;
-		if(gc.getCode() == 10) { // G10 retract
-			newgc.setCommand('G', 0).addArg(axis, retract_length).addArg('F', retract_feedrate);
+	// NOTE we want these to be in mm not mm³ so we use G0
+	if(gc.getCode() == 10) { // G10 retract
+		THEDISPATCHER.dispatch('G', 0, axis, retract_length, 'F', retract_feedrate, 0);
 
-		}else{ // G11 unretract
-			newgc.setCommand('G', 0).addArg(axis, -(retract_length+retract_recover_length)).addArg('F', retract_recover_feedrate);
-		}
-		THEDISPATCHER.dispatch(newgc);
+	}else{ // G11 unretract
+		THEDISPATCHER.dispatch('G', 0, axis, -(retract_length+retract_recover_length), 'F', retract_recover_feedrate, 0);
 	}
 
 	// handle zlift which happens after retract
 	if(retract_zlift_length > 0 && gc.getCode() == 10) {
-		GCode newgc;
-		newgc.setCommand('G', 0).addArg('Z', retract_zlift_length).addArg('F', retract_zlift_feedrate);
-		THEDISPATCHER.dispatch(newgc);
+		THEDISPATCHER.dispatch('G', 0, 'Z', retract_zlift_length, 'F', retract_zlift_feedrate, 0);
 	}
 
-	{
-		// pop state, restores feedrates and absolute mode
-		GCode newgc;
-		newgc.setCommand('M', 121);
-		THEDISPATCHER.dispatch(newgc);
-	}
+	// pop state, restores feedrates and absolute mode
+	THEDISPATCHER.dispatch('M', 121, 0);
 
 	in_retract= false;
 	return true;
@@ -200,5 +180,14 @@ bool Extruder::handleFlowRateSetting(GCode& gc)
 		THEDISPATCHER.getOS().printf("Extruder Multiplier: %f\n", extruder_multiplier);
 	}
 
+	return true;
+}
+
+// M500, M500.3 (M503) save or display configuration
+bool Extruder::handleSaveConfiguration(GCode& gc)
+{
+	THEDISPATCHER.getOS().printf("M200 D%1.4f\n", filament_diameter);
+	THEDISPATCHER.getOS().printf("M207 S%1.4f F%1.4f Z%1.4f Q%1.4f\n", retract_length, retract_feedrate, retract_zlift_length, retract_zlift_feedrate);
+	THEDISPATCHER.getOS().printf("M208 S%1.4f F%1.4f\n", retract_recover_length, retract_recover_feedrate);
 	return true;
 }
