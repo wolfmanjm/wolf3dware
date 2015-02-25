@@ -21,6 +21,12 @@ bool Dispatcher::dispatch(GCode& gc)
 	const auto& f= handler.equal_range(gc.getCode());
 	bool ret= false;
 	output_stream.clear();
+
+	// alias M503 to M500.3
+	if(gc.hasM() && gc.getCode() == 503) {
+		gc.setCommand('M', 500, 3);
+	}
+
 	for (auto it=f.first; it!=f.second; ++it) {
 		if(it->second(gc)) {
 			ret= true;

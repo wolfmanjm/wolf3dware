@@ -34,20 +34,24 @@ using namespace std;
 SemaphoreHandle_t READY_Q_MUTEX;
 SemaphoreHandle_t TEMPERATURE_MUTEX;
 
-bool execute_mode= false;
 uint32_t xdelta= 0;
 
 // local
+static volatile bool execute_mode= false;
 // signals that the ticks can start to be issued to the actuators
 static volatile bool move_issued= false;
 // count of ticks missed while setting up next move
 static volatile uint32_t waiting_ticks= 0;
 static uint32_t overflow= 0;
+// set to true as long as we are processing the queue
+static volatile bool running= false;
 
 #define __debugbreak()  { __asm volatile ("bkpt #0"); }
-static const bool INVERTPIN=false;
+
 
 // define specific pins, set 3rd parameter to true if inverted
+static const bool INVERTPIN=false;
+
 using X_StepPin = GPIO(A, 5,INVERTPIN);	// PA5   P2-21
 using X_DirPin  = GPIO(A, 9,INVERTPIN); // PA9   P1-52
 using X_EnbPin  = GPIO(A,10,INVERTPIN); // PA10  P1-51
@@ -210,6 +214,7 @@ extern "C" int maincpp()
 
 	move_issued= false;
 	waiting_ticks= 0;
+	running= false;
 
 	// load configuration from non volatile storage
 	THEDISPATCHER.loadConfiguration(); // same as M501
@@ -230,9 +235,11 @@ void executeNextBlock()
 		l.unlock();
 		// sets up the move with all the actuators involved in this block
 		move_issued= THEKERNEL.getMotionControl().issueMove(block);
+		running= true;
 
 	}else{
 		l.unlock();
+		running= false;
 	}
 	// this lets main thread know we moved to plot the movements
 	//xTaskNotify( MainThreadHandle, 0x02, eSetBits);
@@ -289,6 +296,7 @@ bool handleCommand(const char *line)
 		execute_mode= false;
 		THEKERNEL.getPlanner().purge();
 		THEKERNEL.getMotionControl().resetAxisPositions();
+		running= false;
 		oss << "ok\n";
 
 	}else if(strcmp(line, "stats") == 0) {
@@ -342,7 +350,50 @@ extern "C" bool commandLineHandler(const char *line)
 			sendReply(std::string(str));
 		}
 	}
+
+	// check for large queue size, stall until it gets smaller
+	const size_t MAX_Q= 50;
+	Planner::Queue_t& q= THEKERNEL.getPlanner().getReadyQueue();
+	Lock l(READY_Q_MUTEX);
+	l.lock();
+	if(q.size() > MAX_Q) {
+		// we force it to start executing and if not currently running we start off the first block
+		if(!execute_mode) execute_mode= true;
+		if(!running) executeNextBlock();
+
+		// wait for it to empty halfway
+		while(q.size() > MAX_Q/2) {
+			l.unlock();
+			THEKERNEL.delay(100);
+			l.lock();
+		}
+	}
+	l.unlock();
 	return true;
+}
+
+// we have not recieved any comamnds for a while see if we can kickstart the queue running
+extern "C" void kickQueue()
+{
+	if(execute_mode && !running) {
+		Planner::Queue_t& q= THEKERNEL.getPlanner().getReadyQueue();
+		Lock l(READY_Q_MUTEX);
+		l.lock();
+		size_t n=  q.size();
+		l.unlock();
+		if(n > 0) {
+			// we have somethign in the queue we can execute
+			executeNextBlock();
+			return;
+		}
+		// check lookahead queue, no need to lock it as it is only manipulated in this thread
+		Planner::Queue_t& lq= THEKERNEL.getPlanner().getLookAheadQueue();
+		if(lq.size() > 0) {
+			// move it into ready and execute it (probably a single jog command)
+			THEKERNEL.getPlanner().moveAllToReady();
+			executeNextBlock();
+		}
+	}
 }
 
 extern uint32_t xst, xet;

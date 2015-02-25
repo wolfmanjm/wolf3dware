@@ -97,15 +97,16 @@ extern volatile uint32_t adc_ave_time;
 #define BUTTON_BIT 0x01
 #define MOVE_BIT 0x02
 
-/* Private functions ---------------------------------------------------------*/
 
+// extern defined in maincpp mostly
+extern int os_started;
 extern bool commandLineHandler(const char*);
 extern void TimingTests();
-extern int os_started;
 extern int maincpp();
 extern bool issueTicks(void);
 extern void moveCompletedThread(void const *argument);
 extern void issueUnstep();
+extern void kickQueue();
 
 uint32_t start_time()
 {
@@ -400,10 +401,11 @@ static void cdcThread(void const *argument)
 static char  cmd_line[MAXLINELEN+1];
 static void commandThread(void const *argument)
 {
+	const TickType_t xTicksToWait = pdMS_TO_TICKS( 100 );
 	T_MEAS  *rptr;
 	osEvent  evt;
 	for (;;) {
-		evt = osMessageGet(MsgBox, osWaitForever);  // wait for message
+		evt = osMessageGet(MsgBox, xTicksToWait);  // wait for message
 		if (evt.status == osEventMessage) {
 			rptr = evt.value.p;
 			uint8_t cnt = rptr->len;
@@ -412,6 +414,9 @@ static void commandThread(void const *argument)
 			cmd_line[cnt] = 0;
 			//LCD_UsrLog("%s\n", cmd_line);
 			commandLineHandler(cmd_line);
+
+		}else if(evt.status == osEventTimeout) {
+			kickQueue();
 		}
 	}
 }
@@ -651,7 +656,10 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 		// stop the timer
 		HAL_TIM_Base_Stop_IT(&UnStepTickerTimHandle);
 		// reset the count for next time
-		UNSTEPTICKER_TIMx->CNT= 0;
+		__HAL_TIM_SET_COUNTER(&UnStepTickerTimHandle, 0);
+		// Or this apparently will stop interrupts and reset counter
+		//UnStepTickerTimHandle.Instance->CR1 |= (TIM_CR1_UDIS);
+		//UnStepTickerTimHandle.Instance->EGR |= (TIM_EGR_UG);
 	}
 }
 
@@ -659,6 +667,8 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 void startUnstepTicker()
 {
 	HAL_TIM_Base_Start_IT(&UnStepTickerTimHandle);
+	// Or this apparently will restart interrupts
+	//UnStepTickerTimHandle.Instance->CR1 &= ~(TIM_CR1_UDIS);
 }
 
 /**
