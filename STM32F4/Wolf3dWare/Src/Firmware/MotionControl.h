@@ -25,7 +25,9 @@ public:
 	bool isPrimaryAxis(uint8_t i) const { return primary_axis[i]; }
 	bool issueMove(const Block& block);
 	bool issueTicks(uint32_t current_tick);
+	void issueUnsteps();
 	void waitForMoves();
+	bool isStepped() const { return stepped; }
 
 	// bool isAnythingMoving() const { return moving_mask != 0; }
 	// void setNothingMoving() { moving_mask= 0; }
@@ -64,5 +66,6 @@ private:
 	struct {
 		bool absolute_mode:1;
 		bool inch_mode:1;
+		bool stepped:1;
 	};
 };

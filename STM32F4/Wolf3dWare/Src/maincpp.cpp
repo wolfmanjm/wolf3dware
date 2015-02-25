@@ -107,6 +107,13 @@ extern "C" bool testGpio()
 	return LED4Pin::get();
 }
 
+extern "C" void getPosition(int *x, int *y)
+{
+	*x= THEKERNEL.getMotionControl().getActuator('X').getCurrentPositionInmm();
+	*y= THEKERNEL.getMotionControl().getActuator('Y').getCurrentPositionInmm();
+}
+extern "C" osThreadId MainThreadHandle;
+
 // example of reading the DMA filled ADC buffer and taking the 4 middle values as average
 
 static size_t doDelay(void *, size_t, uint32_t ms)
@@ -123,6 +130,7 @@ extern "C" uint16_t* getADC(uint8_t ch);
 extern "C" void InitializePWM();
 extern "C" void InitializeADC();
 extern "C" void moveCompletedThread(void const *argument);
+extern "C" void startUnstepTicker();
 
 static uint16_t readADC()
 {
@@ -226,6 +234,8 @@ void executeNextBlock()
 	}else{
 		l.unlock();
 	}
+	// this lets main thread know we moved to plot the movements
+	//xTaskNotify( MainThreadHandle, 0x02, eSetBits);
 }
 
 // TODO add a task to write responses to host as different tasks may need access
@@ -370,7 +380,15 @@ extern "C" bool issueTicks()
  	}
 
 	// a move was issued to the actuators, tick them until all moves are done
-	if(!mc.issueTicks(++current_tick)){
+
+	bool all_moves_finished= !mc.issueTicks(++current_tick);
+
+	if(mc.isStepped()) {
+		// if a step or steps were set then start the unstep ticker
+		startUnstepTicker();
+	}
+
+	if(all_moves_finished) {
 		// all moves finished
 		TriggerPin::set(true);
 		// need to protect against getting called again if this takes longer than 10uS
@@ -379,10 +397,17 @@ extern "C" bool issueTicks()
 		waiting_ticks= 1; // setup to count any missed ticks
 		return false;  // signals ISR to yield to the moveCompletedThread
 	}
+
 	xet= stop_time();
 	uint32_t d= xet-xst;
 	if(d > xdelta) xdelta= d;
 	return true;
+}
+
+extern "C" void issueUnstep()
+{
+	MotionControl& mc= THEKERNEL.getMotionControl();
+	mc.issueUnsteps();
 }
 
 // run the block change in this thread when signaled
@@ -392,9 +417,7 @@ void moveCompletedThread(void const *argument)
 		// wait until we have something to process
 		uint32_t ulNotifiedValue= ulTaskNotifyTake( pdTRUE, portMAX_DELAY);
 		if(ulNotifiedValue > 0) {
-			//if(ulNotifiedValue > 1) overflow++; // NOTE this cannot happen so remove it FIXME
-
-			// get next block, and setup the next move
+ 			// get next block, and setup the next move
 			executeNextBlock();
 
 			if(!move_issued) {

@@ -350,15 +350,22 @@ bool MotionControl::issueMove(const Block& block)
 bool MotionControl::issueTicks(uint32_t current_tick)
 {
 	bool not_done= true;
+	stepped= false;
 	for (auto& a : actuators) {
-		if(a.tick(current_tick)) not_done= false;
+		bool a_step;
+		if(a.tick(current_tick, a_step)) not_done= false;
+		if(a_step) stepped= true;
 	}
 
-	// this will toggle the step pin if it was set
-	for (auto& a : actuators) {
-		a.unstep();
-	}
 	return !not_done;
+}
+
+void MotionControl::issueUnsteps()
+{
+	// unstep any previous step
+	for (auto& a : actuators) {
+	 	a.unstep();
+	}
 }
 
 Actuator& MotionControl::getActuator(char axis)

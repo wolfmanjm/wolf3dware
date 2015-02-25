@@ -43,6 +43,7 @@
 #include "cmsis_os.h"
 
 extern TIM_HandleTypeDef    StepTickerTimHandle;
+extern TIM_HandleTypeDef    UnStepTickerTimHandle;
 extern TIM_HandleTypeDef    PerformanceTimHandle;
 
 /** @addtogroup STM32F4xx_HAL_Examples
@@ -202,6 +203,11 @@ void OTG_HS_IRQHandler(void)
 void STEPTICKER_TIMx_IRQHandler(void)
 {
   HAL_TIM_IRQHandler(&StepTickerTimHandle);
+}
+
+void UNSTEPTICKER_TIMx_IRQHandler(void)
+{
+  HAL_TIM_IRQHandler(&UnStepTickerTimHandle);
 }
 
 

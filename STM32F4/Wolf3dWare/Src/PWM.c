@@ -122,6 +122,5 @@ void HAL_TIM_PWM_MspInit(TIM_HandleTypeDef *htim)
 
   GPIO_InitStruct.Pin = GPIO_PIN_CHANNEL2;
   HAL_GPIO_Init(GPIOE, &GPIO_InitStruct);
-
 }
 

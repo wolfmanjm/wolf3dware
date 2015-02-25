@@ -56,7 +56,7 @@ bool Actuator::checkMaxSpeed()
 // returns steps to given target in mm, and sets the milestone for steps
 std::tuple<bool, uint32_t> Actuator::stepsToTarget(float target)
 {
-    uint32_t target_steps = lround(target * steps_per_mm);
+    int32_t target_steps = lround(target * steps_per_mm);
     bool dir = (target_steps >= last_milestone_steps);
     uint32_t delta_steps;
     if(dir) {
@@ -70,8 +70,9 @@ std::tuple<bool, uint32_t> Actuator::stepsToTarget(float target)
 }
 
 // called by step ticker at 100KHz (or faster)
+// returns true if more steps need tro be issued, and false if the move finished
 // Runs in ISR context, so NO memory allocation allowed
-bool Actuator::tick(uint32_t current_tick)
+bool Actuator::tick(uint32_t current_tick, bool& stepped)
 {
     if(!moving) return false;
 
@@ -107,11 +108,15 @@ bool Actuator::tick(uint32_t current_tick)
 
         // std::cout << axis << " Step: " << step_count << " " <<  current_tick << "\n";
         step();
+        stepped= true;
 
         if(step_count == steps_to_move) {
             moving= false;
             return false;
         }
+
+    }else{
+        stepped= false;
     }
     return true;
 }

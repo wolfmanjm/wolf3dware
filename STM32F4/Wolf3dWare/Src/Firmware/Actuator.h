@@ -27,7 +27,7 @@ public:
 	float getScale() const { return scale; }
 
 	std::tuple<bool,uint32_t> stepsToTarget(float target);
-	bool tick(uint32_t current_tick);
+	bool tick(uint32_t current_tick, bool& stepped);
 	char getAxis() const { return axis; }
 	uint32_t getCurrentPositionInSteps() const { return current_step_position; }
 	float getCurrentPositionInmm() const { return steps2mm(current_step_position); }
@@ -64,8 +64,8 @@ private:
 	float steps_per_tick;
 	float axis_ratio;
 	float scale{1.0F};
-	uint32_t last_milestone_steps{0};
-	uint32_t current_step_position{0};
+	int32_t last_milestone_steps{0};
+	int32_t current_step_position{0};
 	HAL_function_t hal_functions[N_HAL_FUNCTIONS];
 	char axis;
 	struct {

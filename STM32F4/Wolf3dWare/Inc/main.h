@@ -56,9 +56,13 @@
 
 #define STEPTICKER_TIMx              TIM3
 #define STEPTICKER_TIMx_CLK_ENABLE  __HAL_RCC_TIM3_CLK_ENABLE
-/* Definition for TIMx's NVIC */
 #define STEPTICKER_TIMx_IRQn        TIM3_IRQn
 #define STEPTICKER_TIMx_IRQHandler  TIM3_IRQHandler
+
+#define UNSTEPTICKER_TIMx              TIM4
+#define UNSTEPTICKER_TIMx_CLK_ENABLE  __HAL_RCC_TIM4_CLK_ENABLE
+#define UNSTEPTICKER_TIMx_IRQn        TIM4_IRQn
+#define UNSTEPTICKER_TIMx_IRQHandler  TIM4_IRQHandler
 
 #define __debugbreak()  { __asm volatile ("bkpt #0"); }
 

@@ -74,13 +74,17 @@ void HAL_TIM_Base_MspInit(TIM_HandleTypeDef *htim)
 	/* TIMx Peripheral clock enable */
 	PERFORMANCE_TIMx_CLK_ENABLE();
 	STEPTICKER_TIMx_CLK_ENABLE();
+	UNSTEPTICKER_TIMx_CLK_ENABLE();
 
 	/*##-2- Configure the NVIC for TIMx ########################################*/
 	/* Set the TIMx priority */
 	HAL_NVIC_SetPriority(STEPTICKER_TIMx_IRQn, 0x05, 0);
-
 	/* Enable the TIMx global Interrupt */
 	HAL_NVIC_EnableIRQ(STEPTICKER_TIMx_IRQn);
+
+	//unstep ticker
+	HAL_NVIC_SetPriority(UNSTEPTICKER_TIMx_IRQn, 0x04, 0);
+	HAL_NVIC_EnableIRQ(UNSTEPTICKER_TIMx_IRQn);
 }
 
 /**

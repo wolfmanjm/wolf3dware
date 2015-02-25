@@ -184,8 +184,8 @@ void HAL_ADC_MspDeInit(ADC_HandleTypeDef *hadc)
 * @param  None
 * @retval None
 */
-static uint8_t time_cnt= 0;
-static uint32_t adc_start= 0;
+// static uint8_t time_cnt= 0;
+// static uint32_t adc_start= 0;
 volatile uint32_t adc_ave_time= 0;
 extern uint32_t start_time();
 extern uint32_t stop_time();
@@ -213,11 +213,13 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *AdcHandle)
 	/* Turn LED3 on: Transfer process is correct */
 	//BSP_LED_On(LED3);
 	// gets called every 185.5 us
-	if(time_cnt++ == 0) adc_start= start_time();
-	else if(time_cnt >= 100){
-		adc_ave_time= stop_time() - adc_start;
-		time_cnt= 0;
-	}
+	// if(time_cnt++ == 0) adc_start= start_time();
+	// else if(time_cnt >= 100){
+	// 	adc_ave_time= stop_time() - adc_start;
+	// 	time_cnt= 0;
+	// }
+
+	// TODO may need to do some atomicity here
 	memcpy(adc_buffer, uhADCxConvertedValue, sizeof(adc_buffer));
 }
 

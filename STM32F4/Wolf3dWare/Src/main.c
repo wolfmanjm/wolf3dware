@@ -89,10 +89,13 @@ static void Timer_Config(void);
 
 TIM_HandleTypeDef PerformanceTimHandle;
 TIM_HandleTypeDef StepTickerTimHandle;
+TIM_HandleTypeDef UnStepTickerTimHandle;
+
 volatile uint32_t delta_time= 0;
 extern volatile uint32_t adc_ave_time;
 
 #define BUTTON_BIT 0x01
+#define MOVE_BIT 0x02
 
 /* Private functions ---------------------------------------------------------*/
 
@@ -102,6 +105,7 @@ extern int os_started;
 extern int maincpp();
 extern bool issueTicks(void);
 extern void moveCompletedThread(void const *argument);
+extern void issueUnstep();
 
 uint32_t start_time()
 {
@@ -198,7 +202,7 @@ int main(void)
 	MsgBox = osMessageCreate(osMessageQ(MsgBox), NULL);  // create msg queue
 
 	// start threads
-	osThreadDef(Main, mainThread, osPriorityNormal, 0, 1000);
+	osThreadDef(Main, mainThread, osPriorityLow, 0, 1000);
 	MainThreadHandle = osThreadCreate (osThread(Main), NULL);
 
 	osThreadDef(CDC, cdcThread, osPriorityNormal, 0, 1000);
@@ -227,6 +231,8 @@ bool serial_reply(const char *buf, size_t len)
 	return n == len;
 }
 
+extern void getPosition(int *x, int *y);
+static int lx=0, ly= 0;
 extern bool host_connected;
 extern bool testGpio();
 static void mainThread(void const *argument)
@@ -242,9 +248,19 @@ static void mainThread(void const *argument)
 		if( xResult == pdPASS ) {
 			if( ulNotifiedValue & BUTTON_BIT ) {
 				BSP_LED_Toggle(LED4);
+				//LCD_UsrLog("stepticker: %lu us\n", delta_time);
+				//LCD_UsrLog("\nADC time: %lu\n", adc_ave_time);
+				BSP_LCD_Clear(LCD_COLOR_WHITE);
 			}
-			//LCD_UsrLog("stepticker: %lu us\n", delta_time);
-			LCD_UsrLog("\nADC time: %lu\n", adc_ave_time);
+
+			if(ulNotifiedValue & MOVE_BIT) {
+				int x, y;
+				getPosition(&x, &y);
+				if(lx != x || ly != y){
+					BSP_LCD_DrawLine(lx, ly, x, y);
+					lx= x; ly= y;
+				}
+			}
 
 		} else {
 			BSP_LED_Toggle(LED3);
@@ -517,7 +533,7 @@ static void Timer_Config()
 	/* Compute the prescaler value to have TIMx counter clock equal to 1000 KHz */
 	uint32_t uwPrescalerValue = (uint32_t) ((SystemCoreClock / 2) / 1000000) - 1;
 
-	/* Set TIMx instance */
+	/* Set TIM2 instance */
 	PerformanceTimHandle.Instance = PERFORMANCE_TIMx;
 
 	/* Initialize TIM3 peripheral as follows:
@@ -547,7 +563,7 @@ static void Timer_Config()
 	/* Compute the prescaler value to have TIM3 counter clock equal to 1Mhz */
 	uwPrescalerValue = (uint32_t) ((SystemCoreClock / 2) / 1000000) - 1;
 
-	/* Set TIMx instance */
+	/* Set TIM3 instance */
 	StepTickerTimHandle.Instance = STEPTICKER_TIMx;
 
 	/* Initialize TIM3 peripheral as follows:
@@ -573,6 +589,24 @@ static void Timer_Config()
 		Error_Handler();
 	}
 
+	// setup the unstepticker timer interrupt
+
+	/* Compute the prescaler value to have TIM4 counter clock equal to 1Mhz */
+	uwPrescalerValue = (uint32_t) ((SystemCoreClock / 2) / 1000000) - 1;
+
+	/* Set TIM4 instance the unstep timer */
+	UnStepTickerTimHandle.Instance = UNSTEPTICKER_TIMx;
+	UnStepTickerTimHandle.Init.Period = 3 - 1; // set period to trigger interrupt at 3us
+	UnStepTickerTimHandle.Init.Prescaler = uwPrescalerValue;
+	UnStepTickerTimHandle.Init.ClockDivision = 0;
+	UnStepTickerTimHandle.Init.CounterMode = TIM_COUNTERMODE_UP;
+
+	if(HAL_TIM_Base_Init(&UnStepTickerTimHandle) != HAL_OK) {
+		/* Initialization Error */
+		Error_Handler();
+	}
+
+	// don't start it here, only gets started when a step needs to be unstepped
 
 }
 
@@ -601,19 +635,30 @@ uint32_t xst, xet;
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
 	// this is the step ticker
-	// if(htim->Instance != STEPTICKER_TIMx) {
-	// 	Error_Handler();
-	// }
+	if(htim->Instance == STEPTICKER_TIMx) {
+		// handle stepticker
+		xst= start_time();
+		if(!issueTicks()) {
+			// signal the next block to start, handled in moveCompletedThread
+			BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+			vTaskNotifyGiveFromISR( moveCompletedThreadHandle, &xHigherPriorityTaskWoken );
+			portYIELD_FROM_ISR( xHigherPriorityTaskWoken );
+		}
 
-	// handle stepticker
-
-	//xst= start_time();
-	if(!issueTicks()) {
-		// signal the next block to start, handled in moveCompletedThread
-		BaseType_t xHigherPriorityTaskWoken = pdFALSE;
-		vTaskNotifyGiveFromISR( moveCompletedThreadHandle, &xHigherPriorityTaskWoken );
-		portYIELD_FROM_ISR( xHigherPriorityTaskWoken );
+	}else if(htim->Instance == UNSTEPTICKER_TIMx) {
+		// handle unstep ticker
+		issueUnstep();
+		// stop the timer
+		HAL_TIM_Base_Stop_IT(&UnStepTickerTimHandle);
+		// reset the count for next time
+		UNSTEPTICKER_TIMx->CNT= 0;
 	}
+}
+
+// this will start the unstep ticker
+void startUnstepTicker()
+{
+	HAL_TIM_Base_Start_IT(&UnStepTickerTimHandle);
 }
 
 /**
