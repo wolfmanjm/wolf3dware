@@ -28,7 +28,9 @@ TEST_CASE( "Process and parse gcodes", "[GCodeProcessor]" ) {
 	SECTION( "Single GCode with parameters" ) {
 		const char *gc= "G0 X1 Y2";
 		INFO( "gcode is " << gc );
-		GCodeProcessor::GCodes_t gcodes= gp.parse(gc);
+		GCodeProcessor::GCodes_t gcodes;
+		bool ok= gp.parse(gc, gcodes);
+		REQUIRE(ok);
 		REQUIRE( gcodes.size() == 1);
 		for(auto i : gcodes) {
 			INFO( "dump is " << i );
@@ -44,7 +46,9 @@ TEST_CASE( "Process and parse gcodes", "[GCodeProcessor]" ) {
 	SECTION( "Multiple commands on line and no spaces" ) {
 		const char *gc= "M123X1Y2G1X10Y20Z0.634";
 		INFO( "gcode is " << gc );
-		auto gcodes= gp.parse(gc);
+		GCodeProcessor::GCodes_t gcodes;
+		bool ok= gp.parse(gc, gcodes);
+		REQUIRE(ok);
 		REQUIRE( gcodes.size() == 2);
 		auto a= gcodes[0];
 		INFO( "gcode[0] is " << a);
@@ -62,10 +66,14 @@ TEST_CASE( "Process and parse gcodes", "[GCodeProcessor]" ) {
 	}
 
 	SECTION( "Modal G1 and comments" ) {
-		gp.parse("G1 X0");
+		GCodeProcessor::GCodes_t gcodes;
+		bool ok= gp.parse("G1 X0", gcodes);
+		REQUIRE(ok);
 		const char *gc= "( this is a comment )X100Y200 ; G23 X0";
 		INFO( "gcode is " << gc );
-		auto gcodes= gp.parse(gc);
+		gcodes.clear();
+		ok= gp.parse(gc, gcodes);
+		REQUIRE(ok);
 		REQUIRE( gcodes.size() == 1);
 		auto a = gcodes[0];
 		INFO( "gcode[0] is " << a);
@@ -74,6 +82,42 @@ TEST_CASE( "Process and parse gcodes", "[GCodeProcessor]" ) {
 		REQUIRE(a.hasArg('X'));
 		REQUIRE(a.hasArg('Y'));
 		REQUIRE_FALSE(a.hasArg('Z'));
+	}
+
+	SECTION( "Line numbers and checksums" ) {
+		GCodeProcessor::GCodes_t gcodes;
+		bool ok= gp.parse("N10 G1 X0", gcodes);
+		REQUIRE_FALSE(ok);
+		REQUIRE(gcodes.empty());
+
+		gcodes.clear();
+		ok= gp.parse("N10 M110*123", gcodes);
+		REQUIRE(ok);
+		REQUIRE(gp.getLineNumber() == 10);
+		REQUIRE(gcodes.empty());
+
+		INFO("Bad line number");
+		gcodes.clear();
+		ok= gp.parse("N95 G1 X-4.992 Y-14.792 F12000.000*97", gcodes);
+		REQUIRE_FALSE(ok);
+		REQUIRE(gcodes.empty());
+
+		gcodes.clear();
+		ok= gp.parse("N94 M110*123", gcodes);
+		REQUIRE(ok);
+		REQUIRE(gp.getLineNumber() == 94);
+		ok= gp.parse("N95 G1 X-4.992 Y-14.792 F12000.000*97", gcodes);
+		REQUIRE(ok);
+		REQUIRE(gcodes.size() == 1);
+
+		INFO("Bad checksum");
+		gcodes.clear();
+		ok= gp.parse("N94 M110*123", gcodes);
+		REQUIRE(ok);
+		REQUIRE(gp.getLineNumber() == 94);
+		ok= gp.parse("N95 G1 X-4.992 Y-14.792 F12000.000*98", gcodes);
+		REQUIRE_FALSE(ok);
+		REQUIRE(gcodes.empty());
 	}
 }
 
@@ -87,7 +131,9 @@ auto fnc3= [](GCode& gc) { INFO("Second G1 handler: " << gc); cb3= true; return 
 
 TEST_CASE( "Dispatch GCodes", "[Dispatcher]" ) {
 	GCodeProcessor gp;
-	GCodeProcessor::GCodes_t gcodes= gp.parse("G1 X1 Y2 M1 G4 S10");
+	GCodeProcessor::GCodes_t gcodes;
+	bool ok= gp.parse("G1 X1 Y2 M1 G4 S10", gcodes);
+	REQUIRE(ok);
 	REQUIRE( gcodes.size() == 3 );
 	cb1= false;
 	cb2= false;
@@ -121,23 +167,32 @@ TEST_CASE( "Dispatch GCodes", "[Dispatcher]" ) {
 
 
 TEST_CASE( "Planning", "[planner]" ) {
+	// initialize Kernel and its modules
+	THEKERNEL.initialize();
 	GCodeProcessor& gp= THEKERNEL.getGCodeProcessor();
 
-	SECTION("plan one axis two moves") {
+	SECTION("plan one axis three moves") {
 		// Parse gcode
-		GCodeProcessor::GCodes_t gcodes= gp.parse("G92 G1 X0.1 F6000 G1 X0.2 G1 X100");
+		GCodeProcessor::GCodes_t gcodes;
+		bool ok= gp.parse("G92 G1 X0.1 F6000 G1 X0.2 G1 X100", gcodes);
+		REQUIRE(ok);
+		REQUIRE(gcodes.size() == 4);
 
 		// dispatch gcode to Planner
-		for(auto i : gcodes) {
+		for(auto& i : gcodes) {
 			THEDISPATCHER.dispatch(i);
 		}
+
+		Planner::Queue_t& lq= THEKERNEL.getPlanner().getLookAheadQueue();
+		REQUIRE(lq.size() == 1);
+		Planner::Queue_t& rq= THEKERNEL.getPlanner().getReadyQueue();
+		REQUIRE(rq.size() == 2);
 
 		// dump planned block queue
 		THEKERNEL.getPlanner().moveAllToReady();
 		THEKERNEL.getPlanner().dump(cout);
 
 		// iterate over block queue and check it
-		Planner::Queue_t& rq= THEKERNEL.getPlanner().getReadyQueue();
 		REQUIRE(rq.size() == 3);
 		Block block= rq.back();
 		REQUIRE(block.total_move_ticks == 1000);
@@ -166,7 +221,9 @@ TEST_CASE( "Planning", "[planner]" ) {
 
 	SECTION("plan one axis") {
 		// Parse gcode
-		GCodeProcessor::GCodes_t gcodes= gp.parse("G92 G1 X100 F6000 G1 X200 G1 X300 G1 X400 G1 X500");
+		GCodeProcessor::GCodes_t gcodes;
+		bool ok= gp.parse("G92 G1 X100 F6000 G1 X200 G1 X300 G1 X400 G1 X500", gcodes);
+		REQUIRE(ok);
 
 		// dispatch gcode to Planner
 		for(auto i : gcodes) {
@@ -187,6 +244,7 @@ TEST_CASE( "Planning", "[planner]" ) {
 		REQUIRE(rq.size() == 4);
 
 		while(!rq.empty()) {
+			INFO( "Cnt: " << cnt);
 			Block block= rq.back();
 			rq.pop_back();
 			REQUIRE(block.entry_speed == entryspeed[cnt]);
@@ -213,7 +271,9 @@ TEST_CASE( "Planning", "[planner]" ) {
 		q.clear();
 		rq.clear();
 		// Parse gcode
-		GCodeProcessor::GCodes_t gcodes= gp.parse("G92 G1 X100 F6000 G1 X200 F600 G1 X300 F6000 G1 X400 F12000 G1 X500 F12000");
+		GCodeProcessor::GCodes_t gcodes;
+		bool ok= gp.parse("G92 G1 X100 F6000 G1 X200 F600 G1 X300 F6000 G1 X400 F12000 G1 X500 F12000", gcodes);
+		REQUIRE(ok);
 		// dispatch gcode to Planner
 		for(auto i : gcodes) {
 			THEDISPATCHER.dispatch(i);
@@ -251,20 +311,25 @@ TEST_CASE( "Planning", "[planner]" ) {
 		REQUIRE(q.empty());
 		REQUIRE(rq.empty());
 	}
+
 	SECTION("plan one axis, very short segments") {
 		// Parse gcode
-		GCodeProcessor::GCodes_t gcodes= gp.parse("G92 G91 G1 X0.1 F6000");
+		GCodeProcessor::GCodes_t gcodes;
+		bool ok= gp.parse("G92 G91 G1 X0.1 F6000", gcodes);
+		REQUIRE(ok);
 		// dispatch gcodes to Planner
 		for(auto i : gcodes) {
 			THEDISPATCHER.dispatch(i);
 		}
+		gcodes.clear();
 		const char* seg= "G1 X0.1";
 		const char *last= "G1 X100 G1 X100 G90";
 		for (int i = 0; i < 100; ++i) {
-		    gcodes= gp.parse(seg);
+		    gp.parse(seg, gcodes);
 			THEDISPATCHER.dispatch(gcodes[0]);
 		}
-		gcodes= gp.parse(last);
+		gcodes.clear();
+		gp.parse(last, gcodes);
 		for(auto i : gcodes) {
 			THEDISPATCHER.dispatch(i);
 		}
@@ -302,7 +367,9 @@ TEST_CASE( "Planning and Stepping", "[stepper]" ) {
 
 	SECTION("Generate Steps, one axis") {
 		// Parse gcode
-		GCodeProcessor::GCodes_t gcodes= gp.parse("G92 G1 X100 F6000 G1 X200 G1 X300 G1 X400 G1 X500");
+		GCodeProcessor::GCodes_t gcodes;
+		bool ok= gp.parse("G92 G1 X100 F6000 G1 X200 G1 X300 G1 X400 G1 X500", gcodes);
+		REQUIRE(ok);
 
 		// dispatch gcode to MotionControl and Planner
 		for(auto i : gcodes) {
@@ -342,7 +409,9 @@ TEST_CASE( "Planning and Stepping", "[stepper]" ) {
 
 	SECTION( "Generate Steps, two axis" ) {
 		// Parse gcode
-		GCodeProcessor::GCodes_t gcodes= gp.parse("G92 G1 X100 Y0 F6000 G1 X100 Y100 G1 X0 Y100 G1 X0 Y0 G1 X100 Y50");
+		GCodeProcessor::GCodes_t gcodes;
+		bool ok= gp.parse("G92 G1 X100 Y0 F6000 G1 X100 Y100 G1 X0 Y100 G1 X0 Y0 G1 X100 Y50", gcodes);
+		REQUIRE(ok);
 
 		// dispatch gcode to MotionControl and Planner
 		for(auto i : gcodes) {
@@ -388,7 +457,9 @@ TEST_CASE( "Planning and Stepping", "[stepper]" ) {
 	SECTION( "Generate Steps, three axis XYE" ) {
 
 		// Parse gcode
-		GCodeProcessor::GCodes_t gcodes= gp.parse("G92 G1 X100 Y0 E1.0 F6000 G1 X100 Y100 E2.0 G1 X0 Y100 E3.0 G1 X0 Y0 E4.0 G1 X100 Y50 E4.75");
+		GCodeProcessor::GCodes_t gcodes;
+		bool ok= gp.parse("G92 G1 X100 Y0 E1.0 F6000 G1 X100 Y100 E2.0 G1 X0 Y100 E3.0 G1 X0 Y0 E4.0 G1 X100 Y50 E4.75", gcodes);
+		REQUIRE(ok);
 
 		// dispatch gcode to MotionControl and Planner
 		for(auto i : gcodes) {
@@ -438,34 +509,25 @@ TEST_CASE( "Planning and Stepping", "[stepper]" ) {
 	}
 }
 TEST_CASE( "Stream Output", "[streamoutput]" ) {
-	GCodeProcessor& gp= THEKERNEL.getGCodeProcessor();
-
 	SECTION("basic output") {
-		// Parse gcode
-		GCodeProcessor::GCodes_t gcodes= gp.parse("M220");
-
 		// dispatch gcode to MotionControl and Planner
-		THEDISPATCHER.dispatch(gcodes[0]);
+		THEDISPATCHER.dispatch('M', 220, 0);
 
 		REQUIRE(THEDISPATCHER.getResult().size() > 0);
 		std::cout << THEDISPATCHER.getResult();
 
-		gcodes= gp.parse("M220 S123");
-		THEDISPATCHER.dispatch(gcodes[0]);
+		THEDISPATCHER.dispatch('M', 220, 'S', 123, 0);
 		REQUIRE(THEDISPATCHER.getResult() == "ok\r\n");
 
-		gcodes= gp.parse("M220");
-		THEDISPATCHER.dispatch(gcodes[0]);
+		THEDISPATCHER.dispatch('M', 220, 0);
 		REQUIRE(THEDISPATCHER.getResult().size() > 0);
 		std::cout << THEDISPATCHER.getResult();
 
-		gcodes= gp.parse("M114");
-		THEDISPATCHER.dispatch(gcodes[0]);
+		THEDISPATCHER.dispatch('M', 114, 0);
 		REQUIRE(THEDISPATCHER.getResult().size() > 0);
 		std::cout << THEDISPATCHER.getResult();
 
-		gcodes= gp.parse("M114 R1");
-		THEDISPATCHER.dispatch(gcodes[0]);
+		THEDISPATCHER.dispatch('M', 114, 1, 0);
 		REQUIRE(THEDISPATCHER.getResult().size() > 0);
 		std::cout << THEDISPATCHER.getResult();
 	}

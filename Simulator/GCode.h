@@ -24,8 +24,8 @@ public:
 	void setM() { is_m= true; }
 	uint16_t getCode() const { return code; }
 	uint16_t getSubcode() const { return subcode; }
-	void setCommand(char c, uint16_t code, uint16_t subcode) { is_g= c=='G'; is_m= c=='M'; this->code= code; this->subcode= subcode; }
-	void addArg(char c, float f) { args[c]= f; setArg(c); }
+	GCode& setCommand(char c, uint16_t code, uint16_t subcode=0) { is_g= c=='G'; is_m= c=='M'; this->code= code; this->subcode= subcode; return *this; }
+	GCode& addArg(char c, float f) { args[c]= f; setArg(c); return *this; }
 	void dump(std::ostream& o) const;
 	friend std::ostream& operator<<(std::ostream& o, const GCode& f) { f.dump(o); return o; }
 

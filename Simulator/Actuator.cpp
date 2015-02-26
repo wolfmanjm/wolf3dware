@@ -4,45 +4,59 @@
 #include <cmath>
 #include <iostream>
 
-void Actuator::move( bool direction, uint32_t steps_to_move, float axis_ratio, const Block &block )
+// static instance shared by all Actuators, saves memory
+Block Actuator::current_block;
+
+// Note Actuator::setCurerntBlock() must be called before this gets called
+void Actuator::move( bool direction, uint32_t steps_to_move, float ratio)
 {
-    this->block = block; // take a copy if this block TODO don't really need to copy the entire block just copy what we need
     this->steps_to_move = steps_to_move;
     // set direction pin
     this->direction = direction;
+    // enable the stepper motor
+    if(!enabled) enable(true);
+    // set the actual direction pin now so it has lots of time before the first step pulse
     hal_functions[SET_DIR](direction);
 
     // need to scale by the axis ratio
-    this->axis_ratio = axis_ratio;
+    axis_ratio = ratio;
 
-    next_accel_event = block.total_move_ticks + 1;  // Do nothing by default ( cruising/plateau )
+    next_accel_event = current_block.total_move_ticks + 1;  // Do nothing by default ( cruising/plateau )
     acceleration_change = 0;
-    if(block.accelerate_until != 0) { // If the next accel event is the end of accel
-        next_accel_event = block.accelerate_until;
-        acceleration_change = block.acceleration_per_tick;
+    if(current_block.accelerate_until != 0) { // If the next accel event is the end of accel
+        next_accel_event = current_block.accelerate_until;
+        acceleration_change = current_block.acceleration_per_tick;
 
-    }else if(block.decelerate_after == 0 /*&& block.accelerate_until == 0*/) {
+    }else if(current_block.decelerate_after == 0 /*&& current_block.accelerate_until == 0*/) {
         // we start off decelerating
-        acceleration_change = -block.deceleration_per_tick;
+        acceleration_change = -current_block.deceleration_per_tick;
 
-    }else if(block.decelerate_after != block.total_move_ticks /*&& block.accelerate_until == 0*/) {
+    }else if(current_block.decelerate_after != current_block.total_move_ticks /*&& current_block.accelerate_until == 0*/) {
         // If the next event is the start of decel ( don't set this if the next accel event is accel end )
-        next_accel_event = block.decelerate_after;
+        next_accel_event = current_block.decelerate_after;
     }
 
     acceleration_change *= axis_ratio;
-    steps_per_tick = (block.initial_rate * axis_ratio) / STEP_TICKER_FREQUENCY; // steps/sec / tick frequency to get steps per tick
+    steps_per_tick = (current_block.initial_rate * axis_ratio) / STEP_TICKER_FREQUENCY; // steps/sec / tick frequency to get steps per tick
     counter = 0.0F;
     step_count = 0;
-    // enable the stepper motor
-    if(!enabled) enable(true);
     moving= true;
+}
+
+bool Actuator::checkMaxSpeed()
+{
+    float step_freq= max_speed * steps_per_mm;
+    if(step_freq > STEP_TICKER_FREQUENCY) {
+        max_speed= floorf(STEP_TICKER_FREQUENCY / steps_per_mm);
+        return false;
+    }
+    return true;
 }
 
 // returns steps to given target in mm, and sets the milestone for steps
 std::tuple<bool, uint32_t> Actuator::stepsToTarget(float target)
 {
-    uint32_t target_steps = lround(target * steps_per_mm);
+    int32_t target_steps = lround(target * steps_per_mm);
     bool dir = (target_steps >= last_milestone_steps);
     uint32_t delta_steps;
     if(dir) {
@@ -56,25 +70,27 @@ std::tuple<bool, uint32_t> Actuator::stepsToTarget(float target)
 }
 
 // called by step ticker at 100KHz (or faster)
-bool Actuator::tick(uint32_t current_tick)
+// returns true if more steps need tro be issued, and false if the move finished
+// Runs in ISR context, so NO memory allocation allowed
+bool Actuator::tick(uint32_t current_tick, bool& stepped)
 {
     if(!moving) return false;
 
     steps_per_tick += acceleration_change;
 
     if(current_tick == next_accel_event) {
-        if(current_tick == block.accelerate_until) { // We are done accelerating, deceleration becomes 0 : plateau
+        if(current_tick == current_block.accelerate_until) { // We are done accelerating, deceleration becomes 0 : plateau
             acceleration_change = 0;
-            if(block.decelerate_after < block.total_move_ticks) {
-                next_accel_event = block.decelerate_after;
-                if(current_tick != block.decelerate_after) { // We start decelerating
-                    steps_per_tick = (axis_ratio * block.maximum_rate) / STEP_TICKER_FREQUENCY; // steps/sec / tick frequency to get steps per tick
+            if(current_block.decelerate_after < current_block.total_move_ticks) {
+                next_accel_event = current_block.decelerate_after;
+                if(current_tick != current_block.decelerate_after) { // We start decelerating
+                    steps_per_tick = (axis_ratio * current_block.maximum_rate) / STEP_TICKER_FREQUENCY; // steps/sec / tick frequency to get steps per tick
                 }
             }
         }
 
-        if(current_tick == block.decelerate_after) { // We start decelerating
-            acceleration_change = -block.deceleration_per_tick * axis_ratio;
+        if(current_tick == current_block.decelerate_after) { // We start decelerating
+            acceleration_change = -current_block.deceleration_per_tick * axis_ratio;
         }
     }
 
@@ -92,11 +108,15 @@ bool Actuator::tick(uint32_t current_tick)
 
         // std::cout << axis << " Step: " << step_count << " " <<  current_tick << "\n";
         step();
+        stepped= true;
 
         if(step_count == steps_to_move) {
             moving= false;
             return false;
         }
+
+    }else{
+        stepped= false;
     }
     return true;
 }
@@ -122,6 +142,7 @@ void Actuator::step()
 void Actuator::unstep()
 {
     // reset the step pulse if it stepped
+    // currently takes about 1us from the set
     if(stepped) {
         hal_functions[SET_STEP](false);
         stepped= false;

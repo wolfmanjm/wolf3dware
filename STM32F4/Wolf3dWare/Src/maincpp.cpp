@@ -37,7 +37,7 @@ SemaphoreHandle_t TEMPERATURE_MUTEX;
 uint32_t xdelta= 0;
 
 // local
-static volatile bool execute_mode= false;
+static volatile bool execute_mode= true;
 // signals that the ticks can start to be issued to the actuators
 static volatile bool move_issued= false;
 // count of ticks missed while setting up next move
@@ -111,10 +111,12 @@ extern "C" bool testGpio()
 	return LED4Pin::get();
 }
 
-extern "C" void getPosition(int *x, int *y)
+extern "C" void getPosition(int *x, int *y, int *z, int *e)
 {
 	*x= THEKERNEL.getMotionControl().getActuator('X').getCurrentPositionInmm();
 	*y= THEKERNEL.getMotionControl().getActuator('Y').getCurrentPositionInmm();
+	*z= THEKERNEL.getMotionControl().getActuator('Z').getCurrentPositionInmm();
+	*e= THEKERNEL.getMotionControl().getActuator('E').getCurrentPositionInmm();
 }
 extern "C" osThreadId MainThreadHandle;
 
@@ -312,6 +314,16 @@ bool handleCommand(const char *line)
 		}
 		oss << "\n";
 
+	}else if(strncmp(line, "parse", 5) == 0) {
+		GCodeProcessor& gp= THEKERNEL.getGCodeProcessor();
+		GCodeProcessor::GCodes_t gcodes;
+		bool r= gp.parse(&line[6], gcodes);
+		oss << "returned: " << r << ": " << gp.getLineNumber()+1 << "\n";
+		for(auto& i : gcodes) {
+			oss << i;
+		}
+		oss << "\n";
+
 	}else{
 		oss << "Unknown command: " << line << "\n";
 		handled= false;
@@ -334,9 +346,21 @@ extern "C" bool commandLineHandler(const char *line)
 
 	// Handle Gcode
 	GCodeProcessor& gp= THEKERNEL.getGCodeProcessor();
+	GCodeProcessor::GCodes_t gcodes;
 
 	// Parse gcode
-	GCodeProcessor::GCodes_t gcodes= gp.parse(line);
+	if(!gp.parse(line, gcodes)){
+		// line failed checksum, send resend request
+		std::ostringstream oss;
+		oss << "rs N" << gp.getLineNumber()+1 << "\r\n";
+		sendReply(oss.str());
+		return true;
+
+	}else if(gcodes.empty()) {
+		// if gcodes is empty then was a M110, just send ok
+		sendReply("ok\r\n");
+		return true;
+	}
 
 	// dispatch gcode to MotionControl and Planner
 	for(auto& i : gcodes) {
@@ -352,23 +376,28 @@ extern "C" bool commandLineHandler(const char *line)
 	}
 
 	// check for large queue size, stall until it gets smaller
-	const size_t MAX_Q= 50;
+	const size_t MAX_Q= 32;
 	Planner::Queue_t& q= THEKERNEL.getPlanner().getReadyQueue();
 	Lock l(READY_Q_MUTEX);
 	l.lock();
-	if(q.size() > MAX_Q) {
+	size_t n= q.size();
+	l.unlock();
+	n += THEKERNEL.getPlanner().getLookAheadQueue().size();
+
+	if(n > MAX_Q) {
 		// we force it to start executing and if not currently running we start off the first block
 		if(!execute_mode) execute_mode= true;
 		if(!running) executeNextBlock();
 
 		// wait for it to empty halfway
+		l.lock();
 		while(q.size() > MAX_Q/2) {
 			l.unlock();
 			THEKERNEL.delay(100);
 			l.lock();
 		}
+		l.unlock();
 	}
-	l.unlock();
 	return true;
 }
 
@@ -488,7 +517,8 @@ extern "C" void tests()
 	GCodeProcessor& gp= THEKERNEL.getGCodeProcessor();
 
 	// Parse gcode - This would come from Serial port
-	GCodeProcessor::GCodes_t gcodes= gp.parse("G1 X100 Y0 E1.0 F6000 G1 X100 Y100 E2.0 G1 X0 Y100 E3.0 G1 X0 Y0 E4.0 G1 X100 Y50 E4.75 M114");
+	GCodeProcessor::GCodes_t gcodes;
+	gp.parse("G1 X100 Y0 E1.0 F6000 G1 X100 Y100 E2.0 G1 X0 Y100 E3.0 G1 X0 Y0 E4.0 G1 X100 Y50 E4.75 M114", gcodes);
 
 	// dispatch gcode to MotionControl and Planner
 	for(auto& i : gcodes) {

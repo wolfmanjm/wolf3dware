@@ -12,7 +12,7 @@ public:
 	{
 		//xSemaphoreTake(xSemaphore, portMAX_DELAY);
 	}
-	void unLock()
+	void unlock()
 	{
 		//xSemaphoreGive( xSemaphore );
 	};

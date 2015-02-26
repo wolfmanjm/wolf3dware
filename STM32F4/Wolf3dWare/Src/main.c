@@ -52,6 +52,7 @@
 
 // if not defined will run at 180MHz, but USB clock will be off a little bit
 #define SYSCLK168MHZ
+#define LCD_DISPLAY_POSITION
 
 USBD_HandleTypeDef USBD_Device;
 
@@ -166,11 +167,14 @@ int main(void)
 
 	/* Set the LCD Text Color */
 	BSP_LCD_SetTextColor(LCD_COLOR_DARKBLUE);
+	//BSP_LCD_DisplayStringAtLine(2, (uint8_t*)"This is text X");
 
+#if USELCDLOG
 	LCD_LOG_Init();
 	LCD_LOG_ClearTextZone();
 	LCD_LOG_SetHeader((uint8_t *)"Wolf3dWare");
 	LCD_UsrLog("System clock: %1.1f MHz\n", SystemCoreClock/1000000.0F);
+#endif
 
 	// setup USB CDC
 	SetupVCP();
@@ -232,8 +236,8 @@ bool serial_reply(const char *buf, size_t len)
 	return n == len;
 }
 
-extern void getPosition(int *x, int *y);
-static int lx=0, ly= 0;
+extern void getPosition(int *, int *, int *, int *);
+//static int lx=0, ly= 0;
 extern bool host_connected;
 extern bool testGpio();
 static void mainThread(void const *argument)
@@ -255,16 +259,31 @@ static void mainThread(void const *argument)
 			}
 
 			if(ulNotifiedValue & MOVE_BIT) {
-				int x, y;
-				getPosition(&x, &y);
-				if(lx != x || ly != y){
-					BSP_LCD_DrawLine(lx, ly, x, y);
-					lx= x; ly= y;
-				}
+				// int x, y;
+				// getPosition(&x, &y);
+				// if(lx != x || ly != y){
+				// 	BSP_LCD_DrawLine(lx, ly, x, y);
+				// 	lx= x; ly= y;
+				// }
 			}
 
 		} else {
 			BSP_LED_Toggle(LED3);
+			#ifdef LCD_DISPLAY_POSITION
+
+			int x, y, z, e;
+			getPosition(&x, &y, &z, &e);
+			char buf[16];
+			snprintf(buf, sizeof(buf), "X %6d", x);
+			BSP_LCD_DisplayStringAtLine(2, (uint8_t*)buf);
+			snprintf(buf, sizeof(buf), "Y %6d", y);
+			BSP_LCD_DisplayStringAtLine(3, (uint8_t*)buf);
+			snprintf(buf, sizeof(buf), "Z %6d", z);
+			BSP_LCD_DisplayStringAtLine(4, (uint8_t*)buf);
+			snprintf(buf, sizeof(buf), "E %6d", e);
+			BSP_LCD_DisplayStringAtLine(5, (uint8_t*)buf);
+			#endif
+
 			//testGpio();
 			// static bool last_connect_status= false;
 			// if(!host_connected && last_connect_status) {

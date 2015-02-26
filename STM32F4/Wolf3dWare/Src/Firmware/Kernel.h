@@ -51,4 +51,5 @@ private:
 	GCodeProcessor *gcode_processor;
 
     HAL_function_t hal_functions[N_HAL_FUNCTIONS];
+    bool initialized{false};
 };

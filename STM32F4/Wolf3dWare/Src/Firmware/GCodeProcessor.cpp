@@ -9,6 +9,8 @@
 #include <ctype.h>
 #include <cmath>
 #include <cstdlib>
+#include <cstring>
+
 
 using namespace std;
 
@@ -30,18 +32,70 @@ static tuple<uint16_t, uint16_t, float> parseCode(const char *&p)
 	return make_tuple(a, b, f);
 }
 
-GCodeProcessor::GCodeProcessor(){}
+GCodeProcessor::GCodeProcessor()
+{
+	line_no= -1;
+}
 
 GCodeProcessor::~GCodeProcessor() {}
 
 // Parse the line containing 1 or more gcode words
-GCodeProcessor::GCodes_t GCodeProcessor::parse(const char *line)
+bool GCodeProcessor::parse(const char *line, GCodes_t& gcodes)
 {
-	GCodes_t gcodes;
 	GCode gc;
 	bool start= true;
 	const char *p= line;
-	while(*p != '\0') {
+	const char *eos= line + strlen(line);
+	int ln= 0;
+	int cs= 0;
+	int checksum;
+
+	// deal with line numbers and checksums before we parse
+    if(*p == 'N') {
+    	char *pp;
+
+    	// Get linenumber
+        ln = strtol(p+1, &pp, 10);
+        // get checksum
+        char *csp= strchr(pp, '*');
+        if(csp == nullptr) {
+        	checksum= 0;
+        }else{
+        	checksum= strtol(csp+1, nullptr, 10);
+        	eos= csp; // terminate line at checksum start
+        }
+
+ 	    // if it is M110: Set Current Line Number
+        if(strncmp(pp+1, "M110", 4) == 0) {
+            line_no= ln;
+            return true;
+        }
+
+        // Calculate checksum of string
+		while(p != eos) {
+            cs = cs ^ *p++;
+        }
+        cs &= 0x00ff;
+        cs -= checksum;
+        p = pp;
+
+    } else {
+        //Assume checks succeeded
+        cs = 0x00;
+        ln = line_no + 1;
+    }
+
+    // check the checksum
+    int nextline = line_no + 1;
+    if(cs == 0x00 && ln == nextline) {
+        line_no = nextline;
+
+    }else{
+    	// checksum failed
+    	return false;
+    }
+
+	while(p != eos) {
 		if(isspace(*p)){
 			++p;
 			continue;
@@ -82,5 +136,5 @@ GCodeProcessor::GCodes_t GCodeProcessor::parse(const char *line)
 		}
 	}
 	gcodes.push_back(gc);
-	return gcodes;
+	return true;
 }

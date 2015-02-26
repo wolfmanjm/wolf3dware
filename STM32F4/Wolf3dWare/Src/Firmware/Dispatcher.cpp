@@ -17,15 +17,16 @@ using namespace std;
 // their own commands
 bool Dispatcher::dispatch(GCode& gc)
 {
+	if(gc.hasM() && gc.getCode() == 503) {
+		// alias M503 to M500.3
+		gc.setCommand('M', 500, 3);
+	}
+
 	auto& handler= gc.hasG() ? gcode_handlers : mcode_handlers;
 	const auto& f= handler.equal_range(gc.getCode());
 	bool ret= false;
 	output_stream.clear();
 
-	// alias M503 to M500.3
-	if(gc.hasM() && gc.getCode() == 503) {
-		gc.setCommand('M', 500, 3);
-	}
 
 	for (auto it=f.first; it!=f.second; ++it) {
 		if(it->second(gc)) {
@@ -187,7 +188,8 @@ bool Dispatcher::loadConfiguration()
   				if(line.find('\0') != string::npos) break; // hit the end
   				lines.push_back(line);
   				// Parse the Gcode
-				GCodeProcessor::GCodes_t gcodes= gp.parse(line.c_str());
+				GCodeProcessor::GCodes_t gcodes;
+				gp.parse(line.c_str(), gcodes);
 				// dispatch it
 				for(auto& i : gcodes) {
 					if(i.getCode() >= 500 && i.getCode() <= 503) continue; // avoid recursion death

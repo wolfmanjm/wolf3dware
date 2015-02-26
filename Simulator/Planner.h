@@ -12,10 +12,13 @@ class Actuator;
 class Planner
 {
 public:
-	Planner() {};
+	Planner();
 	~Planner(){};
+	void reset();
+	void initialize();
 	bool plan(const float *last_target, const float *target, int n_axis, Actuator *actuators, float rate_mms);
 	void dump(std::ostream& o) const;
+	void purge();
 
 	using Queue_t = std::deque<Block>;
 	Queue_t& getLookAheadQueue() { return lookahead_q; }
@@ -29,15 +32,18 @@ private:
 	float reversePass(Block &b, float exit_speed);
 	float forwardPass(Block &b, float prev_max_exit_speed);
     void recalculate();
+	bool isSoloMove(const Block& block, char axis);
+
+	bool handleConfigurations(GCode&);
+	bool handleSaveConfiguration(GCode &gc);
 
 	Queue_t lookahead_q;
 	Queue_t ready_q;
 
     float previous_unit_vec[3];
 
-    float acceleration{2000};
-    float z_acceleration{100};
+    float default_acceleration{2000};
     float junction_deviation{0.05F};
-    float z_junction_deviation{0};
+    float z_junction_deviation{-1};
     float minimum_planner_speed{0};
 };

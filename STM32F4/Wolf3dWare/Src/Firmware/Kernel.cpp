@@ -23,10 +23,10 @@ Kernel::~Kernel()
 
 void Kernel::initialize()
 {
-	if(hal_functions[NV_INIT]) hal_functions[NV_INIT](nullptr, 0, 0);
-	motion_control->initialize();
-	planner->initialize();
-
-	// TODO read non volatile memory and load any saved configuration
-
+	if(!initialized) {
+		if(hal_functions[NV_INIT]) hal_functions[NV_INIT](nullptr, 0, 0);
+		motion_control->initialize();
+		planner->initialize();
+		initialized= true;
+	}
 }
