@@ -117,6 +117,8 @@ bool Dispatcher::handleConfigurationCommands(GCode& gc)
 {
 	if(gc.getCode() == 500) {
 		if(gc.getSubcode() == 3) {
+			if(loaded_configuration)
+				output_stream.printf("// Saved configuration is active\n");
 			// just print it
 			return true;
 
@@ -199,9 +201,11 @@ bool Dispatcher::loadConfiguration()
 			for(auto& s : lines) {
 				output_stream.printf("// Loaded %s\n", s.c_str());
 			}
+			loaded_configuration= true;
 
 		}else{
 			output_stream.printf("// No saved configuration\n");
+			loaded_configuration= false;
 		}
 
 	}else{

@@ -66,6 +66,9 @@ bool Extruder::handleG0G1(GCode& gc)
 // G10 & G11 firmware retract
 bool Extruder::handleRetract(GCode& gc)
 {
+	// avoid recursive call, should not happen
+	if(in_retract) return false;
+
 	in_retract= true; // marks it to detect recursion
 
 	// check we are in the correct state of retract or unretract
@@ -95,10 +98,10 @@ bool Extruder::handleRetract(GCode& gc)
 
 	// NOTE we want these to be in mm not mm³ so we use G0
 	if(gc.getCode() == 10) { // G10 retract
-		THEDISPATCHER.dispatch('G', 0, axis, retract_length, 'F', retract_feedrate*60.0F, 0);
+		THEDISPATCHER.dispatch('G', 0, axis, -retract_length, 'F', retract_feedrate*60.0F, 0);
 
 	}else{ // G11 unretract
-		THEDISPATCHER.dispatch('G', 0, axis, -(retract_length+retract_recover_length), 'F', retract_recover_feedrate*60.0F, 0);
+		THEDISPATCHER.dispatch('G', 0, axis, retract_length+retract_recover_length, 'F', retract_recover_feedrate*60.0F, 0);
 	}
 
 	// handle zlift which happens after retract
@@ -148,7 +151,7 @@ bool Extruder::handleRetractSettings(GCode& gc)
 		return true;
 	}
 
-	if(gc.hasArg('S')) retract_length = gc.getArg('S');
+	if(gc.hasArg('S')) retract_length = std::abs(gc.getArg('S'));
 	if(gc.hasArg('F')) retract_feedrate = gc.getArg('F')/60.0F; // specified in mm/min converted to mm/sec
 	if(gc.hasArg('Z')) retract_zlift_length = gc.getArg('Z');
 	if(gc.hasArg('Q')) retract_zlift_feedrate = gc.getArg('Q');

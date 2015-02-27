@@ -28,7 +28,7 @@
 
 using namespace std;
 
-#define PRINTER3D
+//#define PRINTER3D
 
 // global
 SemaphoreHandle_t READY_Q_MUTEX;
@@ -44,7 +44,9 @@ static volatile bool move_issued= false;
 static volatile uint32_t waiting_ticks= 0;
 static uint32_t overflow= 0;
 // set to true as long as we are processing the queue
-static volatile bool running= false;
+volatile bool running= false;
+
+static size_t maxqsize= 0;
 
 #define __debugbreak()  { __asm volatile ("bkpt #0"); }
 
@@ -111,7 +113,7 @@ extern "C" bool testGpio()
 	return LED4Pin::get();
 }
 
-extern "C" void getPosition(int *x, int *y, int *z, int *e)
+extern "C" void getPosition(float *x, float *y, float *z, float *e)
 {
 	*x= THEKERNEL.getMotionControl().getActuator('X').getCurrentPositionInmm();
 	*y= THEKERNEL.getMotionControl().getActuator('Y').getCurrentPositionInmm();
@@ -304,6 +306,7 @@ bool handleCommand(const char *line)
 	}else if(strcmp(line, "stats") == 0) {
 		oss << "Worst time: " << xdelta << "uS\n";
 		oss << "worst overflow: " << overflow << " ticks\n";
+		oss << "max q size: " << maxqsize << "\n";
 		oss << "ok\n";
 
 	}else if(strcmp(line, "adc") == 0) {
@@ -370,7 +373,7 @@ extern "C" bool commandLineHandler(const char *line)
 
 		}else{
 			// no handler for this gcode, return ok - nohandler
-			const char *str= "ok - nohandler\n";
+			const char *str= "ok - nohandler\r\n";
 			sendReply(std::string(str));
 		}
 	}
@@ -383,6 +386,7 @@ extern "C" bool commandLineHandler(const char *line)
 	size_t n= q.size();
 	l.unlock();
 	n += THEKERNEL.getPlanner().getLookAheadQueue().size();
+	if(n > maxqsize) maxqsize= n;
 
 	if(n > MAX_Q) {
 		// we force it to start executing and if not currently running we start off the first block

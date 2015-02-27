@@ -199,15 +199,17 @@ bool MotionControl::handlePushState(GCode& gc)
 		saved_state_t s(feed_rate, seek_rate, b);
 		state_stack.push(s);
 
-	}else{ // pop state
+	}else if(gc.getCode() == 121) { // pop state
 		if(!state_stack.empty()) {
-			auto s= state_stack.top();
-			state_stack.pop();
+			auto& s= state_stack.top();
 			feed_rate= std::get<0>(s);
 			seek_rate= std::get<1>(s);
 			absolute_mode= std::get<2>(s);
+			state_stack.pop();
 		}
-	}
+
+	}else return false;
+
 	return true;
 }
 

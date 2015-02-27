@@ -46,5 +46,6 @@ private:
     Handlers_t mcode_handlers;
     OutputStream output_stream;
     std::string result;
+    bool loaded_configuration{false};
 };
 

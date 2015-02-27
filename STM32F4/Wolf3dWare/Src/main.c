@@ -94,6 +94,7 @@ TIM_HandleTypeDef UnStepTickerTimHandle;
 
 volatile uint32_t delta_time= 0;
 extern volatile uint32_t adc_ave_time;
+extern volatile bool running;
 
 #define BUTTON_BIT 0x01
 #define MOVE_BIT 0x02
@@ -229,6 +230,15 @@ int main(void)
 	while (1) { }
 }
 
+const char * taskName= 0;
+void vApplicationStackOverflowHook( TaskHandle_t xTask, char *pcTaskName )
+{
+	// stack overflow
+	taskName= pcTaskName;
+	__debugbreak();
+}
+
+
 // called to send replies back to USB Serial
 bool serial_reply(const char *buf, size_t len)
 {
@@ -236,7 +246,7 @@ bool serial_reply(const char *buf, size_t len)
 	return n == len;
 }
 
-extern void getPosition(int *, int *, int *, int *);
+extern void getPosition(float *, float *, float *, float *);
 //static int lx=0, ly= 0;
 extern bool host_connected;
 extern bool testGpio();
@@ -252,7 +262,7 @@ static void mainThread(void const *argument)
 
 		if( xResult == pdPASS ) {
 			if( ulNotifiedValue & BUTTON_BIT ) {
-				BSP_LED_Toggle(LED4);
+				//BSP_LED_Toggle(LED4);
 				//LCD_UsrLog("stepticker: %lu us\n", delta_time);
 				//LCD_UsrLog("\nADC time: %lu\n", adc_ave_time);
 				BSP_LCD_Clear(LCD_COLOR_WHITE);
@@ -269,18 +279,21 @@ static void mainThread(void const *argument)
 
 		} else {
 			BSP_LED_Toggle(LED3);
-			#ifdef LCD_DISPLAY_POSITION
 
-			int x, y, z, e;
+			if(running) BSP_LED_On(LED4);
+			else BSP_LED_Off(LED4);
+
+			#ifdef LCD_DISPLAY_POSITION
+			float x, y, z, e;
 			getPosition(&x, &y, &z, &e);
 			char buf[16];
-			snprintf(buf, sizeof(buf), "X %6d", x);
+			snprintf(buf, sizeof(buf), "X %8.4f", x);
 			BSP_LCD_DisplayStringAtLine(2, (uint8_t*)buf);
-			snprintf(buf, sizeof(buf), "Y %6d", y);
+			snprintf(buf, sizeof(buf), "Y %8.4f", y);
 			BSP_LCD_DisplayStringAtLine(3, (uint8_t*)buf);
-			snprintf(buf, sizeof(buf), "Z %6d", z);
+			snprintf(buf, sizeof(buf), "Z %8.4f", z);
 			BSP_LCD_DisplayStringAtLine(4, (uint8_t*)buf);
-			snprintf(buf, sizeof(buf), "E %6d", e);
+			snprintf(buf, sizeof(buf), "E %8.4f", e);
 			BSP_LCD_DisplayStringAtLine(5, (uint8_t*)buf);
 			#endif
 

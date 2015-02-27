@@ -238,7 +238,7 @@ bool Planner::plan(const float *last_target, const float *target, int n_axis,  A
 	while(curi != lookahead_q.rend()) {
 		auto nexti = std::next(curi);
 		if(nexti == lookahead_q.rend()) break;
-		printf("Checking blocks: %d, %d\n", curi->id, nexti->id);
+		//printf("Checking blocks: %d, %d\n", curi->id, nexti->id);
 
 		// if both this one and the next one have recalculate flag false then move this one to ready queue
 		// this always leaves the last entry as a non calculate block and preserves the exit speeds

@@ -144,9 +144,9 @@ bool Planner::plan(const float *last_target, const float *target, int n_axis,  A
 
 	block.millimeters = distance;
 
-	// Calculate speed in mm/sec for each axis. No divide by zero due to previous checks.
-	block.nominal_speed = rate_mms;           // (mm/s) Always > 0
-	block.nominal_rate = ceilf(block.steps_event_count * rate_mms / distance); // (step/s) Always > 0
+	// Calculate speed in mm/sec for each axis.
+	block.nominal_speed = rate_mms;
+	block.nominal_rate = ceilf(block.steps_event_count * rate_mms / distance);
 
 	// default junction deviation
 	float junction_deviation = this->junction_deviation;
