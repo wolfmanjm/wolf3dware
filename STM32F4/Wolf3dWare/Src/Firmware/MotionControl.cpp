@@ -98,6 +98,8 @@ void MotionControl::initialize()
 
 bool MotionControl::handleEnable(GCode& gc)
 {
+	// wait for preceding moves to finish
+	waitForMoves();
 	switch(gc.getCode()) {
 		case 17: // all on
 			for(auto& a : actuators) a.enable(true);

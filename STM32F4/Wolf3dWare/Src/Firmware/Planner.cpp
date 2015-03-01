@@ -88,7 +88,7 @@ bool Planner::plan(const float *last_target, const float *target, int n_axis,  A
 		// non primary axis move (like extrude)
 		// select the biggest one (usually just E)
 		auto mi= std::max_element(&deltas[0], &deltas[n_axis], [](float a, float b){ return std::abs(a) < std::abs(b); } );
-		distance = *mi;
+		distance = std::abs(*mi);
 		auxilliary_move= true;
 	}
 

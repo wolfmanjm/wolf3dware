@@ -56,7 +56,11 @@ bool Dispatcher::dispatch(GCode& gc)
 		}else{
 			result.append("ok\r\n");
 		}
+
+	}else{
+		result.clear();
 	}
+
 	output_stream.clear();
 
 	return ret;

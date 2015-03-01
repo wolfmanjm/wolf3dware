@@ -28,7 +28,7 @@
 
 using namespace std;
 
-//#define PRINTER3D
+#define PRINTER3D
 
 // global
 SemaphoreHandle_t READY_Q_MUTEX;
@@ -270,6 +270,36 @@ static void sendReply(const std::string& str)
 	}
 }
 
+extern "C" char _end;
+extern "C" caddr_t _sbrk(int incr);
+void free_memory(std::ostringstream& oss)
+{
+    uint32_t chunk_curr= (unsigned int)&_end + 4;
+    uint32_t chunk_number= 1;
+    uint32_t used_space= 0;
+    uint32_t free_space= 0;
+    uint32_t heap_end= (uint32_t) _sbrk(0)-4;
+    while (chunk_curr <= heap_end) {
+        uint32_t chunk_size= *(unsigned int*)(chunk_curr+4) & ~1;
+        uint32_t chunk_next= chunk_curr + chunk_size;
+        int chunk_inuse= *(unsigned int*)(chunk_next+4) & 1;
+        //oss << "Allocation: " << chunk_number << ", Address: " << chunk_curr+8 << ", Size: " << chunk_size-8 << "\n";
+        if (chunk_inuse) {
+     		used_space += (chunk_size-8);
+        } else {
+     		free_space += (chunk_size-8);
+     	}
+        chunk_curr= chunk_next;
+        chunk_number++;
+    }
+    uint32_t sp= (uint32_t)__get_MSP();
+    oss << "Used malloc: " << used_space << " bytes\n";
+    oss << "Free malloc: " << free_space << " bytes\n";
+    oss << "Used heap: " <<  heap_end - (uint32_t)&_end << " bytes\n";
+    oss << "Unused heap: " << sp - heap_end << " bytes\n";
+    oss << "Total free: " << (sp - heap_end) + free_space << " bytes\n";
+}
+
 // runs in the commandThread context
 bool handleCommand(const char *line)
 {
@@ -309,6 +339,9 @@ bool handleCommand(const char *line)
 		oss << "max q size: " << maxqsize << "\n";
 		oss << "ok\n";
 
+	}else if(strcmp(line, "mem") == 0) {
+		free_memory(oss);
+
 	}else if(strcmp(line, "adc") == 0) {
 		for (int i = 0; i < 10; ++i) {
 			uint16_t adc= readADC();
@@ -336,6 +369,7 @@ bool handleCommand(const char *line)
 
 	return handled;
 }
+
 
 // gets called for each received line from USB serial port
 // runs in the commandThread context
@@ -490,8 +524,7 @@ extern "C" bool issueTicks()
 
 extern "C" void issueUnstep()
 {
-	MotionControl& mc= THEKERNEL.getMotionControl();
-	mc.issueUnsteps();
+	THEKERNEL.getMotionControl().issueUnsteps();
 }
 
 // run the block change in this thread when signaled
