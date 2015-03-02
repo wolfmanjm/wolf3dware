@@ -90,7 +90,7 @@ SRC = FileList[PROG + '/**/*.{c,cpp,s}']
 SRC.exclude(/#{excludes.join('|')}/) unless excludes.empty?
 $using_cpp= SRC.find { |i| File.extname(i) == ".cpp" }.nil? ? false : true
 
-OBJDIR = "#{PROG}_BUILD"
+OBJDIR = "#{PROG}_#{TARGET}"
 OBJ = SRC.collect { |fn| File.join(OBJDIR, pop_path(File.dirname(fn)), File.basename(fn).ext('o')) }
     # + %W(#{OBJDIR}/configdefault.o #{OBJDIR}/mbed_custom.o)
 
