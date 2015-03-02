@@ -28,7 +28,7 @@
 
 using namespace std;
 
-//#define PRINTER3D
+#define PRINTER3D
 
 // global
 SemaphoreHandle_t READY_Q_MUTEX;
