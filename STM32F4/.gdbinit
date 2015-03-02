@@ -16,11 +16,11 @@ define stacksize
 end
 
 define heapwalk
-    set var $chunk_curr=(unsigned int)&_end + 4
+    set var $chunk_curr=(unsigned int)&_end
     set var $chunk_number=1
     set var $used_space=0
     set var $free_space=0
-    while ($chunk_curr <= _sbrk::heap_end-4)
+    while ($chunk_curr < _sbrk::heap_end)
         set var $chunk_size=*(unsigned int*)($chunk_curr+4) & ~1
         set var $chunk_next=$chunk_curr + $chunk_size
         set var $chunk_inuse=*(unsigned int*)($chunk_next+4) & 1
@@ -44,11 +44,11 @@ define heapwalk
 end
 
 define freememory
-    set var $chunk_curr=(unsigned int)&_end + 4
+    set var $chunk_curr=(unsigned int)&_end
     set var $chunk_number=1
     set var $used_space=0
     set var $free_space=0
-    while ($chunk_curr <= _sbrk::heap_end-4)
+    while ($chunk_curr < _sbrk::heap_end)
         set var $chunk_size=*(unsigned int*)($chunk_curr+4) & ~1
         set var $chunk_next=$chunk_curr + $chunk_size
         set var $chunk_inuse=*(unsigned int*)($chunk_next+4) & 1

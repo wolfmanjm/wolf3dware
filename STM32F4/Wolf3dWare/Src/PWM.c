@@ -2,14 +2,28 @@
 
 #include <math.h>
 
+#ifdef USE_STM32F429I_DISCO
 #define TIMx                           TIM9
 #define TIMx_CLK_ENABLE                __HAL_RCC_TIM9_CLK_ENABLE
 
-/* Definition for USARTx Pins */
+/* Definition for Pins */
+#define GPIOx                          GPIOE
 #define TIMx_CHANNEL_GPIO_PORT()       __HAL_RCC_GPIOE_CLK_ENABLE()
 #define GPIO_PIN_CHANNEL1              GPIO_PIN_5
 #define GPIO_PIN_CHANNEL2              GPIO_PIN_6
 
+#else
+// STM32F405 Use PA2 and PA3 on TIM9
+#define TIMx                           TIM9
+#define TIMx_CLK_ENABLE                __HAL_RCC_TIM9_CLK_ENABLE
+
+/* Definition for USARTx Pins */
+#define GPIOx                          GPIOA
+#define TIMx_CHANNEL_GPIO_PORT()       __HAL_RCC_GPIOA_CLK_ENABLE()
+#define GPIO_PIN_CHANNEL1              GPIO_PIN_2
+#define GPIO_PIN_CHANNEL2              GPIO_PIN_3
+
+#endif // USE_STM32F429I_DISCO
 
 
 #define __debugbreak()  { __asm volatile ("bkpt #0"); }
@@ -118,9 +132,9 @@ void HAL_TIM_PWM_MspInit(TIM_HandleTypeDef *htim)
   GPIO_InitStruct.Alternate = GPIO_AF3_TIM9;
 
   GPIO_InitStruct.Pin = GPIO_PIN_CHANNEL1;
-  HAL_GPIO_Init(GPIOE, &GPIO_InitStruct);
+  HAL_GPIO_Init(GPIOx, &GPIO_InitStruct);
 
   GPIO_InitStruct.Pin = GPIO_PIN_CHANNEL2;
-  HAL_GPIO_Init(GPIOE, &GPIO_InitStruct);
+  HAL_GPIO_Init(GPIOx, &GPIO_InitStruct);
 }
 

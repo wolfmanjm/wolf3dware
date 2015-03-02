@@ -105,29 +105,41 @@ using LED4Pin   = GPIO(C,1);            // PC1 LED4
 
 using TriggerPin= GPIO(C, 2);           // PC2
 /*
-	PA0  - button
-	PA1  - PA8
+	PA0  - 				: button
+	PA1  - 		:free
+	PA2  -              : PWM TIM9 ch1
+	PA3  -              : PWM TIM9 ch2
+	PA4  -				: ADC HE  Ch4 ADC1
+	PA5  -				: ADC Bed Ch5 ADC1
+	PA6 - PA8 - :free
+	PA9  - 				: VBUS
+	PA10 - 				: USB-ID
+	PA11 - 				: USB_DM
+	PA12 - 				: USB_DP
 
-	PA9  - VBUS
-	PA10 - USB-ID
-	PA11 - USB_DM
-	PA12 - USB_DP
+	PA13 - PA15 :free
 
-	PA13 - PA15
+	PB3 - PB7			: Motor
 
-	PB0  - PB1
+	PB8  - PB11 :free
 
-	PB2  - Boot1
+	PB12 - PB15			: motor
 
-	PB3  - PB15
+	PB2  - 				: Boot1
 
-	PC0 - LED3
-	PC1 - LED4
-	PC2 - Trigger Pin
-	PC3 - PC15
-	PD2
+	PB3  - PB15  :free
 
+	PC0 - 				: LED3
+	PC1 - 				: LED4
+	PC2 - 				: Trigger Pin
 
+	PC3 - PC10   :free
+
+	PC11 - PC12			: motor
+
+	PC13 - PC15  : free
+
+	PD2         		: motor
 
 */
 
@@ -324,14 +336,14 @@ extern "C" caddr_t _sbrk(int incr);
 void free_memory(std::ostringstream& oss)
 {
 	uint32_t chunk_curr= (unsigned int)&_end;
-	if((chunk_curr % 8) != 0) chunk_curr += (8 - (chunk_curr % 8)); // align to next 8 byte boundary
+	//if((chunk_curr % 8) != 0) chunk_curr += (8 - (chunk_curr % 8)); // align to next 8 byte boundary
 	uint32_t chunk_number= 1;
 	uint32_t used_space= 0;
 	uint32_t free_space= 0;
 	uint32_t heap_end= (uint32_t) _sbrk(0);
-	if ((heap_end % 8) != 0) heap_end -= (heap_end % 8); // round down to next 8 byte boundary
+	//if ((heap_end % 8) != 0) heap_end -= (heap_end % 8); // round down to next 8 byte boundary
 
-	while (chunk_curr <= heap_end) {
+	while (chunk_curr < heap_end) {
 		uint32_t chunk_size= *(unsigned int*)(chunk_curr+4) & ~1;
 		uint32_t chunk_next= chunk_curr + chunk_size;
 		int chunk_inuse= *(unsigned int*)(chunk_next+4) & 1;
