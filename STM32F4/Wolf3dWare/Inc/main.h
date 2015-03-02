@@ -41,15 +41,14 @@
 
 /* Includes ------------------------------------------------------------------*/
 #include "stm32f4xx_hal.h"
+
+#ifdef USE_STM32F429I_DISCO
 #include "stm32f429i_discovery.h"
 #include "stm32f429i_discovery_lcd.h"
+#else
+#include "Stamp-BSP.h"
+#endif
 
-//#include "stm32f429i_discovery_gyroscope.h"
-
-/* Exported types ------------------------------------------------------------*/
-/* Exported constants --------------------------------------------------------*/
-/* Exported macro ------------------------------------------------------------*/
-/* Exported functions ------------------------------------------------------- */
 
 #define PERFORMANCE_TIMx             TIM2
 #define PERFORMANCE_TIMx_CLK_ENABLE  __HAL_RCC_TIM2_CLK_ENABLE

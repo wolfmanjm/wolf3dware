@@ -5,6 +5,10 @@ require 'fileutils'
 verbose(false)
 
 PROG = 'Wolf3dWare'
+
+# compile for the STM32F405 if true
+STAMP = true
+
 DEBUG = false
 
 $using_cpp= false
@@ -78,7 +82,8 @@ load 'rakefile.defaults' if File.exists?('rakefile.defaults')
 #BUILDTYPE= ENV['BUILDTYPE'] || 'Checked' unless defined? BUILDTYPE
 #puts "#{BUILDTYPE} build"
 
-excludes= [] # ['t.cpp']
+# include and exclude different files depending on the build target
+excludes= STAMP ? ["BSP/", "Components/", "Fonts/", "lcd*", "TimingTests.cpp", "startup_stm32f429xx.s"] : ["startup_stm32f407xx.s", "Stamp-BSP.c"] # ['t.cpp']
 SRC = FileList[PROG + '/**/*.{c,cpp,s}']
 SRC.exclude(/#{excludes.join('|')}/) unless excludes.empty?
 $using_cpp= SRC.find { |i| File.extname(i) == ".cpp" }.nil? ? false : true
@@ -96,20 +101,26 @@ SRC.each do |s|
   FileUtils.mkdir_p(d) unless Dir.exists?(d)
 end
 
-INCLUDE_DIRS = ["#{PROG}/STM32F4xx_HAL_Driver/Inc", "#{PROG}/CMSIS/Include", "#{PROG}/CMSIS/Device/ST/STM32F4xx/Include"] +
-                ["#{PROG}/Inc", "#{PROG}/BSP"] +
+include_dirs = ["#{PROG}/STM32F4xx_HAL_Driver/Inc", "#{PROG}/CMSIS/Include", "#{PROG}/CMSIS/Device/ST/STM32F4xx/Include", "#{PROG}/Inc"] +
                 ["#{PROG}/FreeRTOS/Source/include", "#{PROG}/FreeRTOS/Source/CMSIS_RTOS", "#{PROG}/USB/Inc", "#{PROG}/USB/CDC/Inc" ]
+if !STAMP
+  include_dirs += ["#{PROG}/BSP"]
+end
 
 # [Dir.glob([PROG + '/**/Inc/**', './mri/**/'])].flatten
 
-INCLUDE = (INCLUDE_DIRS).collect { |d| "-I#{d}" }.join(" ")
+INCLUDE = (include_dirs).collect { |d| "-I#{d}" }.join(" ")
 
 #SYS_LIBS = '-lstdc++_s -lsupc++_s -lm -lgcc -lc_s -lgcc -lc_s -lnosys'
 SYS_LIBS = []
 HAL_LIBS = []
 LIBS = [HAL_LIBS, SYS_LIBS].flatten.collect{ |l| "-l#{l}" }.join(' ')
 
+if STAMP
+defines = %w(-DUSE_HAL_DRIVER  -DSTM32F405xx -DUSE_USB_FS)
+else
 defines = %w(-DUSE_HAL_DRIVER -DUSE_STM32F429I_DISCO -DSTM32F429xx -DUSE_USB_HS -DUSE_USB_HS_IN_FS )
+end
 DEFINES= defines.join(' ')
 
 # Compiler flags used to enable creation of header dependencies.
@@ -125,7 +136,12 @@ CPPFLAGS = CFLAGS + ' -fno-rtti -fno-exceptions -std=gnu++11'
 #arm-atollic-eabi-gcc Example\Utilities\lcd_log.o Example\User\ts_calibration.o Example\User\touchscreen.o #Example\User\stm32f4xx_it.o Example\User\mems.o Example\User\main.o Example\User\log.o Example\User\lcd.o Example\TrueSTUDIO\syscalls.o Example\TrueSTUDIO\startup_stm32f429xx.o Drivers\STM32F4xx_HAL_Driver\stm32f4xx_ll_fmc.o Drivers\STM32F4xx_HAL_Driver\stm32f4xx_hal_spi.o Drivers\STM32F4xx_HAL_Driver\stm32f4xx_hal_sdram.o Drivers\STM32F4xx_HAL_Driver\stm32f4xx_hal_rcc_ex.o Drivers\STM32F4xx_HAL_Driver\stm32f4xx_hal_rcc.o Drivers\STM32F4xx_HAL_Driver\stm32f4xx_hal_pwr_ex.o Drivers\STM32F4xx_HAL_Driver\stm32f4xx_hal_pwr.o Drivers\STM32F4xx_HAL_Driver\stm32f4xx_hal_pcd.o Drivers\STM32F4xx_HAL_Driver\stm32f4xx_hal_ltdc.o Drivers\STM32F4xx_HAL_Driver\stm32f4xx_hal_i2c_ex.o Drivers\STM32F4xx_HAL_Driver\stm32f4xx_hal_i2c.o Drivers\STM32F4xx_HAL_Driver\stm32f4xx_hal_hcd.o Drivers\STM32F4xx_HAL_Driver\stm32f4xx_hal_gpio.o Drivers\STM32F4xx_HAL_Driver\stm32f4xx_hal_flash_ex.o Drivers\STM32F4xx_HAL_Driver\stm32f4xx_hal_flash.o Drivers\STM32F4xx_HAL_Driver\stm32f4xx_hal_dma2d.o Drivers\STM32F4xx_HAL_Driver\stm32f4xx_hal_dma.o Drivers\STM32F4xx_HAL_Driver\stm32f4xx_hal_cortex.o Drivers\STM32F4xx_HAL_Driver\stm32f4xx_hal.o Drivers\CMSIS\system_stm32f4xx.o Drivers\BSP\STM32F429I-Discovery\stm32f429i_discovery_ts.o Drivers\BSP\STM32F429I-Discovery\stm32f429i_discovery_sdram.o Drivers\BSP\STM32F429I-Discovery\stm32f429i_discovery_lcd.o Drivers\BSP\STM32F429I-Discovery\stm32f429i_discovery_io.o Drivers\BSP\STM32F429I-Discovery\stm32f429i_discovery_gyroscope.o Drivers\BSP\STM32F429I-Discovery\stm32f429i_discovery_eeprom.o Drivers\BSP\STM32F429I-Discovery\stm32f429i_discovery.o Drivers\BSP\Components\stmpe811.o Drivers\BSP\Components\l3gd20.o Drivers\BSP\Components\ili9341.o -o STM32F429I-Discovery+EEPROM.elf -mthumb -mcpu=cortex-m4 -mfpu=fpv4-sp-d16 -T..\STM32F429ZI_FLASH.ld -Wl,--start-group -lc -lm -Wl,--end-group -static -Wl,-cref,-u,Reset_Handler -Wl,-Map=STM32F429I-Discovery+EEPROM.map -Wl,--gc-sections -Wl,--defsym=malloc_getpagesize_P=0x1000
 
 # Linker script to be used.
+if STAMP
+LSCRIPT = "#{PROG}/STM32F405_FLASH.ld"
+else
 LSCRIPT = "#{PROG}/STM32F429ZI_FLASH.ld"
+end
+
 LOPTIONS = [
 #  "--specs=nosys.specs",
 #   "--specs=rdimon.specs",
@@ -152,6 +168,10 @@ task :upload do
   sh "./flashit.openocd #{OBJDIR}/#{PROG}.elf"
 end
 
+desc "Upload via dfu"
+task :dfu do
+  sh "/usr/bin/dfu-util -v -R -d 0483:df11 -a 0 --dfuse-address 0x08000000 -D #{OBJDIR}/#{PROG}.bin"
+end
 
 # generate the header dependencies if they exist
 import(*DEPFILES)

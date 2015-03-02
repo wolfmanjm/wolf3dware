@@ -28,7 +28,7 @@
 
 using namespace std;
 
-#define PRINTER3D
+//#define PRINTER3D
 
 // global
 SemaphoreHandle_t READY_Q_MUTEX;
@@ -54,6 +54,7 @@ static size_t maxqsize= 0;
 // define specific pins, set 3rd parameter to true if inverted
 static const bool INVERTPIN=false;
 
+#ifdef USE_STM32F429I_DISCO
 using X_StepPin = GPIO(A, 5,INVERTPIN);	// PA5   P2-21
 using X_DirPin  = GPIO(A, 9,INVERTPIN); // PA9   P1-52
 using X_EnbPin  = GPIO(A,10,INVERTPIN); // PA10  P1-51
@@ -71,7 +72,6 @@ using LED3Pin   = GPIO(G,13);           // PG13  LED3
 using LED4Pin   = GPIO(G,14);           // PG14  LED4
 
 using TriggerPin= GPIO(D, 5);           // PD5
-
 // 11 Spare
 // PC3   P2-15 - ADC1-IN13 adc channel13 DMA channel 0 stream 0 or 4
 //- PD5 P1-37
@@ -83,6 +83,55 @@ using TriggerPin= GPIO(D, 5);           // PD5
 // PG2 P2-62
 // PG3 P2-61
 // PG9 P1-33
+
+#else
+// STM32F405
+using X_StepPin = GPIO(B, 7,INVERTPIN);	//
+using X_DirPin  = GPIO(B, 6,INVERTPIN); //
+using Y_StepPin = GPIO(B, 5,INVERTPIN); //
+using Y_DirPin  = GPIO(B, 4,INVERTPIN); //
+using Z_StepPin = GPIO(B, 3,INVERTPIN); //
+using Z_DirPin  = GPIO(D, 2,INVERTPIN); //
+using E_StepPin = GPIO(C,12,INVERTPIN); //
+using E_DirPin  = GPIO(C,11,INVERTPIN); //
+
+using X_EnbPin  = GPIO(B,12,INVERTPIN); //
+using Y_EnbPin  = GPIO(B,13,INVERTPIN); //
+using Z_EnbPin  = GPIO(B,14,INVERTPIN); //
+using E_EnbPin  = GPIO(B,15,INVERTPIN); //
+
+using LED3Pin   = GPIO(C,0);            // PC0 LED3
+using LED4Pin   = GPIO(C,1);            // PC1 LED4
+
+using TriggerPin= GPIO(C, 2);           // PC2
+/*
+	PA0  - button
+	PA1  - PA8
+
+	PA9  - VBUS
+	PA10 - USB-ID
+	PA11 - USB_DM
+	PA12 - USB_DP
+
+	PA13 - PA15
+
+	PB0  - PB1
+
+	PB2  - Boot1
+
+	PB3  - PB15
+
+	PC0 - LED3
+	PC1 - LED4
+	PC2 - Trigger Pin
+	PC3 - PC15
+	PD2
+
+
+
+*/
+
+#endif // USE_STM32F429I_DISCO
 
 static void initializePins()
 {
@@ -143,15 +192,15 @@ extern "C" void startUnstepTicker();
 static uint16_t readADC()
 {
 	uint16_t *adc_buf= getADC(0);
-   // grab the dma buffer
-   std::deque<uint16_t> buf(adc_buf, adc_buf+8);
-   // sort
-   std::sort (buf.begin(), buf.end());
-   // eliminate first and last two
-   buf.pop_back(); buf.pop_back();
-   buf.pop_front(); buf.pop_front();
-   uint16_t sum= std::accumulate(buf.begin(), buf.end(), 0);
-   return roundf(sum/4.0F); // return the average
+	// grab the dma buffer
+	std::deque<uint16_t> buf(adc_buf, adc_buf+8);
+	// sort
+	std::sort (buf.begin(), buf.end());
+	// eliminate first and last two
+	buf.pop_back(); buf.pop_back();
+	buf.pop_front(); buf.pop_front();
+	uint16_t sum= std::accumulate(buf.begin(), buf.end(), 0);
+	return roundf(sum/4.0F); // return the average
 }
 
 extern "C" int maincpp()
@@ -274,30 +323,33 @@ extern "C" char _end;
 extern "C" caddr_t _sbrk(int incr);
 void free_memory(std::ostringstream& oss)
 {
-    uint32_t chunk_curr= (unsigned int)&_end + 4;
-    uint32_t chunk_number= 1;
-    uint32_t used_space= 0;
-    uint32_t free_space= 0;
-    uint32_t heap_end= (uint32_t) _sbrk(0)-4;
-    while (chunk_curr <= heap_end) {
-        uint32_t chunk_size= *(unsigned int*)(chunk_curr+4) & ~1;
-        uint32_t chunk_next= chunk_curr + chunk_size;
-        int chunk_inuse= *(unsigned int*)(chunk_next+4) & 1;
-        //oss << "Allocation: " << chunk_number << ", Address: " << chunk_curr+8 << ", Size: " << chunk_size-8 << "\n";
-        if (chunk_inuse) {
-     		used_space += (chunk_size-8);
-        } else {
-     		free_space += (chunk_size-8);
-     	}
-        chunk_curr= chunk_next;
-        chunk_number++;
-    }
-    uint32_t sp= (uint32_t)__get_MSP();
-    oss << "Used malloc: " << used_space << " bytes\n";
-    oss << "Free malloc: " << free_space << " bytes\n";
-    oss << "Used heap: " <<  heap_end - (uint32_t)&_end << " bytes\n";
-    oss << "Unused heap: " << sp - heap_end << " bytes\n";
-    oss << "Total free: " << (sp - heap_end) + free_space << " bytes\n";
+	uint32_t chunk_curr= (unsigned int)&_end;
+	if((chunk_curr % 8) != 0) chunk_curr += (8 - (chunk_curr % 8)); // align to next 8 byte boundary
+	uint32_t chunk_number= 1;
+	uint32_t used_space= 0;
+	uint32_t free_space= 0;
+	uint32_t heap_end= (uint32_t) _sbrk(0);
+	if ((heap_end % 8) != 0) heap_end -= (heap_end % 8); // round down to next 8 byte boundary
+
+	while (chunk_curr <= heap_end) {
+		uint32_t chunk_size= *(unsigned int*)(chunk_curr+4) & ~1;
+		uint32_t chunk_next= chunk_curr + chunk_size;
+		int chunk_inuse= *(unsigned int*)(chunk_next+4) & 1;
+		//oss << "Allocation: " << chunk_number << ", Address: " << chunk_curr+8 << ", Size: " << chunk_size-8 << "\n";
+		if (chunk_inuse) {
+			used_space += (chunk_size-8);
+		} else {
+			free_space += (chunk_size-8);
+		}
+		chunk_curr= chunk_next;
+		chunk_number++;
+	}
+	uint32_t sp= (uint32_t)__get_MSP();
+	oss << "Used malloc: " << used_space << " bytes\n";
+	oss << "Free malloc: " << free_space << " bytes\n";
+	oss << "Used heap: " <<  heap_end - (uint32_t)&_end << " bytes\n";
+	oss << "Unused heap: " << sp - heap_end << " bytes\n";
+	oss << "Total free: " << (sp - heap_end) + free_space << " bytes\n";
 }
 
 // runs in the commandThread context
@@ -314,7 +366,12 @@ bool handleCommand(const char *line)
 		oss << "Welcome to Wolf3dWare\r\nok\r\n";
 
 	}else if(strcmp(line, "version") == 0) {
-		oss << "Wolf3dWare V0.1, Clock speed: " << SystemCoreClock/1000000.0F << " MHz\n";
+		oss << "Wolf3dWare V0.5, Clock speed: " << SystemCoreClock/1000000.0F << " MHz\n";
+		#ifdef USE_STM32F429I_DISCO
+		oss << "Running on STM32F429I_DISCO\n";
+		#else
+		oss << "Running on STM32F405 Stamp\n";
+		#endif
 
 	}else if(strcmp(line, "run") == 0) {
 		THEKERNEL.getPlanner().moveAllToReady();
@@ -413,7 +470,7 @@ extern "C" bool commandLineHandler(const char *line)
 	}
 
 	// check for large queue size, stall until it gets smaller
-	const size_t MAX_Q= 32;
+	const size_t MAX_Q= 100;
 	Planner::Queue_t& q= THEKERNEL.getPlanner().getReadyQueue();
 	Lock l(READY_Q_MUTEX);
 	l.lock();
@@ -477,25 +534,25 @@ extern "C" bool issueTicks()
 	if(!move_issued){
 		// nothing asked to move so we don't need to do anything
 		if(waiting_ticks > 0) waiting_ticks++; // this gets incremented if we are waiting for the next move to get setup
- 		return true;
- 	}
- 	if(waiting_ticks > overflow) overflow= waiting_ticks;
+		return true;
+	}
+	if(waiting_ticks > overflow) overflow= waiting_ticks;
 
- 	// if we missed some ticks while processing the next move issue them here
- 	// if waiting_ticks == 0 then nothing was setup to move so we have not missed any ticks
- 	// if waiting_ticks == 1 then we may have setup a move so we count hown many ticxks we have missed
- 	// if waiting_ticks > 1 then we have missed waiting_ticks-1 ticks while the next blockj was being setup to move
- 	while(waiting_ticks > 1) {
- 		// we issue the number of ticks we missed while setting up the next move
- 		if(!mc.issueTicks(++current_tick)){
- 			// too many waiting ticks, we finished all the moves
- 			move_issued= false;
- 			current_tick= 0;
+	// if we missed some ticks while processing the next move issue them here
+	// if waiting_ticks == 0 then nothing was setup to move so we have not missed any ticks
+	// if waiting_ticks == 1 then we may have setup a move so we count hown many ticxks we have missed
+	// if waiting_ticks > 1 then we have missed waiting_ticks-1 ticks while the next blockj was being setup to move
+	while(waiting_ticks > 1) {
+		// we issue the number of ticks we missed while setting up the next move
+		if(!mc.issueTicks(++current_tick)){
+			// too many waiting ticks, we finished all the moves
+			move_issued= false;
+			current_tick= 0;
 			waiting_ticks= 1;
- 			return false;
- 		}
- 		--waiting_ticks;
- 	}
+			return false;
+		}
+		--waiting_ticks;
+	}
 
 	// a move was issued to the actuators, tick them until all moves are done
 
@@ -506,6 +563,7 @@ extern "C" bool issueTicks()
 		startUnstepTicker();
 	}
 
+	bool moves_left= true;
 	if(all_moves_finished) {
 		// all moves finished
 		TriggerPin::set(true);
@@ -513,13 +571,13 @@ extern "C" bool issueTicks()
 		move_issued= false; // this will not get set again until all the actuators have been setup for the next move
 		current_tick= 0;
 		waiting_ticks= 1; // setup to count any missed ticks
-		return false;  // signals ISR to yield to the moveCompletedThread
+		moves_left= false;  // signals ISR to yield to the moveCompletedThread
 	}
 
 	xet= stop_time();
 	uint32_t d= xet-xst;
 	if(d > xdelta) xdelta= d;
-	return true;
+	return moves_left;
 }
 
 extern "C" void issueUnstep()
@@ -534,7 +592,7 @@ void moveCompletedThread(void const *argument)
 		// wait until we have something to process
 		uint32_t ulNotifiedValue= ulTaskNotifyTake( pdTRUE, portMAX_DELAY);
 		if(ulNotifiedValue > 0) {
- 			// get next block, and setup the next move
+			// get next block, and setup the next move
 			executeNextBlock();
 
 			if(!move_issued) {
@@ -594,8 +652,8 @@ extern "C" void tests()
 		uint32_t current_tick= 0;
 		bool r= true;
 		while(r) {
-	  		++current_tick;
-	  		// sends ticks to all actuators, returns false when all have finished all steps
+			++current_tick;
+			// sends ticks to all actuators, returns false when all have finished all steps
 			r= THEKERNEL.getMotionControl().issueTicks(current_tick);
 		}
 

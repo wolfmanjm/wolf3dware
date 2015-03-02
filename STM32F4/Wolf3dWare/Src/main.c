@@ -41,7 +41,9 @@
 #include "cmsis_os.h"
 #include "event_groups.h"
 
+#ifdef USE_STM32F429I_DISCO
 #include "lcd_log.h"
+#endif
 
 #include <usbd_core.h>
 #include <usbd_cdc.h>
@@ -52,7 +54,10 @@
 
 // if not defined will run at 180MHz, but USB clock will be off a little bit
 #define SYSCLK168MHZ
+
+#ifdef USE_STM32F429I_DISCO
 #define LCD_DISPLAY_POSITION
+#endif
 
 USBD_HandleTypeDef USBD_Device;
 
@@ -66,8 +71,10 @@ osThreadId CommandHandlerThreadHandle;
 osThreadId moveCompletedThreadHandle;
 //TaskHandle_t moveCompletedThreadHandle;
 
+#ifdef USE_STM32F429I_DISCO
 osMutexDef(lcdMutex);
 osMutexId lcdMutex;
+#endif
 
 #define MAXLINELEN 132
 typedef struct {
@@ -147,9 +154,10 @@ int main(void)
 	BSP_LED_Init(LED4);
 	BSP_PB_Init(BUTTON_KEY, BUTTON_MODE_EXTI);
 
-	/* Configure the system clock to 180 MHz */
+	/* Configure the system clock */
 	SystemClock_Config();
 
+#ifdef USE_STM32F429I_DISCO
 	/*##-1- LCD Initialization #################################################*/
 	/* Initialize the LCD */
 	BSP_LCD_Init();
@@ -175,7 +183,8 @@ int main(void)
 	LCD_LOG_ClearTextZone();
 	LCD_LOG_SetHeader((uint8_t *)"Wolf3dWare");
 	LCD_UsrLog("System clock: %1.1f MHz\n", SystemCoreClock/1000000.0F);
-#endif
+#endif // USELCDLOG
+#endif // USE_STM32F429I_DISCO
 
 	// setup USB CDC
 	SetupVCP();
@@ -262,10 +271,12 @@ static void mainThread(void const *argument)
 
 		if( xResult == pdPASS ) {
 			if( ulNotifiedValue & BUTTON_BIT ) {
+				#ifdef USE_STM32F429I_DISCO
 				//BSP_LED_Toggle(LED4);
 				//LCD_UsrLog("stepticker: %lu us\n", delta_time);
 				//LCD_UsrLog("\nADC time: %lu\n", adc_ave_time);
 				BSP_LCD_Clear(LCD_COLOR_WHITE);
+				#endif
 			}
 
 			if(ulNotifiedValue & MOVE_BIT) {
@@ -278,8 +289,8 @@ static void mainThread(void const *argument)
 			}
 
 		} else {
-			BSP_LED_Toggle(LED3);
 
+			BSP_LED_Toggle(LED3);
 			if(running) BSP_LED_On(LED4);
 			else BSP_LED_Off(LED4);
 
@@ -296,6 +307,7 @@ static void mainThread(void const *argument)
 			snprintf(buf, sizeof(buf), "E %8.4f", e);
 			BSP_LCD_DisplayStringAtLine(5, (uint8_t*)buf);
 			#endif
+
 
 			//testGpio();
 			// static bool last_connect_status= false;
@@ -817,6 +829,7 @@ static uint32_t GetSector(uint32_t Address)
   {
 	sector = FLASH_SECTOR_10;
   }
+  #ifdef USE_STM32F429I_DISCO
   else if((Address < ADDR_FLASH_SECTOR_12) && (Address >= ADDR_FLASH_SECTOR_11))
   {
 	sector = FLASH_SECTOR_11;
@@ -870,11 +883,24 @@ static uint32_t GetSector(uint32_t Address)
 	sector = FLASH_SECTOR_23;
   }
 
+  #else
+
+  else
+  {
+	sector = FLASH_SECTOR_11;
+  }
+
+  #endif // USE_STM32F429I_DISCO
   return sector;
 }
 
+#ifdef USE_STM32F429I_DISCO
 #define FLASH_USER_START_ADDR   ADDR_FLASH_SECTOR_23   /* Start @ of user Flash area */
 #define FLASH_USER_END_ADDR     ADDR_FLASH_SECTOR_23   /* End @ of user Flash area */
+#else
+#define FLASH_USER_START_ADDR   ADDR_FLASH_SECTOR_11   /* Start @ of user Flash area */
+#define FLASH_USER_END_ADDR     ADDR_FLASH_SECTOR_11   /* End @ of user Flash area */
+#endif
 
 /*Variable used for Erase procedure*/
 static FLASH_EraseInitTypeDef EraseInitStruct;
