@@ -119,21 +119,21 @@ using TriggerPin= GPIO(C, 2);           // PC2
 
 	PA13 - PA15 :free
 
+	PB2  - 				: Boot1
 	PB3 - PB7			: Motor
 
-	PB8  - PB11 :free
-
+	PB8 -       :free / I2C
+	PB9 - 	    :free / I2C / SPI2 nss
+	PB10  -     :free       / SPI2 sck
+	PB11  -     :free
 	PB12 - PB15			: motor
-
-	PB2  - 				: Boot1
-
-	PB3  - PB15  :free
 
 	PC0 - 				: LED3
 	PC1 - 				: LED4
-	PC2 - 				: Trigger Pin
+	PC2 - 				: LED5/Trigger Pin also SPI2 miso
+	PC3 -				: LED6             also SPI2 mosi
 
-	PC3 - PC10   :free
+	PC4 - PC10   :free
 
 	PC11 - PC12			: motor
 
