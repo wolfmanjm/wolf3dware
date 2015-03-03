@@ -6,9 +6,6 @@
 #include "Firmware/Block.h"
 #include "Firmware/Planner.h"
 #include "Firmware/Actuator.h"
-#include "Firmware/Tools/TemperatureControl.h"
-#include "Firmware/Tools/Thermistor.h"
-#include "Firmware/Tools/Extruder.h"
 
 #include "Lock.h"
 #include "GPIO.h"
@@ -28,7 +25,19 @@
 
 using namespace std;
 
-#define PRINTER3D
+//#define PRINTER3D
+#define USE_PANEL
+
+#ifdef PRINTER3D
+#include "Firmware/Tools/TemperatureControl.h"
+#include "Firmware/Tools/Thermistor.h"
+#include "Firmware/Tools/Extruder.h"
+#endif
+
+#ifdef USE_PANEL
+#include "Firmware/Panels/Viki.h"
+#include "Firmware/Panels/StatusScreen.h"
+#endif
 
 // global
 SemaphoreHandle_t READY_Q_MUTEX;
@@ -36,7 +45,10 @@ SemaphoreHandle_t TEMPERATURE_MUTEX;
 
 uint32_t xdelta= 0;
 
+
 // local
+static StatusScreen *pstatus_screen;
+
 static volatile bool execute_mode= true;
 // signals that the ticks can start to be issued to the actuators
 static volatile bool move_issued= false;
@@ -85,6 +97,8 @@ using TriggerPin= GPIO(D, 5);           // PD5
 // PG9 P1-33
 
 #else
+#include "Stamp-BSP.h"
+
 // STM32F405
 using X_StepPin = GPIO(B, 7,INVERTPIN);	//
 using X_DirPin  = GPIO(B, 6,INVERTPIN); //
@@ -122,9 +136,9 @@ using TriggerPin= GPIO(C, 2);           // PC2
 	PB2  - 				: Boot1
 	PB3 - PB7			: Motor
 
-	PB8 -       :free / I2C
-	PB9 - 	    :free / I2C / SPI2 nss
-	PB10  -     :free       / SPI2 sck
+	PB8 -       		: I2C1 SCL
+	PB9 - 	    		: I2C1 SDA (/ SPI2 nss)
+	PB10  -     :free              / SPI2 sck
 	PB11  -     :free
 	PB12 - PB15			: motor
 
@@ -133,7 +147,11 @@ using TriggerPin= GPIO(C, 2);           // PC2
 	PC2 - 				: LED5/Trigger Pin also SPI2 miso
 	PC3 -				: LED6             also SPI2 mosi
 
-	PC4 - PC10   :free
+	PC4 - PC5   :free
+
+	PC6 - PC7   		: TIM8 Ch1, Ch2 (panel encoder) AF3
+
+	PC8 - PC10   :free
 
 	PC11 - PC12			: motor
 
@@ -183,7 +201,6 @@ extern "C" void getPosition(float *x, float *y, float *z, float *e)
 }
 extern "C" osThreadId MainThreadHandle;
 
-// example of reading the DMA filled ADC buffer and taking the 4 middle values as average
 
 static size_t doDelay(void *, size_t, uint32_t ms)
 {
@@ -201,6 +218,7 @@ extern "C" void InitializeADC();
 extern "C" void moveCompletedThread(void const *argument);
 extern "C" void startUnstepTicker();
 
+// example of reading the DMA filled ADC buffer and taking the 4 middle values as average
 static uint16_t readADC()
 {
 	uint16_t *adc_buf= getADC(0);
@@ -277,6 +295,25 @@ extern "C" int maincpp()
 	ex.initialize();
 #endif
 
+#ifdef USE_PANEL
+	// setup an external LCD panel (Not the one on the discovery board)
+	BSP_Init_Encoder();
+
+	static Viki viki; // old I2C based one
+	viki.assignHALFunction(Viki::INIT_I2C, [](uint8_t addr, void *buf, uint8_t size){ I2Cx_Init(); return 0; });
+	viki.assignHALFunction(Viki::WRITE_I2C, [](uint8_t addr, uint8_t *buf, uint16_t size){ return(I2Cx_WriteData(addr, buf, size) ? 1 : 0); });
+	viki.assignHALFunction(Viki::READ_I2C, [](uint8_t addr, uint8_t *buf, uint16_t size){ return(I2Cx_ReadData(addr, buf, size) ? 1 : 0); });
+	viki.assignHALFunction(Viki::READ_ENCODER, [](uint8_t addr, uint8_t *buf, uint16_t size){ uint32_t c= BSP_Read_Encoder(); memcpy(buf, &c, size); return 0; });
+	//viki.assignHALFunction(Viki::READ_BUTTONS, [](uint8_t addr, void *buf, uint8_t size){ /*TBD*/ return 0; });
+
+	// one screen to show the status (basic DRO)
+	pstatus_screen= new StatusScreen(viki);
+
+	// this needs to be done once RTOS is running
+	//sc.init();
+
+#endif
+
 	move_issued= false;
 	waiting_ticks= 0;
 	running= false;
@@ -286,6 +323,13 @@ extern "C" int maincpp()
 	//sendReply(THEDISPATCHER.getResult());
 
 	return 0;
+}
+
+// called from main thread after RTOS is started
+extern "C" void stage2_setup()
+{
+	// this needs to be dime after RTOS started as it calls delay()
+	pstatus_screen->init();
 }
 
 void executeNextBlock()

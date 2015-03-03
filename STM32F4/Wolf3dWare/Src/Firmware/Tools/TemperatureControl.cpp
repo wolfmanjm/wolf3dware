@@ -30,13 +30,6 @@ TemperatureControl::~TemperatureControl()
 		xTimerDelete(read_temperature_timer_handle, 10);
 }
 
-// required so we can marshall the method for the callback
-void temperatureTimerCallback( TimerHandle_t pxTimer )
-{
-	TemperatureControl *tc = (TemperatureControl*)pvTimerGetTimerID( pxTimer );
-	tc->readTemperatureTick();
-}
-
 void TemperatureControl::initialize()
 {
 	const uint32_t readings_per_second= 20;
@@ -67,6 +60,13 @@ void TemperatureControl::initialize()
 		read_temperature_timer_handle= xTimerCreate("TemperatureTimer", pdMS_TO_TICKS(1000/readings_per_second), pdTRUE, (void*)this, temperatureTimerCallback);
 		xTimerStart(read_temperature_timer_handle, 10);
 	}
+}
+
+// static required so we can marshall the method for the callback
+void TemperatureControl::temperatureTimerCallback( TimerHandle_t pxTimer )
+{
+	TemperatureControl *tc = (TemperatureControl*)pvTimerGetTimerID( pxTimer );
+	tc->readTemperatureTick();
 }
 
 // TODO  break up into separate methods

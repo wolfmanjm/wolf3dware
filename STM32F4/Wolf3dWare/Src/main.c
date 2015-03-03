@@ -259,8 +259,13 @@ extern void getPosition(float *, float *, float *, float *);
 //static int lx=0, ly= 0;
 extern bool host_connected;
 extern bool testGpio();
+extern void stage2_setup();
+
 static void mainThread(void const *argument)
 {
+	// call any init stuff that has to happen after RTOS is started
+	stage2_setup();
+
 	while(1) {
 		const TickType_t xTicksToWait = pdMS_TO_TICKS( 1000 );
 		uint32_t ulNotifiedValue;

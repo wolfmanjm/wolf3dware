@@ -32,7 +32,7 @@ class TemperatureControl {
         void assignHALFunction(HAL_FUNCTION_INDEX i, HAL_function_t fnc) { if(i == SET_PWM) setPWM= fnc; }
 
     private:
-        friend void temperatureTimerCallback( TimerHandle_t pxTimer );
+        static void temperatureTimerCallback( TimerHandle_t pxTimer );
         bool onGcodeReceived(GCode& gc);
         void setDesiredTemperature(float desired_temperature);
         float getTemperature() const { return last_reading; }
