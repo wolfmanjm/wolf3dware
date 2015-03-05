@@ -52,8 +52,8 @@ void StatusScreen::update()
 
 	auto temps= getTemps();
 	lcd.setCursor(0, 2);
-	lcd.printf("T:%4.1f/%4.1f\n", std::get<0>(temps), std::get<1>(temps));
+	lcd.printf("T:%4.1f/%4.1f", std::get<0>(temps), std::get<1>(temps));
 
 	lcd.setCursor(0, 3);
-	lcd.printf("%d\n", lcd.readEncoderDelta());
+	lcd.printf("%u", lcd.readEncoderPosition());
 }

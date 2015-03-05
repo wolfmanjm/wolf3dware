@@ -94,7 +94,7 @@ void     BSP_PB_Init(Button_TypeDef Button, ButtonMode_TypeDef Mode);
 uint32_t BSP_PB_GetState(Button_TypeDef Button);
 
 int BSP_Init_Encoder();
-uint32_t BSP_Read_Encoder();
+uint16_t BSP_Read_Encoder();
 
 void I2Cx_Init(void);
 bool I2Cx_WriteData(uint8_t Addr, uint8_t *Data, uint16_t Len);

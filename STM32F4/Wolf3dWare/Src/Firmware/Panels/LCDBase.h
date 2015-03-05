@@ -37,7 +37,7 @@ class LCDBase {
 		virtual uint8_t readButtons()= 0;
 
 		// returns the current encoder position
-		virtual int readEncoderDelta()= 0;
+		virtual uint16_t readEncoderPosition()= 0;
 
 		// the number of encoder clicks per detent. this is divided into
 		// accumulated clicks for control values so one detent is one

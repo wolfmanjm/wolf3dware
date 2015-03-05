@@ -136,6 +136,10 @@ uint32_t stop_time()
   */
 int main(void)
 {
+	// HAL_DBGMCU_EnableDBGSleepMode();
+	// HAL_DBGMCU_EnableDBGStandbyMode();
+	// HAL_DBGMCU_EnableDBGStopMode();
+
 	HAL_NVIC_SetPriorityGrouping( NVIC_PRIORITYGROUP_4 );
 
 	// use straight malloc initially
@@ -194,19 +198,7 @@ int main(void)
 	USBD_CDC_RegisterInterface(&USBD_Device, &USBD_CDC_Template_fops);
 	USBD_Start(&USBD_Device);
 
-	// for (int i = 0; i < 100; ++i) {
-	//  TIMx->CNT= 0;
-	//  uint32_t start = TIMx->CNT;
-	//  HAL_Delay(1000);
-	//  uint32_t stop= TIMx->CNT;
-	//      uint32_t delta= (stop - start);
-	//      LCD_UsrLog("Delay 1000ms = %lu us\n", delta);
-	//  }
-	//  TimingTests();
-
-
 	// setup FreeRTOS
-
 	osThreadDef(Tick, moveCompletedThread, osPriorityRealtime, 0, 1000);
 	moveCompletedThreadHandle = osThreadCreate (osThread(Tick), NULL);
 
@@ -256,7 +248,6 @@ bool serial_reply(const char *buf, size_t len)
 }
 
 extern void getPosition(float *, float *, float *, float *);
-//static int lx=0, ly= 0;
 extern bool host_connected;
 extern bool testGpio();
 extern void stage2_setup();

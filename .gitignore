@@ -34,4 +34,5 @@ wolf3dware.sublime-workspace
 GPATH
 GRTAGS
 GTAGS
-Wolf3dWare_BUILD/
+Wolf3dWare_STM32F405/
+Wolf3dWare_STM32F429/

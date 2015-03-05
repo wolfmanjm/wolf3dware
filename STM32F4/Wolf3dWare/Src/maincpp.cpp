@@ -100,12 +100,12 @@ using TriggerPin= GPIO(D, 5);           // PD5
 #include "Stamp-BSP.h"
 
 // STM32F405
-using X_StepPin = GPIO(B, 7,INVERTPIN);	//
-using X_DirPin  = GPIO(B, 6,INVERTPIN); //
-using Y_StepPin = GPIO(B, 5,INVERTPIN); //
-using Y_DirPin  = GPIO(B, 4,INVERTPIN); //
-using Z_StepPin = GPIO(B, 3,INVERTPIN); //
-using Z_DirPin  = GPIO(D, 2,INVERTPIN); //
+using X_StepPin = GPIO(B,7,INVERTPIN);	//
+using X_DirPin  = GPIO(B,6,INVERTPIN); //
+using Y_StepPin = GPIO(B,5,INVERTPIN); //
+using Y_DirPin  = GPIO(B,0,INVERTPIN); // //was PB4
+using Z_StepPin = GPIO(A,1,INVERTPIN); // was PB3
+using Z_DirPin  = GPIO(D,2,INVERTPIN); //
 using E_StepPin = GPIO(C,12,INVERTPIN); //
 using E_DirPin  = GPIO(C,11,INVERTPIN); //
 
@@ -117,7 +117,7 @@ using E_EnbPin  = GPIO(B,15,INVERTPIN); //
 using LED3Pin   = GPIO(C,0);            // PC0 LED3
 using LED4Pin   = GPIO(C,1);            // PC1 LED4
 
-using TriggerPin= GPIO(C, 2);           // PC2
+using TriggerPin= GPIO(C,2);            // PC2
 /*
 	PA0  - 				: button
 	PA1  - 		:free
@@ -131,15 +131,22 @@ using TriggerPin= GPIO(C, 2);           // PC2
 	PA11 - 				: USB_DM
 	PA12 - 				: USB_DP
 
-	PA13 - PA15 :free
+	PA13 - PA14 		: Used for STLINK / JTAG
 
-	PB2  - 				: Boot1
-	PB3 - PB7			: Motor
+	PA15 -			:free / JTAG
+	PB0 - PB1		:free
+
+	PB2 - 				: Boot1
+	PB3 - 				: Motor / NOTE is also used for JTAG
+	PB4 -				: Motor / NOTE is also NJTRST
+	PB5 - PB7			: Motor
 
 	PB8 -       		: I2C1 SCL
 	PB9 - 	    		: I2C1 SDA (/ SPI2 nss)
+
 	PB10  -     :free              / SPI2 sck
 	PB11  -     :free
+
 	PB12 - PB15			: motor
 
 	PC0 - 				: LED3
@@ -158,6 +165,16 @@ using TriggerPin= GPIO(C, 2);           // PC2
 	PC13 - PC15  : free
 
 	PD2         		: motor
+
+	JTAG/Busblaster
+	---------------
+	TRST - block 	- nc
+	TDI  - brown 	- PA15
+	TMS  - red 		- PA13
+	TCK  - orange 	- PA14
+	RTCK - yellow 	- nc
+	TDO  - green 	- PB3
+	TSRST- blue 	- NRST
 
 */
 
@@ -303,7 +320,7 @@ extern "C" int maincpp()
 	viki.assignHALFunction(Viki::INIT_I2C, [](uint8_t addr, void *buf, uint8_t size){ I2Cx_Init(); return 0; });
 	viki.assignHALFunction(Viki::WRITE_I2C, [](uint8_t addr, uint8_t *buf, uint16_t size){ return(I2Cx_WriteData(addr, buf, size) ? 1 : 0); });
 	viki.assignHALFunction(Viki::READ_I2C, [](uint8_t addr, uint8_t *buf, uint16_t size){ return(I2Cx_ReadData(addr, buf, size) ? 1 : 0); });
-	viki.assignHALFunction(Viki::READ_ENCODER, [](uint8_t addr, uint8_t *buf, uint16_t size){ uint32_t c= BSP_Read_Encoder(); memcpy(buf, &c, size); return 0; });
+	viki.assignHALFunction(Viki::READ_ENCODER, [](uint8_t addr, uint8_t *buf, uint16_t size){ uint16_t c= BSP_Read_Encoder(); memcpy(buf, &c, size); return 0; });
 	//viki.assignHALFunction(Viki::READ_BUTTONS, [](uint8_t addr, void *buf, uint8_t size){ /*TBD*/ return 0; });
 
 	// one screen to show the status (basic DRO)
@@ -311,7 +328,8 @@ extern "C" int maincpp()
 
 	// this needs to be done once RTOS is running
 	//sc.init();
-
+#else
+	pstatus_screen= nullptr;
 #endif
 
 	move_issued= false;
@@ -328,8 +346,10 @@ extern "C" int maincpp()
 // called from main thread after RTOS is started
 extern "C" void stage2_setup()
 {
-	// this needs to be dime after RTOS started as it calls delay()
-	pstatus_screen->init();
+	if(pstatus_screen != nullptr) {
+		// this needs to be done after RTOS started as it calls delay() and RTOS stuff
+		pstatus_screen->init();
+	}
 }
 
 void executeNextBlock()

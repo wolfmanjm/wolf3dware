@@ -29,7 +29,7 @@ public:
     static const uint32_t Port = TPort;
     static const uint16_t Pin = TPin;
     static const uint32_t Clk_enable = TClkEnable;
-    static void set(bool set) {((GPIO_TypeDef*)Port)->BSRR = (set!=inv) ? Pin : Pin<<16; }
+    static void set(bool set) {((GPIO_TypeDef*)Port)->BSRR = ((set!=inv) ? Pin : (Pin<<16)); }
     static bool get(void) { return ((((GPIO_TypeDef*)Port)->IDR & Pin) != 0); }
     static void output(bool s) {
     	/* Configure the GPIO pin for output */

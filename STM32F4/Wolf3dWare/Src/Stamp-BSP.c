@@ -225,12 +225,12 @@ int BSP_Init_Encoder()
 	sEncoderConfig.IC1Polarity        = TIM_ICPOLARITY_RISING;
 	sEncoderConfig.IC1Selection       = TIM_ICSELECTION_DIRECTTI;
 	sEncoderConfig.IC1Prescaler       = TIM_ICPSC_DIV1;
-	sEncoderConfig.IC1Filter          = 0;
+	sEncoderConfig.IC1Filter          = 3;
 
 	sEncoderConfig.IC2Polarity        = TIM_ICPOLARITY_RISING;
 	sEncoderConfig.IC2Selection       = TIM_ICSELECTION_DIRECTTI;
 	sEncoderConfig.IC2Prescaler       = TIM_ICPSC_DIV1;
-	sEncoderConfig.IC2Filter          = 0;
+	sEncoderConfig.IC2Filter          = 3;
 
 	if(HAL_TIM_Encoder_Init(&Encoder_Handle, &sEncoderConfig) != HAL_OK)
 	{
@@ -239,6 +239,7 @@ int BSP_Init_Encoder()
 
 	/* Start the encoder interface */
 	HAL_TIM_Encoder_Start(&Encoder_Handle, TIM_CHANNEL_ALL);
+  __HAL_TIM_SET_COUNTER(&Encoder_Handle, 32768);
 	return 1;
 }
 
@@ -259,7 +260,7 @@ void HAL_TIM_Encoder_MspInit(TIM_HandleTypeDef *htim)
 	/* Common configuration for all channels */
 	GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
 	GPIO_InitStruct.Pull = GPIO_PULLUP;
-	GPIO_InitStruct.Speed = GPIO_SPEED_HIGH;
+	GPIO_InitStruct.Speed = GPIO_SPEED_MEDIUM;
 	GPIO_InitStruct.Alternate = GPIO_AF3_TIM8;
 
 	/* Channel 1 & 2 configuration */
@@ -267,11 +268,11 @@ void HAL_TIM_Encoder_MspInit(TIM_HandleTypeDef *htim)
 	HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 }
 
-uint32_t BSP_Read_Encoder()
+uint16_t BSP_Read_Encoder()
 {
 	//uint32_t uwDirection = __HAL_TIM_IS_TIM_COUNTING_DOWN(&Encoder_Handle);
 
-	return __HAL_TIM_GET_COUNTER(&Encoder_Handle);
+	return (__HAL_TIM_GET_COUNTER(&Encoder_Handle) & 0xFFFF);
 }
 
 /** @defgroup STM32F4_DISCOVERY_LOW_LEVEL_BUS_Functions

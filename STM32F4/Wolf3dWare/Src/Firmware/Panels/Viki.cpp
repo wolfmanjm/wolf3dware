@@ -10,7 +10,8 @@
 // readButtons() will only return these bit values
 #define VIKI_ALL_BUTTON_BITS (BUTTON_PAUSE|BUTTON_UP|BUTTON_DOWN|BUTTON_LEFT|BUTTON_RIGHT|BUTTON_SELECT)
 
-#define MCP23017_ADDRESS 0x20<<1
+// 0x20<<1
+#define MCP23017_ADDRESS 0x40
 
 // registers
 #define MCP23017_IODIRA 0x00
@@ -266,21 +267,11 @@ void Viki::on_refresh()
 	// NOP
 }
 
-int Viki::readEncoderDelta()
+uint16_t Viki::readEncoderPosition()
 {
-	static uint32_t last_counter;
-	static uint8_t first= 1;
-	uint32_t counter;
-	int delta= 0;
+	uint16_t counter;
 	hal_functions[READ_ENCODER](0, (uint8_t*)&counter, sizeof(counter));
-	// convert from an absolute value to a delta
-	if(first == 0) {
-		delta= (int)(counter - last_counter);
-	}else{
-		first= 0;
-	}
-	last_counter= counter;
-	return delta;
+	return counter;
 }
 
 void Viki::clear()

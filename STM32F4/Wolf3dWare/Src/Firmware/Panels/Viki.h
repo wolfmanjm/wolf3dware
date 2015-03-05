@@ -31,7 +31,7 @@ public:
 	void setLed(int led, bool onoff);
 
 	uint8_t readButtons();
-	int readEncoderDelta();
+	uint16_t readEncoderPosition();
 
 	// this is the number of clicks per detent
 	int getEncoderResolution()

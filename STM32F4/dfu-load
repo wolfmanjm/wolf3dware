@@ -1,0 +1,2 @@
+/usr/bin/dfu-util -v -R -d 0483:df11 -a 0 --dfuse-address 0x08000000 -D Wolf3dWare_STM32F405/Wolf3dWare.bin
+
