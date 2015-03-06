@@ -5,6 +5,7 @@
 
 #include "Thermistor.h"
 #include "../Dispatcher.h"
+#include "../GCode.h"
 
 // a const list of predefined thermistors
 #include "predefined_thermistors.h"
@@ -120,15 +121,15 @@ float Thermistor::getTemperature()
     return adcValueToTemperature(newThermistorReading());
 }
 
-void Thermistor::getRaw()
+void Thermistor::getRaw(GCode& gc)
 {
     if(bad_config) {
-       THEDISPATCHER.getOS().printf("WARNING: The config is bad for this temperature sensor\n");
+       gc.getOS().printf("WARNING: The config is bad for this temperature sensor\n");
     }
 
     int adc_value= newThermistorReading();
     if(adc_value == 0) {
-        THEDISPATCHER.getOS().printf("not a valid ADC reading\n");
+        gc.getOS().printf("not a valid ADC reading\n");
         return;
     }
 
@@ -136,16 +137,16 @@ void Thermistor::getRaw()
     float r = r2 / ((4095.0F / adc_value) - 1.0F);
     if (r1 > 0.0F) r = (r1 * r) / (r1 - r);
 
-    THEDISPATCHER.getOS().printf("adc= %d, resistance= %f\n", adc_value, r);
+    gc.getOS().printf("adc= %d, resistance= %f\n", adc_value, r);
 
     if(use_steinhart_hart) {
-        THEDISPATCHER.getOS().printf("S/H c1= %1.18f, c2= %1.18f, c3= %1.18f\n", c1, c2, c3);
+        gc.getOS().printf("S/H c1= %1.18f, c2= %1.18f, c3= %1.18f\n", c1, c2, c3);
         float l = logf(r);
         float t= (1.0F / (c1 + c2 * l + c3 * powf(l,3))) - 273.15F;
-        THEDISPATCHER.getOS().printf("S/H temp= %f\n", t);
+        gc.getOS().printf("S/H temp= %f\n", t);
     }else{
         float t= (1.0F / (k + (j * logf(r / r0)))) - 273.15F;
-        THEDISPATCHER.getOS().printf("beta temp= %f\n", t);
+        gc.getOS().printf("beta temp= %f\n", t);
     }
 }
 

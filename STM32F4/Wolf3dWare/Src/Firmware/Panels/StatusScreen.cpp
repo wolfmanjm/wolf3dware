@@ -4,7 +4,7 @@
 #include "../Kernel.h"
 #include "../MotionControl.h"
 #include "../Actuator.h"
-
+#include "../Dispatcher.h"
 
 void StatusScreen::init()
 {
@@ -33,10 +33,10 @@ std::tuple<float, float, float, float> StatusScreen::getPosition()
 	return std::make_tuple(x, y, z, e);
 }
 
-std::tuple<float, float> StatusScreen::getTemps()
+const std::string StatusScreen::getTemps()
 {
 	// TODO how to get temps as module may not be there
-	return std::make_tuple(0.0F, 0.0F);
+	return THEDISPATCHER.dispatch('M', 105, 0);
 }
 
 // runs every 1 second and updates the status screen
@@ -50,9 +50,9 @@ void StatusScreen::update()
 	lcd.setCursor(0, 1);
 	lcd.printf("E %5.2f", std::get<3>(pos));
 
-	auto temps= getTemps();
+	const std::string& temps= getTemps();
 	lcd.setCursor(0, 2);
-	lcd.printf("T:%4.1f/%4.1f", std::get<0>(temps), std::get<1>(temps));
+	lcd.printf("%s", temps.substr(3).c_str());
 
 	lcd.setCursor(0, 3);
 	lcd.printf("%u", lcd.readEncoderPosition());

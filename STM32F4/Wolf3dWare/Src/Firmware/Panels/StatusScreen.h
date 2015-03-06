@@ -4,6 +4,7 @@
 #include "timers.h"
 
 #include <tuple>
+#include <string>
 
 class LCDBase;
 
@@ -17,7 +18,7 @@ public:
 private:
 	static void statusTimerCallback( TimerHandle_t pxTimer );
 	std::tuple<float, float, float, float> getPosition();
-	std::tuple<float, float> getTemps();
+	const std::string getTemps();
 	void update();
 	LCDBase& lcd;
 	TimerHandle_t status_timer_handle{0};

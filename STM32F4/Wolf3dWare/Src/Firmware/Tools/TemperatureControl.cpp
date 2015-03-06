@@ -75,8 +75,8 @@ bool TemperatureControl::onGcodeReceived(GCode& gc)
 	AutoLock l(lock);
 
 	if( gc.getCode() == 105) {
-		THEDISPATCHER.getOS().printf("%s:%3.1f /%3.1f @%1.2f", designator.c_str(), getTemperature(), target_temperature, pwm_out);
-		THEDISPATCHER.getOS().setPrependOK();
+		gc.getOS().printf("%s:%3.1f /%3.1f @%1.2f ", designator.c_str(), getTemperature(), target_temperature, pwm_out);
+		gc.getOS().setPrependOK();
 		return true;
 	}
 
@@ -89,7 +89,7 @@ bool TemperatureControl::onGcodeReceived(GCode& gc)
 				if(sensor.setOptional(args)) {
 					sensor_settings= true;
 				}else{
-					THEDISPATCHER.getOS().printf("Unable to properly set sensor settings, make sure you specify all required values\n");
+					gc.getOS().printf("Unable to properly set sensor settings, make sure you specify all required values\n");
 				}
 			}else{
 				// don't override
@@ -97,13 +97,13 @@ bool TemperatureControl::onGcodeReceived(GCode& gc)
 			}
 
 		}else if(!gc.hasArg('S')) {
-			THEDISPATCHER.getOS().printf("%s(S%d): using %s\n", designator.c_str(), pool_index, readonly?"Readonly" : use_bangbang?"Bangbang":"PID");
-			sensor.getRaw();
+			gc.getOS().printf("%s(S%d): using %s\n", designator.c_str(), pool_index, readonly?"Readonly" : use_bangbang?"Bangbang":"PID");
+			sensor.getRaw(gc);
 			TempSensor::sensor_options_t options;
 			if(sensor.getOptional(options)) {
 				for(auto &i : options) {
 					// foreach optional value
-					THEDISPATCHER.getOS().printf("%s(S%d): %c%1.18f\n", designator.c_str(), pool_index, i.first, i.second);
+					gc.getOS().printf("%s(S%d): %c%1.18f\n", designator.c_str(), pool_index, i.first, i.second);
 				}
 			}
 		}
@@ -128,24 +128,24 @@ bool TemperatureControl::onGcodeReceived(GCode& gc)
 				max_pwm= gc.getArg('Y');
 
 		}else if(!gc.hasArg('S')) {
-			THEDISPATCHER.getOS().printf("%s(S%d): Pf:%1.4f If:%1.4f Df:%1.4f X(I_max):%1.2f max_pwm: %1.2f pwm_out:%1.2f\n", designator.c_str(), pool_index, p_factor, i_factor / PIDdt, d_factor * PIDdt, i_max, max_pwm, pwm_out);
+			gc.getOS().printf("%s(S%d): Pf:%1.4f If:%1.4f Df:%1.4f X(I_max):%1.2f max_pwm: %1.2f pwm_out:%1.2f\n", designator.c_str(), pool_index, p_factor, i_factor / PIDdt, d_factor * PIDdt, i_max, max_pwm, pwm_out);
 		}
 		return true;
 
 	}
 
 	if (gc.getCode() == 500) { // M500 saves some volatile settings to non volatile storage
-		THEDISPATCHER.getOS().printf("M301 S%d P%1.4f I%1.4f D%1.4f X%1.4f Y%1.4f\n", pool_index, p_factor, i_factor / PIDdt, d_factor * PIDdt, i_max, max_pwm);
+		gc.getOS().printf("M301 S%d P%1.4f I%1.4f D%1.4f X%1.4f Y%1.4f\n", pool_index, p_factor, i_factor / PIDdt, d_factor * PIDdt, i_max, max_pwm);
 
 		if(sensor_settings) {
 			// get or save any sensor specific optional values
 			TempSensor::sensor_options_t options;
 			if(sensor.getOptional(options) && !options.empty()) {
-				THEDISPATCHER.getOS().printf("M305 S%d", pool_index);
+				gc.getOS().printf("M305 S%d", pool_index);
 				for(auto &i : options) {
-					THEDISPATCHER.getOS().printf(" %c%1.18f", i.first, i.second);
+					gc.getOS().printf(" %c%1.18f", i.first, i.second);
 				}
-				THEDISPATCHER.getOS().printf("\n");
+				gc.getOS().printf("\n");
 			}
 		}
 		return true;

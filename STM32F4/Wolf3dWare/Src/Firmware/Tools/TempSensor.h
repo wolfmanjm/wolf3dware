@@ -9,6 +9,8 @@
 #include <map>
 #include <cmath>
 
+class GCode;
+
 class TempSensor
 {
 public:
@@ -21,6 +23,6 @@ public:
 	using sensor_options_t = std::map<char, float>;
 	virtual bool setOptional(const sensor_options_t& options) { return false; }
 	virtual bool getOptional(sensor_options_t& options) { return false; }
-	virtual void getRaw() {}
+	virtual void getRaw(GCode& gc) {}
 };
 

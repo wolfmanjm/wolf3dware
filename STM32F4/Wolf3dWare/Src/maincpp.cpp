@@ -534,9 +534,10 @@ extern "C" bool commandLineHandler(const char *line)
 
 	// dispatch gcode to MotionControl and Planner
 	for(auto& i : gcodes) {
-		if(THEDISPATCHER.dispatch(i)) {
+		std::string ret= THEDISPATCHER.dispatch(i);
+		if(!ret.empty()) {
 			// send the result to the place it came from
-			sendReply(THEDISPATCHER.getResult());
+			sendReply(ret);
 
 		}else{
 			// no handler for this gcode, return ok - nohandler
@@ -693,9 +694,10 @@ extern "C" void tests()
 
 	// dispatch gcode to MotionControl and Planner
 	for(auto& i : gcodes) {
-		if(THEDISPATCHER.dispatch(i)) {
+		std::string ret= THEDISPATCHER.dispatch(i);
+		if(!ret.empty()) {
 			// TODO send the result to the place it came from
-			std::cout << THEDISPATCHER.getResult();
+			std::cout << ret;
 
 		}else{
 			// no handler for this gcode, return ok - nohandler

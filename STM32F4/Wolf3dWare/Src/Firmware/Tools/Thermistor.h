@@ -20,7 +20,7 @@ class Thermistor : public TempSensor
         float getTemperature();
         bool setOptional(const sensor_options_t& options);
         bool getOptional(sensor_options_t& options);
-        void getRaw();
+        void getRaw(GCode& gc);
         static std::tuple<float,float,float> calculateSteinhartHartCoefficients(float t1, float r1, float t2, float r2, float t3, float r3);
         enum HAL_FUNCTION_INDEX
         {

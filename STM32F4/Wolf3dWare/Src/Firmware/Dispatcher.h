@@ -1,7 +1,5 @@
 #pragma once
 
-#include "OutputStream.h"
-
 #include <map>
 #include <functional>
 #include <string>
@@ -10,6 +8,7 @@
 #define THEDISPATCHER Dispatcher::getInstance()
 
 class GCode;
+class OutputStream;
 
 class Dispatcher
 {
@@ -27,25 +26,22 @@ public:
 
     Handlers_t::iterator addHandler(HANDLER_NAME gcode, uint16_t code, Handler_t fnc);
     void removeHandler(HANDLER_NAME gcode, Handlers_t::iterator);
-    bool dispatch(GCode &gc);
-    bool dispatch(char cmd, uint16_t code, ...);
-    bool loadConfiguration();
+    std::string dispatch(GCode &gc) const;
+    std::string dispatch(char cmd, uint16_t code, ...) const;
+    bool loadConfiguration() const;
     void clearHandlers();
-    const std::string& getResult() { return result; }
-    OutputStream& getOS() { return output_stream; }
 
 private:
     Dispatcher() {};
     Dispatcher(Dispatcher const &) = delete;
     void operator=(Dispatcher const &) = delete;
-    bool handleConfigurationCommands(GCode& gc);
-    bool writeConfiguration();
+    bool handleConfigurationCommands(GCode& gc) const;
+    bool writeConfiguration(OutputStream& output_stream) const;
+    bool loadConfiguration(OutputStream& output_stream) const;
 
     // use multimap as multiple handlers may be needed per gcode
     Handlers_t gcode_handlers;
     Handlers_t mcode_handlers;
-    OutputStream output_stream;
-    std::string result;
-    bool loaded_configuration{false};
+    mutable bool loaded_configuration{false};
 };
 

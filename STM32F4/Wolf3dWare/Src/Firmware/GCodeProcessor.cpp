@@ -121,7 +121,8 @@ bool GCodeProcessor::parse(const char *line, GCodes_t& gcodes)
 			if(c == 'G' || c == 'M'){
 				gc.setCommand(c, get<0>(code), get<1>(code));
 				if(c == 'G' && get<0>(code) <= 3) {
-					group1= gc;
+					group1.clear();
+					group1.setCommand(c, get<0>(code), get<1>(code));
 				}
 
 			}else{

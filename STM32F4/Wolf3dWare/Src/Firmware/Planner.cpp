@@ -523,16 +523,16 @@ void Planner::purge()
 
 bool Planner::handleSaveConfiguration(GCode &gc)
 {
-	THEDISPATCHER.getOS().printf("M204 S%1.4f ", default_acceleration);
+	gc.getOS().printf("M204 S%1.4f ", default_acceleration);
 	for(auto& a : THEKERNEL.getMotionControl().getActuators()) {
 		float acc= a.getAcceleration();
 		if(acc > 0.0F) {
-			THEDISPATCHER.getOS().printf("%c%1.4f ", a.getAxis(), acc);
+			gc.getOS().printf("%c%1.4f ", a.getAxis(), acc);
 		}
 	}
-	THEDISPATCHER.getOS().printf("\n");
+	gc.getOS().printf("\n");
 
-	THEDISPATCHER.getOS().printf("M205 S%1.4f X%1.4f Z%1.4f\n", minimum_planner_speed, junction_deviation, z_junction_deviation);
+	gc.getOS().printf("M205 S%1.4f X%1.4f Z%1.4f\n", minimum_planner_speed, junction_deviation, z_junction_deviation);
 	return true;
 }
 

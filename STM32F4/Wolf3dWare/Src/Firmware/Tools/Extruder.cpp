@@ -134,9 +134,9 @@ bool Extruder::handleFilamentDiameter(GCode& gc)
 
 	}else {
 		if(filament_diameter > 0.01F) {
-			THEDISPATCHER.getOS().printf("Filament Diameter: %f\n", filament_diameter);
+			gc.getOS().printf("Filament Diameter: %f\n", filament_diameter);
 		}else{
-			THEDISPATCHER.getOS().printf("Volumetric extrusion is disabled\n");
+			gc.getOS().printf("Volumetric extrusion is disabled\n");
 		}
 	}
 	return true;
@@ -146,7 +146,7 @@ bool Extruder::handleFilamentDiameter(GCode& gc)
 bool Extruder::handleRetractSettings(GCode& gc)
 {
 	if(gc.hasNoArgs()) {
-		THEDISPATCHER.getOS().printf("retract length: %1.4fmm, feedrate: %1.4fmm/sec, z lift length: %1.4fmm, zlift feedrate: %1.4fmm/sec\n",
+		gc.getOS().printf("retract length: %1.4fmm, feedrate: %1.4fmm/sec, z lift length: %1.4fmm, zlift feedrate: %1.4fmm/sec\n",
 			retract_length, retract_feedrate, retract_zlift_length, retract_zlift_feedrate);
 		return true;
 	}
@@ -162,7 +162,7 @@ bool Extruder::handleRetractSettings(GCode& gc)
 bool Extruder::handleUnRetractSettings(GCode& gc)
 {
 	if(gc.hasNoArgs()) {
-		THEDISPATCHER.getOS().printf("recover extra length: %1.4fmm, recover feedrate: %1.4fmm/sec\n",
+		gc.getOS().printf("recover extra length: %1.4fmm, recover feedrate: %1.4fmm/sec\n",
 			retract_recover_length, retract_recover_feedrate);
 		return true;
 	}
@@ -180,7 +180,7 @@ bool Extruder::handleFlowRateSetting(GCode& gc)
 		setScale();
 
 	}else{
-		THEDISPATCHER.getOS().printf("Extruder Multiplier: %f\n", extruder_multiplier);
+		gc.getOS().printf("Extruder Multiplier: %f\n", extruder_multiplier);
 	}
 
 	return true;
@@ -189,8 +189,8 @@ bool Extruder::handleFlowRateSetting(GCode& gc)
 // M500, M500.3 (M503) save or display configuration
 bool Extruder::handleSaveConfiguration(GCode& gc)
 {
-	THEDISPATCHER.getOS().printf("M200 D%1.4f\n", filament_diameter);
-	THEDISPATCHER.getOS().printf("M207 S%1.4f F%1.4f Z%1.4f Q%1.4f\n", retract_length, retract_feedrate*60.0F, retract_zlift_length, retract_zlift_feedrate*60.0F);
-	THEDISPATCHER.getOS().printf("M208 S%1.4f F%1.4f\n", retract_recover_length, retract_recover_feedrate*60.0F);
+	gc.getOS().printf("M200 D%1.4f\n", filament_diameter);
+	gc.getOS().printf("M207 S%1.4f F%1.4f Z%1.4f Q%1.4f\n", retract_length, retract_feedrate*60.0F, retract_zlift_length, retract_zlift_feedrate*60.0F);
+	gc.getOS().printf("M208 S%1.4f F%1.4f\n", retract_recover_length, retract_recover_feedrate*60.0F);
 	return true;
 }
