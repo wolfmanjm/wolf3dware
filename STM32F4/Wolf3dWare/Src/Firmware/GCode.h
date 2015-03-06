@@ -11,8 +11,6 @@ class GCode
 public:
 	GCode();
 	~GCode(){};
-	GCode(const GCode &to_copy);
-	GCode& operator= (const GCode &to_copy);
 
 	void clear();
 

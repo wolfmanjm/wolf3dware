@@ -5,38 +5,6 @@ GCode::GCode()
 	clear();
 }
 
-GCode::GCode(const GCode &to_copy)
-{
-	is_g= to_copy.is_g;
-	is_m= to_copy.is_m;
-	is_t= to_copy.is_t;
-	is_modal= to_copy.is_modal;
-	is_immediate= to_copy.is_immediate;
-	argbitmap= to_copy.argbitmap;
-	args= to_copy.args;
-	code= to_copy.code;
-	subcode= to_copy.subcode;
-	os.clear();
-}
-
-GCode &GCode::operator= (const GCode &to_copy)
-{
-    if( this != &to_copy ) {
-	 	is_g= to_copy.is_g;
-		is_m= to_copy.is_m;
-		is_t= to_copy.is_t;
-		is_modal= to_copy.is_modal;
-		is_immediate= to_copy.is_immediate;
-		argbitmap= to_copy.argbitmap;
-		args= to_copy.args;
-		code= to_copy.code;
-		subcode= to_copy.subcode;
-		os.clear();
-	}
-    return *this;
-}
-
-
 void GCode::clear()
 {
 	is_g= false;
