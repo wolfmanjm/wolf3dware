@@ -168,17 +168,5 @@ standard names. */
               to prevent overwriting SysTick_Handler defined within STM32Cube HAL */
 /* #define xPortSysTickHandler SysTick_Handler */
 
-#if 0
-// Hack to allow a high priority ISR to signal a thread (which doesn't work!)
-extern uint8_t moveCompletedFlag;
-extern void *moveCompletedThreadHandle;
-#define traceTASK_SWITCHED_OUT() \
-{ \
-  if( moveCompletedFlag != 0 ) { \
-    vTaskNotifyGiveFromISR( moveCompletedThreadHandle, NULL ); \
-    moveCompletedFlag = 0; \
-  } \
-}
-#endif
 #endif /* FREERTOS_CONFIG_H */
 

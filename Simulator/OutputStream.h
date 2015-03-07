@@ -11,6 +11,9 @@ class OutputStream
 public:
 	OutputStream() : append_nl(false), prepend_ok(false) {};
 	~OutputStream(){};
+	OutputStream(const OutputStream &to_copy);
+	OutputStream& operator= (const OutputStream &to_copy);
+
 	void clear() { oss.str(""); append_nl= false; prepend_ok= false; }
 	int printf(const char *format, ...);
 	void setAppendNL() { append_nl= true; }

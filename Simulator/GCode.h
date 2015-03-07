@@ -1,5 +1,7 @@
 #pragma once
 
+#include "OutputStream.h"
+
 #include <map>
 #include <iostream>
 #include <stdint.h>
@@ -9,6 +11,7 @@ class GCode
 public:
 	GCode();
 	~GCode(){};
+
 	void clear();
 
 	using Args_t = std::map<char,float>;
@@ -24,6 +27,8 @@ public:
 	void setM() { is_m= true; }
 	uint16_t getCode() const { return code; }
 	uint16_t getSubcode() const { return subcode; }
+	OutputStream& getOS() { return os; }
+
 	GCode& setCommand(char c, uint16_t code, uint16_t subcode=0) { is_g= c=='G'; is_m= c=='M'; this->code= code; this->subcode= subcode; return *this; }
 	GCode& addArg(char c, float f) { args[c]= f; setArg(c); return *this; }
 	void dump(std::ostream& o) const;
@@ -34,6 +39,7 @@ private:
 
 	// one bit per argument letter, for quick lookup to see if a specific argument is specified
 	uint64_t argbitmap;
+	OutputStream os;
 
 	// map of actual argument/value pairs
 	Args_t args;

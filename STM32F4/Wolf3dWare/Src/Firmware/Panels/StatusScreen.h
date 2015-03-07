@@ -18,7 +18,7 @@ public:
 private:
 	static void statusTimerCallback( TimerHandle_t pxTimer );
 	std::tuple<float, float, float, float> getPosition();
-	const std::string getTemps();
+	std::string getTemps();
 	void update();
 	LCDBase& lcd;
 	TimerHandle_t status_timer_handle{0};

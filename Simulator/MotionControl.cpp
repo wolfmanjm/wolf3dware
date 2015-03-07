@@ -98,6 +98,8 @@ void MotionControl::initialize()
 
 bool MotionControl::handleEnable(GCode& gc)
 {
+	// wait for preceding moves to finish
+	waitForMoves();
 	switch(gc.getCode()) {
 		case 17: // all on
 			for(auto& a : actuators) a.enable(true);
@@ -148,7 +150,7 @@ bool MotionControl::handleSetSpeedOverride(GCode& gc)
 		factor= std::min(factor, 1000.0F);
 		seconds_per_minute = 6000.0F / factor;
 	}else{
-		THEDISPATCHER.getOS().printf("Current speed override: %f\n", 6000.0F / seconds_per_minute);
+		gc.getOS().printf("Current speed override: %f\n", 6000.0F / seconds_per_minute);
 	}
 
 	return true;
@@ -199,15 +201,17 @@ bool MotionControl::handlePushState(GCode& gc)
 		saved_state_t s(feed_rate, seek_rate, b);
 		state_stack.push(s);
 
-	}else{ // pop state
+	}else if(gc.getCode() == 121) { // pop state
 		if(!state_stack.empty()) {
-			auto s= state_stack.top();
-			state_stack.pop();
+			auto& s= state_stack.top();
 			feed_rate= std::get<0>(s);
 			seek_rate= std::get<1>(s);
 			absolute_mode= std::get<2>(s);
+			state_stack.pop();
 		}
-	}
+
+	}else return false;
+
 	return true;
 }
 
@@ -228,16 +232,16 @@ bool MotionControl::handleSettings(GCode& gc)
 // M500, M500.3 (M503) save or display configuration
 bool MotionControl::handleSaveConfiguration(GCode& gc)
 {
-	THEDISPATCHER.getOS().printf("M92 ");
+	gc.getOS().printf("M92 ");
 	for(auto& a : actuators) {
-		THEDISPATCHER.getOS().printf("%c%1.4f ", a.getAxis(), a.getStepsPermm());
+		gc.getOS().printf("%c%1.4f ", a.getAxis(), a.getStepsPermm());
 	}
-	THEDISPATCHER.getOS().printf("\n");
-	THEDISPATCHER.getOS().printf("M203 ");
+	gc.getOS().printf("\n");
+	gc.getOS().printf("M203 ");
 	for(auto& a : actuators) {
-		THEDISPATCHER.getOS().printf("%c%1.4f ", a.getAxis(), a.getMaxSpeed());
+		gc.getOS().printf("%c%1.4f ", a.getAxis(), a.getMaxSpeed());
 	}
-	THEDISPATCHER.getOS().printf("\n");
+	gc.getOS().printf("\n");
 	return true;
 }
 
@@ -251,14 +255,14 @@ bool MotionControl::handleConfigurations(GCode& gc)
 				if(i != axis_actuator_map.end()) {
 					actuators[i->second].setStepsPermm(toMillimeters(arg.second));
 					if(!actuators[i->second].checkMaxSpeed()) {
-						THEDISPATCHER.getOS().printf("// WARNING maxspeed for axis %c exceeds maximum steps/sec\n", arg.first);
+						gc.getOS().printf("// WARNING maxspeed for axis %c exceeds maximum steps/sec\n", arg.first);
 					}
 				}
 			}
 			for(auto& a : actuators) {
-				THEDISPATCHER.getOS().printf("%c:%1.4fx%1.4f ", a.getAxis(), a.getStepsPermm(), a.getScale());
+				gc.getOS().printf("%c:%1.4fx%1.4f ", a.getAxis(), a.getStepsPermm(), a.getScale());
 			}
-			THEDISPATCHER.getOS().setAppendNL();
+			gc.getOS().setAppendNL();
 			break;
 
 		 case 203: // M203 - Set maximum cartesian feedrates in mm/sec, ( TODO M203.1 - set Maximum actuator feedrates in mm/sec )
@@ -267,14 +271,14 @@ bool MotionControl::handleConfigurations(GCode& gc)
 				if(i != axis_actuator_map.end()) {
 					actuators[i->second].setMaxSpeed(arg.second);
 					if(!actuators[i->second].checkMaxSpeed()) {
-						THEDISPATCHER.getOS().printf("// WARNING maxspeed for axis %c exceeds maximum steps/sec\n", arg.first);
+						gc.getOS().printf("// WARNING maxspeed for axis %c exceeds maximum steps/sec\n", arg.first);
 					}
 				}
 			}
 			for(auto& a : actuators) {
-				THEDISPATCHER.getOS().printf("%c:%1.4f ", a.getAxis(), a.getMaxSpeed());
+				gc.getOS().printf("%c:%1.4f ", a.getAxis(), a.getMaxSpeed());
 			}
-			THEDISPATCHER.getOS().setAppendNL();
+			gc.getOS().setAppendNL();
 			break;
 
 		default: return false;
@@ -287,16 +291,16 @@ bool MotionControl::handleConfigurations(GCode& gc)
 bool MotionControl::handleGetPosition(GCode& gc)
 {
 	bool raw= (gc.getSubcode() == 1);
-	THEDISPATCHER.getOS().printf("C: ");
+	gc.getOS().printf("C: ");
 	for (size_t i = 0; i < actuators.size(); ++i) {
 		char c= actuator_axis_lut[i];
-		THEDISPATCHER.getOS().printf("%c:%1.3f", c, raw ? actuators[i].getCurrentPositionInSteps() : fromMillimeters(last_milestone[i]));
+		gc.getOS().printf("%c:%1.3f", c, raw ? actuators[i].getCurrentPositionInSteps() : fromMillimeters(last_milestone[i]));
 		if(!raw && actuators[i].getScale() != 1.0F) {
-			THEDISPATCHER.getOS().printf("(%1.3f)", fromMillimeters(last_milestone[i])/actuators[i].getScale());
+			gc.getOS().printf("(%1.3f)", fromMillimeters(last_milestone[i])/actuators[i].getScale());
 		}
-		THEDISPATCHER.getOS().printf(" ");
+		gc.getOS().printf(" ");
 	}
-	THEDISPATCHER.getOS().setPrependOK();
+	gc.getOS().setPrependOK();
 	return true;
 }
 

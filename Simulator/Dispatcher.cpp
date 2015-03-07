@@ -10,12 +10,13 @@
 
 using namespace std;
 
-#define LOG_WARNING printf
-//#define LOG_WARNING(...)
+//#define LOG_WARNING printf
+#define LOG_WARNING(...)
 
 // NOTE this can be called recursively by commands handlers that need to issue
 // their own commands
-bool Dispatcher::dispatch(GCode& gc)
+// it can also be called from different threads, so no changing class context, that is why it is const
+std::string Dispatcher::dispatch(GCode& gc) const
 {
 	if(gc.hasM() && gc.getCode() == 503) {
 		// alias M503 to M500.3
@@ -25,7 +26,6 @@ bool Dispatcher::dispatch(GCode& gc)
 	auto& handler= gc.hasG() ? gcode_handlers : mcode_handlers;
 	const auto& f= handler.equal_range(gc.getCode());
 	bool ret= false;
-	output_stream.clear();
 
 	for (auto it=f.first; it!=f.second; ++it) {
 		if(it->second(gc)) {
@@ -42,7 +42,8 @@ bool Dispatcher::dispatch(GCode& gc)
 
 	if(ret) {
 		// get any output the command(s) returned
-		result= output_stream.str();
+		OutputStream& output_stream= gc.getOS();
+		std::string result= output_stream.str();
 
 		if(output_stream.isAppendNL()) {
 			// append newline
@@ -55,16 +56,18 @@ bool Dispatcher::dispatch(GCode& gc)
 		}else{
 			result.append("ok\r\n");
 		}
-	}
-	output_stream.clear();
 
-	return ret;
+		output_stream.clear(); // save some memory now
+		return result;
+	}
+
+	return "";
 }
 
 // convenience to dispatch a one off command
 // Usage: dispatch('M', 123, [subcode,] 'X', 456, 'Y', 789, ..., 0); // must terminate with 0
 // dispatch('M', 123, 0);
-bool Dispatcher::dispatch(char cmd, uint16_t code, ...)
+std::string Dispatcher::dispatch(char cmd, uint16_t code, ...) const
 {
 	GCode gc;
     va_list args;
@@ -112,27 +115,29 @@ void Dispatcher::clearHandlers()
 	mcode_handlers.clear();
 }
 
-bool Dispatcher::handleConfigurationCommands(GCode& gc)
+bool Dispatcher::handleConfigurationCommands(GCode& gc) const
 {
 	if(gc.getCode() == 500) {
 		if(gc.getSubcode() == 3) {
+			if(loaded_configuration)
+				gc.getOS().printf("// Saved configuration is active\n");
 			// just print it
 			return true;
 
 		}else if(gc.getSubcode() == 0){
-			return writeConfiguration();
+			return writeConfiguration(gc.getOS());
 		}
 
 	}else if(gc.getCode() == 501) {
-		return loadConfiguration();
+		return loadConfiguration(gc.getOS());
 
 	}else if(gc.getCode() == 502) {
 		// delete the saved configuration
 		uint32_t zero= 0xFFFFFFFFUL;
 		if(THEKERNEL.nonVolatileWrite(&zero, 4, 0) == 4) {
-			output_stream.printf("// Saved configuration deleted - reset to restore defaults\n");
+			gc.getOS().printf("// Saved configuration deleted - reset to restore defaults\n");
 		}else{
-			output_stream.printf("// Failed to delete saved configuration\n");
+			gc.getOS().printf("// Failed to delete saved configuration\n");
 		}
 		return true;
 	}
@@ -140,7 +145,7 @@ bool Dispatcher::handleConfigurationCommands(GCode& gc)
 	return false;
 }
 
-bool Dispatcher::writeConfiguration()
+bool Dispatcher::writeConfiguration(OutputStream& output_stream) const
 {
 	// write stream to non volatile memory
 	// prepend magic number so we know there is a valid configuration saved
@@ -158,7 +163,13 @@ bool Dispatcher::writeConfiguration()
 	return true;
 }
 
-bool Dispatcher::loadConfiguration()
+bool Dispatcher::loadConfiguration() const
+{
+	OutputStream os;
+	return loadConfiguration(os);
+}
+
+bool Dispatcher::loadConfiguration(OutputStream& output_stream) const
 {
 	// load configuration from non volatile memory
 	char buf[64];
@@ -198,9 +209,11 @@ bool Dispatcher::loadConfiguration()
 			for(auto& s : lines) {
 				output_stream.printf("// Loaded %s\n", s.c_str());
 			}
+			loaded_configuration= true;
 
 		}else{
 			output_stream.printf("// No saved configuration\n");
+			loaded_configuration= false;
 		}
 
 	}else{

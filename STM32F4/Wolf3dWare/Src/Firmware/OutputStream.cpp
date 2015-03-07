@@ -5,6 +5,7 @@
 
 OutputStream::OutputStream(const OutputStream &to_copy)
 {
+	oss.str("");
 	oss.clear();
 	append_nl= to_copy.append_nl;
 	prepend_ok= to_copy.prepend_ok;
@@ -13,6 +14,7 @@ OutputStream::OutputStream(const OutputStream &to_copy)
 OutputStream &OutputStream::operator= (const OutputStream &to_copy)
 {
 	if( this != &to_copy ) {
+		oss.str("");
 		oss.clear();
 		append_nl= to_copy.append_nl;
 		prepend_ok= to_copy.prepend_ok;

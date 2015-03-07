@@ -88,7 +88,7 @@ bool Planner::plan(const float *last_target, const float *target, int n_axis,  A
 		// non primary axis move (like extrude)
 		// select the biggest one (usually just E)
 		auto mi= std::max_element(&deltas[0], &deltas[n_axis], [](float a, float b){ return std::abs(a) < std::abs(b); } );
-		distance = *mi;
+		distance = std::abs(*mi);
 		auxilliary_move= true;
 	}
 
@@ -144,9 +144,9 @@ bool Planner::plan(const float *last_target, const float *target, int n_axis,  A
 
 	block.millimeters = distance;
 
-	// Calculate speed in mm/sec for each axis. No divide by zero due to previous checks.
-	block.nominal_speed = rate_mms;           // (mm/s) Always > 0
-	block.nominal_rate = ceilf(block.steps_event_count * rate_mms / distance); // (step/s) Always > 0
+	// Calculate speed in mm/sec for each axis.
+	block.nominal_speed = rate_mms;
+	block.nominal_rate = ceilf(block.steps_event_count * rate_mms / distance);
 
 	// default junction deviation
 	float junction_deviation = this->junction_deviation;
@@ -238,7 +238,6 @@ bool Planner::plan(const float *last_target, const float *target, int n_axis,  A
 	while(curi != lookahead_q.rend()) {
 		auto nexti = std::next(curi);
 		if(nexti == lookahead_q.rend()) break;
-		//printf("Checking blocks: %d, %d\n", curi->id, nexti->id);
 
 		// if both this one and the next one have recalculate flag false then move this one to ready queue
 		// this always leaves the last entry as a non calculate block and preserves the exit speeds
@@ -522,18 +521,18 @@ void Planner::purge()
 	reset();
 }
 
-bool Planner::handleSaveConfiguration(GCode&)
+bool Planner::handleSaveConfiguration(GCode &gc)
 {
-	THEDISPATCHER.getOS().printf("M204 S%1.4f ", default_acceleration);
+	gc.getOS().printf("M204 S%1.4f ", default_acceleration);
 	for(auto& a : THEKERNEL.getMotionControl().getActuators()) {
 		float acc= a.getAcceleration();
 		if(acc > 0.0F) {
-			THEDISPATCHER.getOS().printf("%c%1.4f ", a.getAxis(), acc);
+			gc.getOS().printf("%c%1.4f ", a.getAxis(), acc);
 		}
 	}
-	THEDISPATCHER.getOS().printf("\n");
+	gc.getOS().printf("\n");
 
-	THEDISPATCHER.getOS().printf("M205 S%1.4f X%1.4f Z%1.4f\n", minimum_planner_speed, junction_deviation, z_junction_deviation);
+	gc.getOS().printf("M205 S%1.4f X%1.4f Z%1.4f\n", minimum_planner_speed, junction_deviation, z_junction_deviation);
 	return true;
 }
 

@@ -15,6 +15,7 @@ void GCode::clear()
 	argbitmap= 0;
 	args.clear();
 	code= subcode= 0;
+	os.clear();
 }
 
 void GCode::dump(std::ostream& o) const

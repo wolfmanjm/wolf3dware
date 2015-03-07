@@ -148,17 +148,17 @@ TEST_CASE( "Dispatch GCodes", "[Dispatcher]" ) {
 	REQUIRE_FALSE(cb3);
 
 	SECTION( "check callbacks" ) {
-		REQUIRE( THEDISPATCHER.dispatch(gcodes[0]) );
+		REQUIRE( !THEDISPATCHER.dispatch(gcodes[0]).empty() );
 		REQUIRE ( cb1 );
 		REQUIRE ( cb3 );
-		REQUIRE( THEDISPATCHER.dispatch(gcodes[1]) );
+		REQUIRE( !THEDISPATCHER.dispatch(gcodes[1]).empty() );
 		REQUIRE ( cb2 );
-		REQUIRE_FALSE( THEDISPATCHER.dispatch(gcodes[2]) );
+		REQUIRE_FALSE( !THEDISPATCHER.dispatch(gcodes[2]).empty() );
 	}
 
 	SECTION( "Remove second G1 handler" ) {
 		THEDISPATCHER.removeHandler(Dispatcher::GCODE_HANDLER, h3);
-		REQUIRE( THEDISPATCHER.dispatch(gcodes[0]) );
+		REQUIRE( !THEDISPATCHER.dispatch(gcodes[0]).empty() );
 		REQUIRE ( cb1 );
 		REQUIRE_FALSE ( cb3 );
 	}
@@ -511,25 +511,26 @@ TEST_CASE( "Planning and Stepping", "[stepper]" ) {
 TEST_CASE( "Stream Output", "[streamoutput]" ) {
 	SECTION("basic output") {
 		// dispatch gcode to MotionControl and Planner
-		THEDISPATCHER.dispatch('M', 220, 0);
+		std::string result;
 
-		REQUIRE(THEDISPATCHER.getResult().size() > 0);
-		std::cout << THEDISPATCHER.getResult();
+		result= THEDISPATCHER.dispatch('M', 220, 0);
+		REQUIRE(result.size() > 0);
+		std::cout << result;
 
-		THEDISPATCHER.dispatch('M', 220, 'S', 123, 0);
-		REQUIRE(THEDISPATCHER.getResult() == "ok\r\n");
+		result= THEDISPATCHER.dispatch('M', 220, 'S', 123, 0);
+		REQUIRE(result == "ok\r\n");
 
-		THEDISPATCHER.dispatch('M', 220, 0);
-		REQUIRE(THEDISPATCHER.getResult().size() > 0);
-		std::cout << THEDISPATCHER.getResult();
+		result= THEDISPATCHER.dispatch('M', 220, 0);
+		REQUIRE(result.size() > 0);
+		std::cout << result;
 
-		THEDISPATCHER.dispatch('M', 114, 0);
-		REQUIRE(THEDISPATCHER.getResult().size() > 0);
-		std::cout << THEDISPATCHER.getResult();
+		result= THEDISPATCHER.dispatch('M', 114, 0);
+		REQUIRE(result.size() > 0);
+		std::cout << result;
 
-		THEDISPATCHER.dispatch('M', 114, 1, 0);
-		REQUIRE(THEDISPATCHER.getResult().size() > 0);
-		std::cout << THEDISPATCHER.getResult();
+		result= THEDISPATCHER.dispatch('M', 114, 1, 0);
+		REQUIRE(result.size() > 0);
+		std::cout << result;
 	}
 }
 

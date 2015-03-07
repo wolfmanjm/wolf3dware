@@ -291,6 +291,7 @@ static void mainThread(void const *argument)
 			else BSP_LED_Off(LED4);
 
 			#ifdef LCD_DISPLAY_POSITION
+			// TODO move to status screen
 			float x, y, z, e;
 			getPosition(&x, &y, &z, &e);
 			char buf[16];

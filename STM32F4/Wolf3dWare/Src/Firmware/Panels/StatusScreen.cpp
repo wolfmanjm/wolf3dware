@@ -6,6 +6,9 @@
 #include "../Actuator.h"
 #include "../Dispatcher.h"
 
+
+#include <algorithm>
+
 void StatusScreen::init()
 {
 	lcd.init();
@@ -33,10 +36,16 @@ std::tuple<float, float, float, float> StatusScreen::getPosition()
 	return std::make_tuple(x, y, z, e);
 }
 
-const std::string StatusScreen::getTemps()
+std::string StatusScreen::getTemps()
 {
-	// TODO how to get temps as module may not be there
-	return THEDISPATCHER.dispatch('M', 105, 0);
+	std::string s= THEDISPATCHER.dispatch('M', 105, 0);
+	if(s.size() > 3) {
+		// remove all whitespace
+		s= s.substr(3);
+		s.erase(std::remove_if(s.begin(), s.end(), std::ptr_fun<int, int>(std::isspace)), s.end());
+	}else return "";
+
+	return s;
 }
 
 // runs every 1 second and updates the status screen
@@ -50,9 +59,11 @@ void StatusScreen::update()
 	lcd.setCursor(0, 1);
 	lcd.printf("E %5.2f", std::get<3>(pos));
 
-	const std::string& temps= getTemps();
-	lcd.setCursor(0, 2);
-	lcd.printf("%s", temps.substr(3).c_str());
+	std::string temps= getTemps();
+	if(!temps.empty()) {
+		lcd.setCursor(0, 2);
+		lcd.printf("%s", temps.c_str());
+	}
 
 	lcd.setCursor(0, 3);
 	lcd.printf("%u", lcd.readEncoderPosition());

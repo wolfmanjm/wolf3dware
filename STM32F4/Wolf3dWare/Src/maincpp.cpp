@@ -25,7 +25,7 @@
 
 using namespace std;
 
-//#define PRINTER3D
+#define PRINTER3D
 #define USE_PANEL
 
 #ifdef PRINTER3D
@@ -37,6 +37,7 @@ using namespace std;
 #ifdef USE_PANEL
 #include "Firmware/Panels/Viki.h"
 #include "Firmware/Panels/StatusScreen.h"
+static StatusScreen *pstatus_screen;
 #endif
 
 // global
@@ -47,7 +48,6 @@ uint32_t xdelta= 0;
 
 
 // local
-static StatusScreen *pstatus_screen;
 
 static volatile bool execute_mode= true;
 // signals that the ticks can start to be issued to the actuators
@@ -100,14 +100,14 @@ using TriggerPin= GPIO(D, 5);           // PD5
 #include "Stamp-BSP.h"
 
 // STM32F405
-using X_StepPin = GPIO(B,7,INVERTPIN);	//
-using X_DirPin  = GPIO(B,6,INVERTPIN); //
-using Y_StepPin = GPIO(B,5,INVERTPIN); //
-using Y_DirPin  = GPIO(B,0,INVERTPIN); // //was PB4
-using Z_StepPin = GPIO(A,1,INVERTPIN); // was PB3
-using Z_DirPin  = GPIO(D,2,INVERTPIN); //
-using E_StepPin = GPIO(C,12,INVERTPIN); //
-using E_DirPin  = GPIO(C,11,INVERTPIN); //
+using X_StepPin = GPIO(B,11,INVERTPIN);	//
+using X_DirPin  = GPIO(B,10,INVERTPIN); //
+using Y_StepPin = GPIO(B,1,INVERTPIN); //
+using Y_DirPin  = GPIO(B,0,INVERTPIN); //
+using Z_StepPin = GPIO(C,5,INVERTPIN); //
+using Z_DirPin  = GPIO(C,4,INVERTPIN); //
+using E_StepPin = GPIO(A,7,INVERTPIN); //
+using E_DirPin  = GPIO(A,6,INVERTPIN); //
 
 using X_EnbPin  = GPIO(B,12,INVERTPIN); //
 using Y_EnbPin  = GPIO(B,13,INVERTPIN); //
@@ -125,36 +125,44 @@ using TriggerPin= GPIO(C,2);            // PC2
 	PA3  -              : PWM TIM9 ch2
 	PA4  -				: ADC HE  Ch4 ADC1
 	PA5  -				: ADC Bed Ch5 ADC1
-	PA6 - PA8 - :free
+	PA6  - PA7			: motor
+
+	PA8  - 		:free
+
 	PA9  - 				: VBUS
-	PA10 - 				: USB-ID
+
+	PA10 - 		:free	// USB-ID
+
 	PA11 - 				: USB_DM
 	PA12 - 				: USB_DP
 
 	PA13 - PA14 		: Used for STLINK / JTAG
 
 	PA15 -			:free / JTAG
-	PB0 - PB1		:free
+
+	PB0 - PB1			: motor
 
 	PB2 - 				: Boot1
-	PB3 - 				: Motor / NOTE is also used for JTAG
-	PB4 -				: Motor / NOTE is also NJTRST
-	PB5 - PB7			: Motor
+
+	PB3 - 			:free / NOTE is also used for JTAG
+	PB4 -			:free / NOTE is also NJTRST
+
+	PB5 - PB7		:free
 
 	PB8 -       		: I2C1 SCL
 	PB9 - 	    		: I2C1 SDA (/ SPI2 nss)
 
-	PB10  -     :free              / SPI2 sck
-	PB11  -     :free
+	PB10  -     		:motor / also SPI2 sck
+	PB11  -     		:motor
 
-	PB12 - PB15			: motor
+	PB12 - PB15			: motor Enable pins
 
 	PC0 - 				: LED3
 	PC1 - 				: LED4
 	PC2 - 				: LED5/Trigger Pin also SPI2 miso
 	PC3 -				: LED6             also SPI2 mosi
 
-	PC4 - PC5   :free
+	PC4 - PC5   		: motor
 
 	PC6 - PC7   		: TIM8 Ch1, Ch2 (panel encoder) AF3
 
@@ -162,13 +170,23 @@ using TriggerPin= GPIO(C,2);            // PC2
 
 	PC11 - PC12			: motor
 
-	PC13 - PC15  : free
+	PC13 - PC15	:free
+	PD2			:free
 
-	PD2         		: motor
+
+	Consecutive pins
+	----------------
+	PA13, PA10, PA8, PC9, PC8, PC7, PC6, PB15, PB14, PB13, PB12
+	PB11, PB10, PB1, PB0, PC5, PC4, PA7, PA6, PA5, PA4, PA3
+
+	PA14, PA15, PC10, PC11, PC12, PD2, PB3, PB4, PB5, PB6, PB7
+	PB8, PB9, PC13
+	PC14, PC15
+	PC0, PC3, PC1, PC2, PA0, PA1, PA2
 
 	JTAG/Busblaster
 	---------------
-	TRST - block 	- nc
+	TRST - block 	- PB4 - nc
 	TDI  - brown 	- PA15
 	TMS  - red 		- PA13
 	TCK  - orange 	- PA14
@@ -328,8 +346,6 @@ extern "C" int maincpp()
 
 	// this needs to be done once RTOS is running
 	//sc.init();
-#else
-	pstatus_screen= nullptr;
 #endif
 
 	move_issued= false;
@@ -346,10 +362,10 @@ extern "C" int maincpp()
 // called from main thread after RTOS is started
 extern "C" void stage2_setup()
 {
-	if(pstatus_screen != nullptr) {
-		// this needs to be done after RTOS started as it calls delay() and RTOS stuff
-		pstatus_screen->init();
-	}
+	#ifdef USE_PANEL
+	// this needs to be done after RTOS started as it calls delay() and RTOS stuff
+	pstatus_screen->init();
+	#endif
 }
 
 void executeNextBlock()
@@ -492,6 +508,16 @@ bool handleCommand(const char *line)
 			oss << i;
 		}
 		oss << "\n";
+
+	}else if(strcmp(line, "tx") == 0) {
+		// test USB tx
+		for (int i = 0; i < 1000; ++i) {
+			oss << "This is Line: " << i << "\n";
+			sendReply(oss.str());
+			THEKERNEL.delay(10);
+			oss.str("");
+			oss.clear();
+		}
 
 	}else{
 		oss << "Unknown command: " << line << "\n";
