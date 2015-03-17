@@ -2,16 +2,19 @@ require 'rake'
 require 'pathname'
 require 'fileutils'
 
-verbose(false)
+verbose(ENV['verbose'] == '1')
 
 PROG = 'Wolf3dWare'
 
-# compile for the STM32F405 if true
-STAMP = true
+# compile for the STM32F405 if true, adding discovery=1 to command line will force it to F429
+F405 = ENV['discovery'].nil? ? true : false
 
-TARGET = STAMP ? "STM32F405" : "STM32F429"
+# stamp=1 will select stamp otherwise olimex
+OLIMEX = ENV['stamp'].nil? ? true : false
 
-DEBUG = false
+TARGET = F405 ? ((OLIMEX ? "OLIMEX" : "STAMP") + "-STM32F405") : "STM32F429"
+
+DEBUG = ENV['debug'] == '1'
 
 $using_cpp= false
 
@@ -64,7 +67,7 @@ end
 Rake.application.add_loader('d', DfileLoader.new)
 
 #TOOLSDIR = '/home/morris/work/reprap/Smoothie/gcc-arm-none-eabi/bin'
-TOOLSDIR = '/datadisk/aux/Stuff/reprap/Firmwares/gcc-arm-none-eabi-4_9-2014q4/bin'
+TOOLSDIR = ENV['ARMTOOLS'].nil? ? '/datadisk/aux/Stuff/reprap/Firmwares/gcc-arm-none-eabi-4_9-2014q4/bin' :  ENV['ARMTOOLS']
 TOOLSBIN = "#{TOOLSDIR}/arm-none-eabi-"
 CC = "#{TOOLSBIN}gcc"
 CCPP = "#{TOOLSBIN}g++"
@@ -85,7 +88,7 @@ load 'rakefile.defaults' if File.exists?('rakefile.defaults')
 #puts "#{BUILDTYPE} build"
 
 # include and exclude different files depending on the build target
-excludes= STAMP ? ["BSP/", "Components/", "Fonts/", "lcd*", "TimingTests.cpp", "startup_stm32f429xx.s"] : ["startup_stm32f407xx.s", "Stamp-BSP.c"] # ['t.cpp']
+excludes= F405 ? ["BSP/", "Components/", "Fonts/", "lcd*", "TimingTests.cpp", "startup_stm32f429xx.s"] : ["startup_stm32f407xx.s", "STM32F405-BSP.c"]
 SRC = FileList[PROG + '/**/*.{c,cpp,s}']
 SRC.exclude(/#{excludes.join('|')}/) unless excludes.empty?
 $using_cpp= SRC.find { |i| File.extname(i) == ".cpp" }.nil? ? false : true
@@ -105,7 +108,7 @@ end
 
 include_dirs = ["#{PROG}/STM32F4xx_HAL_Driver/Inc", "#{PROG}/CMSIS/Include", "#{PROG}/CMSIS/Device/ST/STM32F4xx/Include", "#{PROG}/Inc"] +
                 ["#{PROG}/FreeRTOS/Source/include", "#{PROG}/FreeRTOS/Source/CMSIS_RTOS", "#{PROG}/USB/Inc", "#{PROG}/USB/CDC/Inc" ]
-if !STAMP
+if !F405
   include_dirs += ["#{PROG}/BSP"]
 end
 
@@ -118,11 +121,16 @@ SYS_LIBS = []
 HAL_LIBS = []
 LIBS = [HAL_LIBS, SYS_LIBS].flatten.collect{ |l| "-l#{l}" }.join(' ')
 
-if STAMP
-defines = %w(-DUSE_HAL_DRIVER  -DSTM32F405xx -DUSE_USB_FS)
+if F405
+  defines = %w(-DUSE_HAL_DRIVER  -DSTM32F405xx -DUSE_USB_FS)
 else
-defines = %w(-DUSE_HAL_DRIVER -DUSE_STM32F429I_DISCO -DSTM32F429xx -DUSE_USB_HS -DUSE_USB_HS_IN_FS )
+  defines = %w(-DUSE_HAL_DRIVER -DUSE_STM32F429I_DISCO -DSTM32F429xx -DUSE_USB_HS -DUSE_USB_HS_IN_FS )
 end
+
+if OLIMEX
+  defines += %w(-DOLIMEX)
+end
+
 DEFINES= defines.join(' ')
 
 # Compiler flags used to enable creation of header dependencies.
@@ -138,7 +146,7 @@ CPPFLAGS = CFLAGS + ' -fno-rtti -fno-exceptions -std=gnu++11'
 #arm-atollic-eabi-gcc Example\Utilities\lcd_log.o Example\User\ts_calibration.o Example\User\touchscreen.o #Example\User\stm32f4xx_it.o Example\User\mems.o Example\User\main.o Example\User\log.o Example\User\lcd.o Example\TrueSTUDIO\syscalls.o Example\TrueSTUDIO\startup_stm32f429xx.o Drivers\STM32F4xx_HAL_Driver\stm32f4xx_ll_fmc.o Drivers\STM32F4xx_HAL_Driver\stm32f4xx_hal_spi.o Drivers\STM32F4xx_HAL_Driver\stm32f4xx_hal_sdram.o Drivers\STM32F4xx_HAL_Driver\stm32f4xx_hal_rcc_ex.o Drivers\STM32F4xx_HAL_Driver\stm32f4xx_hal_rcc.o Drivers\STM32F4xx_HAL_Driver\stm32f4xx_hal_pwr_ex.o Drivers\STM32F4xx_HAL_Driver\stm32f4xx_hal_pwr.o Drivers\STM32F4xx_HAL_Driver\stm32f4xx_hal_pcd.o Drivers\STM32F4xx_HAL_Driver\stm32f4xx_hal_ltdc.o Drivers\STM32F4xx_HAL_Driver\stm32f4xx_hal_i2c_ex.o Drivers\STM32F4xx_HAL_Driver\stm32f4xx_hal_i2c.o Drivers\STM32F4xx_HAL_Driver\stm32f4xx_hal_hcd.o Drivers\STM32F4xx_HAL_Driver\stm32f4xx_hal_gpio.o Drivers\STM32F4xx_HAL_Driver\stm32f4xx_hal_flash_ex.o Drivers\STM32F4xx_HAL_Driver\stm32f4xx_hal_flash.o Drivers\STM32F4xx_HAL_Driver\stm32f4xx_hal_dma2d.o Drivers\STM32F4xx_HAL_Driver\stm32f4xx_hal_dma.o Drivers\STM32F4xx_HAL_Driver\stm32f4xx_hal_cortex.o Drivers\STM32F4xx_HAL_Driver\stm32f4xx_hal.o Drivers\CMSIS\system_stm32f4xx.o Drivers\BSP\STM32F429I-Discovery\stm32f429i_discovery_ts.o Drivers\BSP\STM32F429I-Discovery\stm32f429i_discovery_sdram.o Drivers\BSP\STM32F429I-Discovery\stm32f429i_discovery_lcd.o Drivers\BSP\STM32F429I-Discovery\stm32f429i_discovery_io.o Drivers\BSP\STM32F429I-Discovery\stm32f429i_discovery_gyroscope.o Drivers\BSP\STM32F429I-Discovery\stm32f429i_discovery_eeprom.o Drivers\BSP\STM32F429I-Discovery\stm32f429i_discovery.o Drivers\BSP\Components\stmpe811.o Drivers\BSP\Components\l3gd20.o Drivers\BSP\Components\ili9341.o -o STM32F429I-Discovery+EEPROM.elf -mthumb -mcpu=cortex-m4 -mfpu=fpv4-sp-d16 -T..\STM32F429ZI_FLASH.ld -Wl,--start-group -lc -lm -Wl,--end-group -static -Wl,-cref,-u,Reset_Handler -Wl,-Map=STM32F429I-Discovery+EEPROM.map -Wl,--gc-sections -Wl,--defsym=malloc_getpagesize_P=0x1000
 
 # Linker script to be used.
-if STAMP
+if F405
 LSCRIPT = "#{PROG}/STM32F405_FLASH.ld"
 else
 LSCRIPT = "#{PROG}/STM32F429ZI_FLASH.ld"

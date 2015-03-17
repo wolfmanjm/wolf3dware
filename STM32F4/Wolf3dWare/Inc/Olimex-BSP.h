@@ -1,6 +1,6 @@
 #pragma once
 
-#ifndef USE_STM32F429I_DISCO
+#ifdef OLIMEX
 
 #ifdef __cplusplus
 extern "C" {
@@ -39,7 +39,7 @@ typedef enum
   */
 #define LEDn                             2
 
-#define LED3_PIN                         GPIO_PIN_0
+#define LED3_PIN                         GPIO_PIN_12
 #define LED3_GPIO_PORT                   GPIOC
 #define LED3_GPIO_CLK_ENABLE()           __GPIOC_CLK_ENABLE()
 #define LED3_GPIO_CLK_DISABLE()          __GPIOC_CLK_DISABLE()
@@ -89,4 +89,4 @@ bool I2Cx_ReadData(uint8_t Addr, uint8_t *Data, uint16_t Len);
 }
 #endif
 
-#endif // ndef USE_STM32F429I_DISCO
+#endif // OLIMEX

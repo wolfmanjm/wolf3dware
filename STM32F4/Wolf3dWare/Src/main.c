@@ -45,12 +45,23 @@
 #include "lcd_log.h"
 #endif
 
+//#define USEUART
+
+#ifdef USEUART
+extern void uart_init();
+extern void uart_tx(const void *, uint32_t);
+extern bool uart_rx(uint8_t *ch);
+
+#else
 #include <usbd_core.h>
 #include <usbd_cdc.h>
 #include <usbd_cdc_if_template.h>
 #include <usbd_desc.h>
+USBD_HandleTypeDef USBD_Device;
+#endif
 
 #include <stdbool.h>
+#include <string.h>
 
 // if not defined will run at 180MHz, but USB clock will be off a little bit
 #define SYSCLK168MHZ
@@ -59,7 +70,6 @@
 #define LCD_DISPLAY_POSITION
 #endif
 
-USBD_HandleTypeDef USBD_Device;
 
 osThreadId MainThreadHandle;
 
@@ -190,6 +200,9 @@ int main(void)
 #endif // USELCDLOG
 #endif // USE_STM32F429I_DISCO
 
+#ifdef USEUART
+	uart_init();
+#else
 	// setup USB CDC
 	SetupVCP();
 	USBD_Init(&USBD_Device, &VCP_Desc, 0);
@@ -197,6 +210,7 @@ int main(void)
 	USBD_RegisterClass(&USBD_Device, &USBD_CDC);
 	USBD_CDC_RegisterInterface(&USBD_Device, &USBD_CDC_Template_fops);
 	USBD_Start(&USBD_Device);
+#endif
 
 	// setup FreeRTOS
 	osThreadDef(Tick, moveCompletedThread, osPriorityRealtime, 0, 1000);
@@ -243,12 +257,16 @@ void vApplicationStackOverflowHook( TaskHandle_t xTask, char *pcTaskName )
 // called to send replies back to USB Serial
 bool serial_reply(const char *buf, size_t len)
 {
+#ifdef USEUART
+	uart_tx(buf, len);
+	return true;
+#else
 	int n= VCP_write(buf, len);
 	return n == len;
+#endif
 }
 
 extern void getPosition(float *, float *, float *, float *);
-extern bool host_connected;
 extern bool testGpio();
 extern void stage2_setup();
 
@@ -369,14 +387,20 @@ static int cnt = 0;
 
 static void cdcThread(void const *argument)
 {
-	const TickType_t xTicksToWait = pdMS_TO_TICKS( 100 );
 	uint8_t c;
 	for (;;) {
 
+#ifdef USEUART
+		while(!uart_rx(&c)) {
+			osDelay (1);
+		}
+#else
 		while(!VCP_get(&c)) {
+			const TickType_t xTicksToWait = pdMS_TO_TICKS( 100 );
 			// wait until we have something to process
 			ulTaskNotifyTake( pdFALSE, xTicksToWait);
 		}
+#endif
 
 #ifdef MD5TEST
 		// for testing download

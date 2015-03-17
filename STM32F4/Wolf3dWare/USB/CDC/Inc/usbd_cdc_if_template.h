@@ -49,7 +49,6 @@ void SetupVCP();
 bool VCP_get(uint8_t *c);
 int VCP_read(void *pBuffer, int size);
 int VCP_write(const void *pBuffer, int size);
-extern char g_VCPInitialized;
 
 #ifdef __cplusplus
 }

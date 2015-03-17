@@ -25,8 +25,8 @@
 
 using namespace std;
 
-#define PRINTER3D
-#define USE_PANEL
+//#define PRINTER3D
+//#define USE_PANEL
 
 #ifdef PRINTER3D
 #include "Firmware/Tools/TemperatureControl.h"
@@ -96,7 +96,68 @@ using TriggerPin= GPIO(D, 5);           // PD5
 // PG3 P2-61
 // PG9 P1-33
 
+#elif defined(OLIMEX)
+// Olimex stm32-h405
+#include "Olimex-BSP.h"
+
+// STM32F405
+using X_StepPin = GPIO(B,15,INVERTPIN); // 2-19
+using X_DirPin  = GPIO(B,10,INVERTPIN); // 2-14
+using Y_StepPin = GPIO(B,1,INVERTPIN);  // 1-26
+using Y_DirPin  = GPIO(B,0,INVERTPIN);  // 1-21
+using Z_StepPin = GPIO(C,5,INVERTPIN);  // 2-13
+using Z_DirPin  = GPIO(C,3,INVERTPIN);  // 2-9
+using E_StepPin = GPIO(A,7,INVERTPIN);  // 1-22
+using E_DirPin  = GPIO(A,6,INVERTPIN);  // 1-14
+
+using X_EnbPin  = GPIO(B,11,INVERTPIN); // 2-15
+using Y_EnbPin  = GPIO(B,13,INVERTPIN); // 2-16
+using Z_EnbPin  = GPIO(B,12,INVERTPIN); // 2-17
+using E_EnbPin  = GPIO(B,14,INVERTPIN); // 2-18
+
+using LED3Pin   = GPIO(C,12);           // PC12 LED3
+using LED4Pin   = GPIO(C,1);            // PC1 LED4
+
+using TriggerPin= GPIO(C,2);            // PC2
+
+/*
+A0  			: button
+A1  	 		:free
+
+A2              : PWM TIM9 ch1
+A3              : PWM TIM9 ch2
+A4  			: ADC HE  Ch4 ADC1
+A5  			: ADC Bed Ch5 ADC1
+A6,A7			: motor
+
+A8-A10	 		:free
+
+B0,B1 			:motor
+
+B5-B7 			:free
+
+B8,B9			: I2C, SCL,SDA
+
+B10 			:motor
+B11-B14 		:motor enable
+B15				:motor
+
+C0-C2			:free
+C3 				:motor
+C5 				:motor
+
+C6,C7   		: TIM8 Ch1, Ch2 (panel encoder) AF3
+C8-C10			:free
+
+C11 			:USB Disc
+C12 			:LED
+
+C13 			:free
+D2 				:free
+
+*/
 #else
+// STAMP
 #include "Stamp-BSP.h"
 
 // STM32F405
@@ -136,7 +197,7 @@ using TriggerPin= GPIO(C,2);            // PC2
 	PA11 - 				: USB_DM
 	PA12 - 				: USB_DP
 
-	PA13 - PA14 		: Used for STLINK / JTAG
+	PA13 - PA14 		: Used for STLINK swdat/swclk / JTAG
 
 	PA15 -			:free / JTAG
 
@@ -147,7 +208,8 @@ using TriggerPin= GPIO(C,2);            // PC2
 	PB3 - 			:free / NOTE is also used for JTAG
 	PB4 -			:free / NOTE is also NJTRST
 
-	PB5 - PB7		:free
+	PB5				:free
+	PB6 - PB7		:free	/ usart1 tx/rx
 
 	PB8 -       		: I2C1 SCL
 	PB9 - 	    		: I2C1 SDA (/ SPI2 nss)
@@ -186,13 +248,13 @@ using TriggerPin= GPIO(C,2);            // PC2
 
 	JTAG/Busblaster
 	---------------
-	TRST - block 	- PB4 - nc
-	TDI  - brown 	- PA15
-	TMS  - red 		- PA13
-	TCK  - orange 	- PA14
-	RTCK - yellow 	- nc
-	TDO  - green 	- PB3
-	TSRST- blue 	- NRST
+	TRST - PB4 - nc
+	TDI  - PA15
+	TMS  - PA13
+	TCK  - PA14
+	RTCK - nc
+	TDO  - PB3
+	TSRST- NRST
 
 */
 
@@ -461,6 +523,8 @@ bool handleCommand(const char *line)
 		oss << "Wolf3dWare V0.5, Clock speed: " << SystemCoreClock/1000000.0F << " MHz\n";
 		#ifdef USE_STM32F429I_DISCO
 		oss << "Running on STM32F429I_DISCO\n";
+		#elif defined(OLIMEX)
+		oss << "Running on Olimex STM32F405\n";
 		#else
 		oss << "Running on STM32F405 Stamp\n";
 		#endif

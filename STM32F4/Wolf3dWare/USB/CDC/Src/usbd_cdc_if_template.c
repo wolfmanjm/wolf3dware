@@ -96,9 +96,9 @@ static uint8_t overflow_buffer[CDC_DATA_FS_OUT_PACKET_SIZE];
 static uint16_t overflow_buffer_size;
 static RingBuffer_t *ring_buffer;
 
-char g_VCPInitialized= 0;
-uint8_t host_connected_cnt;
-bool host_connected;
+static char g_VCPInitialized= 0;
+static uint8_t host_connected_cnt;
+static bool host_connected;
 
 void SetupVCP()
 {

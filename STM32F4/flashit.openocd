@@ -1,1 +1,0 @@
-/opt/openocd/bin/openocd -f /opt/openocd/share/openocd/scripts/board/stm32f429discovery.cfg -c "program $1 reset"
