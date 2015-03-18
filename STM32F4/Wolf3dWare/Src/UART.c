@@ -34,12 +34,13 @@ static void Error_Handler(void)
 
 void uart_tx(const void *buf, uint32_t len)
 {
-	HAL_UART_Transmit(&UartHandle, (uint8_t *)buf, len, HAL_MAX_DELAY);
+	// running concurrently with receive loop so can be busy
+	while(HAL_UART_Transmit(&UartHandle, (uint8_t *)buf, len, HAL_MAX_DELAY) == HAL_BUSY) ;
 }
 
 bool uart_rx(uint8_t *ch)
 {
-	if(HAL_UART_Receive(&UartHandle, (uint8_t *)ch, 1, 1) == HAL_OK)
+	if(HAL_UART_Receive(&UartHandle, (uint8_t *)ch, 1, 0) == HAL_OK)
 		return true;
 
 	return false;
@@ -69,19 +70,6 @@ void uart_init()
 	}
 
 	uart_tx("Hello\r\n", 7);
-	// uint8_t c;
-	// if(uart_rx(&c)){
-	// 	char buf[10];
-	// 	buf[0]= 0;
-	// 	buf[1]= 'o';
-	// 	buf[2]= 'k';
-	// 	buf[3]= ' ';
-	// 	buf[4]= c;
-	// 	buf[5]= '\n';
-	// 	uart_tx(buf, 6);
-	// }else{
-	// 	uart_tx("not ok\r\n", 8);
-	// }
 }
 
 /**

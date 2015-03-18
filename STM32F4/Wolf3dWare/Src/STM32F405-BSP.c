@@ -1,10 +1,6 @@
 #ifndef USE_STM32F429I_DISCO
 
-#ifdef OLIMEX
-#include "Olimex-BSP.h"
-#else
-#include "Stamp-BSP.h"
-#endif
+#include "STM32F405-BSP.h"
 
 //#define USE_SPI_I2C
 

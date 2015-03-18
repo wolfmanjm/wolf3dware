@@ -46,7 +46,7 @@
 #include "stm32f429i_discovery.h"
 #include "stm32f429i_discovery_lcd.h"
 #else
-#include "Stamp-BSP.h"
+#include "STM32F405-BSP.h"
 #endif
 
 

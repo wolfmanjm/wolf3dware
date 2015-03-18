@@ -96,9 +96,12 @@ using TriggerPin= GPIO(D, 5);           // PD5
 // PG3 P2-61
 // PG9 P1-33
 
-#elif defined(OLIMEX)
+#else
+
+#include "STM32F405-BSP.h"
+
+#ifdef OLIMEX
 // Olimex stm32-h405
-#include "Olimex-BSP.h"
 
 // STM32F405
 using X_StepPin = GPIO(B,15,INVERTPIN); // 2-19
@@ -121,6 +124,9 @@ using LED4Pin   = GPIO(C,1);            // PC1 LED4
 using TriggerPin= GPIO(C,2);            // PC2
 
 /*
+pinout
+https://gist.github.com/wolfmanjm/91c2149ed15ae8e2d434
+
 A0  			: button
 A1  	 		:free
 
@@ -134,8 +140,9 @@ A8-A10	 		:free
 
 B0,B1 			:motor
 
-B5-B7 			:free
+B5 			:free
 
+B6,B7 			: UART TX,RX
 B8,B9			: I2C, SCL,SDA
 
 B10 			:motor
@@ -156,9 +163,10 @@ C13 			:free
 D2 				:free
 
 */
-#else
+
+#else // OLIMEX
+
 // STAMP
-#include "Stamp-BSP.h"
 
 // STM32F405
 using X_StepPin = GPIO(B,11,INVERTPIN);	//
@@ -257,7 +265,7 @@ using TriggerPin= GPIO(C,2);            // PC2
 	TSRST- NRST
 
 */
-
+#endif // OLIMEX
 #endif // USE_STM32F429I_DISCO
 
 static void initializePins()
@@ -593,6 +601,29 @@ bool handleCommand(const char *line)
 	return handled;
 }
 
+// we have not recieved any commands for a while see if we can kickstart the queue running
+extern "C" void kickQueue()
+{
+	if(execute_mode && !running) {
+		Planner::Queue_t& q= THEKERNEL.getPlanner().getReadyQueue();
+		Lock l(READY_Q_MUTEX);
+		l.lock();
+		size_t n=  q.size();
+		l.unlock();
+		if(n > 0) {
+			// we have somethign in the queue we can execute
+			executeNextBlock();
+			return;
+		}
+		// check lookahead queue, no need to lock it as it is only manipulated in this thread
+		Planner::Queue_t& lq= THEKERNEL.getPlanner().getLookAheadQueue();
+		if(lq.size() > 0) {
+			// move it into ready and execute it (probably a single jog command)
+			THEKERNEL.getPlanner().moveAllToReady();
+			executeNextBlock();
+		}
+	}
+}
 
 // gets called for each received line from USB serial port
 // runs in the commandThread context
@@ -637,55 +668,30 @@ extern "C" bool commandLineHandler(const char *line)
 	}
 
 	// check for large queue size, stall until it gets smaller
-	const size_t MAX_Q= 100;
+	const size_t MAX_Q= 50;
 	Planner::Queue_t& q= THEKERNEL.getPlanner().getReadyQueue();
 	Lock l(READY_Q_MUTEX);
 	l.lock();
-	size_t n= q.size();
+	size_t n= q.size() + THEKERNEL.getPlanner().getLookAheadQueue().size();
 	l.unlock();
-	n += THEKERNEL.getPlanner().getLookAheadQueue().size();
 	if(n > maxqsize) maxqsize= n;
 
 	if(n > MAX_Q) {
 		// we force it to start executing and if not currently running we start off the first block
 		if(!execute_mode) execute_mode= true;
-		if(!running) executeNextBlock();
 
-		// wait for it to empty halfway
-		l.lock();
-		while(q.size() > MAX_Q/2) {
-			l.unlock();
+		// wait for it to empty
+		do{
+			kickQueue();
 			THEKERNEL.delay(100);
 			l.lock();
-		}
-		l.unlock();
+			n= q.size() + THEKERNEL.getPlanner().getLookAheadQueue().size();
+			l.unlock();
+		} while(n > MAX_Q-4);
 	}
 	return true;
 }
 
-// we have not recieved any comamnds for a while see if we can kickstart the queue running
-extern "C" void kickQueue()
-{
-	if(execute_mode && !running) {
-		Planner::Queue_t& q= THEKERNEL.getPlanner().getReadyQueue();
-		Lock l(READY_Q_MUTEX);
-		l.lock();
-		size_t n=  q.size();
-		l.unlock();
-		if(n > 0) {
-			// we have somethign in the queue we can execute
-			executeNextBlock();
-			return;
-		}
-		// check lookahead queue, no need to lock it as it is only manipulated in this thread
-		Planner::Queue_t& lq= THEKERNEL.getPlanner().getLookAheadQueue();
-		if(lq.size() > 0) {
-			// move it into ready and execute it (probably a single jog command)
-			THEKERNEL.getPlanner().moveAllToReady();
-			executeNextBlock();
-		}
-	}
-}
 
 extern uint32_t xst, xet;
 extern "C" uint32_t stop_time();

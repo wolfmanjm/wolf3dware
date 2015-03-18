@@ -12,6 +12,8 @@
 #define GPIO_PORT_B ((uint32_t)GPIOB)
 #define GPIO_PORT_C ((uint32_t)GPIOC)
 #define GPIO_PORT_D ((uint32_t)GPIOD)
+
+#ifdef USE_STM32F429I_DISCO
 #define GPIO_PORT_E ((uint32_t)GPIOE)
 #define GPIO_PORT_F ((uint32_t)GPIOF)
 #define GPIO_PORT_G ((uint32_t)GPIOG)
@@ -19,6 +21,7 @@
 #define GPIO_PORT_I ((uint32_t)GPIOI)
 #define GPIO_PORT_J ((uint32_t)GPIOJ)
 #define GPIO_PORT_K ((uint32_t)GPIOK)
+#endif
 
 // defines a pin with the port and pin mask
 // NOTE relies on pointer types being 32 bits
