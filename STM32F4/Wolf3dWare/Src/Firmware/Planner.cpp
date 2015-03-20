@@ -146,7 +146,7 @@ bool Planner::plan(const float *last_target, const float *target, int n_axis,  A
 
 	// Calculate speed in mm/sec for each axis.
 	block.nominal_speed = rate_mms;
-	block.nominal_rate = ceilf(block.steps_event_count * rate_mms / distance);
+	block.nominal_rate = (block.steps_event_count * rate_mms) / distance;
 
 	// default junction deviation
 	float junction_deviation = this->junction_deviation;
@@ -181,29 +181,28 @@ bool Planner::plan(const float *last_target, const float *target, int n_axis,  A
 		// NOTE however it does not take into account independent axis, in most cartesian X and Y and Z are totally independent
 		// and this allows one to stop with little to no decleration in many cases. This is particularly bad on leadscrew based systems that will skip steps.
 
-		if (!lookahead_q.empty()) {
-			float previous_nominal_speed = lookahead_q.front().nominal_speed;
+		if (previous_nominal_speed > 0.0F) {
+			// Compute cosine of angle between previous and current path. (previous_unit_vec is negative)
+			// NOTE: Max junction velocity is computed without sin() or acos() by trig half angle identity.
+			float cos_theta = - previous_unit_vec[0] * unit_vec[0]
+							  - previous_unit_vec[1] * unit_vec[1]
+							  - previous_unit_vec[2] * unit_vec[2] ;
 
-			if (previous_nominal_speed > 0.0F) {
-				// Compute cosine of angle between previous and current path. (previous_unit_vec is negative)
-				// NOTE: Max junction velocity is computed without sin() or acos() by trig half angle identity.
-				float cos_theta = - previous_unit_vec[0] * unit_vec[0]
-								  - previous_unit_vec[1] * unit_vec[1]
-								  - previous_unit_vec[2] * unit_vec[2] ;
-
-				// Skip and use default max junction speed for 0 degree acute junction.
-				if (cos_theta < 0.95F) {
-					vmax_junction = std::min(previous_nominal_speed, block.nominal_speed);
-					// Skip and avoid divide by zero for straight junctions at 180 degrees. Limit to min() of nominal speeds.
-					if (cos_theta > -0.95F) {
-						// Compute maximum junction velocity based on maximum acceleration and junction deviation
-						float sin_theta_d2 = sqrtf(0.5F * (1.0F - cos_theta)); // Trig half angle identity. Always positive.
-						vmax_junction = std::min(vmax_junction, sqrtf(acceleration * junction_deviation * sin_theta_d2 / (1.0F - sin_theta_d2)));
-					}
+			// Skip and use default max junction speed for 0 degree acute junction.
+			if (cos_theta < 0.95F) {
+				vmax_junction = std::min(previous_nominal_speed, block.nominal_speed);
+				// Skip and avoid divide by zero for straight junctions at 180 degrees. Limit to min() of nominal speeds.
+				if (cos_theta > -0.95F) {
+					// Compute maximum junction velocity based on maximum acceleration and junction deviation
+					float sin_theta_d2 = sqrtf(0.5F * (1.0F - cos_theta)); // Trig half angle identity. Always positive.
+					vmax_junction = std::min(vmax_junction, sqrtf(acceleration * junction_deviation * sin_theta_d2 / (1.0F - sin_theta_d2)));
 				}
 			}
 		}
 	}
+
+	// TODO need to clear this if not a X and/or Y move
+	previous_nominal_speed= auxilliary_move ? 0.0F : block.nominal_speed;
 
 	block.max_entry_speed = vmax_junction;
 
@@ -233,27 +232,42 @@ bool Planner::plan(const float *last_target, const float *target, int n_axis,  A
 	// Math-heavy re-computing of the whole queue to take the new
 	recalculate();
 
+#if 0
 	// starting at end of the queue move any block that has recalculate_flag set to false into the ready queue
 	auto curi = lookahead_q.rbegin();
-	while(curi != lookahead_q.rend()) {
-		auto nexti = std::next(curi);
-		if(nexti == lookahead_q.rend()) break;
-
-		// if both this one and the next one have recalculate flag false then move this one to ready queue
-		// this always leaves the last entry as a non calculate block and preserves the exit speeds
-		if(!curi->recalculate_flag && !nexti->recalculate_flag) {
-			Lock l(READY_Q_MUTEX); // gets a mutex on this
-			l.lock();
-			ready_q.push_front(*curi);
-			l.unlock();
-			lookahead_q.pop_back();
-			curi = nexti;
-		} else {
-			// we stop looking when we hit the last block that has is set
+	auto lasti= std::prev(lookahead_q.rend());
+	while(curi != lasti && !curi->recalculate_flag) {
+		// if this one has recalculate flag false then move this one to ready queue
+		auto nexti= std::next(curi);
+		Lock l(READY_Q_MUTEX); // gets a mutex on this
+		l.lock();
+		ready_q.push_front(*curi);
+		l.unlock();
+		lookahead_q.pop_back();
+		curi= nexti;
+	}
+#else
+	// to get around innacurate recalc flag settings search from head to first !recalc then copy subsequent ones to ready q
+	auto curi = lookahead_q.begin();
+	while(curi != lookahead_q.end()) {
+		if(!curi->recalculate_flag){
 			break;
 		}
+		curi= std::next(curi);
 	}
-
+	if(curi != lookahead_q.end()){
+		auto foundi= curi;
+		Lock l(READY_Q_MUTEX); // gets a mutex on this
+		l.lock();
+		auto ri= std::prev(lookahead_q.end());
+		while(ri != foundi) {
+			ready_q.push_front(*ri);
+			ri= std::prev(ri);
+		}
+		l.unlock();
+		lookahead_q.erase(std::next(foundi), lookahead_q.end());
+	}
+#endif
 	return true;
 }
 
@@ -369,11 +383,6 @@ void Planner::recalculate()
 			curi = std::next(curi);
 		}
 
-		if(curi == lasti) {
-			// special case first entry needs to have recalculate_flag set to false
-			curi->recalculate_flag = false;
-		}
-
 		/*
 		 * Step 2:
 		 * now current points to either the tail (back) of the queue or first non-recalculate block
@@ -391,8 +400,17 @@ void Planner::recalculate()
 			// we pass the exit speed of the previous block
 			// so this block can decide if it's accel or decel limited and update its fields as appropriate
 			exit_speed = forwardPass(*curi, exit_speed);
+			// special case to get around some blocks not getting set properly
+			// if we cleared the recalculate_flag in this pass make sure previous one was too
+			// if(!curi->recalculate_flag) {
+			// 	previ->recalculate_flag = false;
+			// }
 			calculateTrapezoid(*previ, previ->entry_speed, curi->entry_speed);
 		}
+
+	}else{
+		// first entry can't have its entry changed
+		curi->recalculate_flag= false;
 	}
 
 	/*
@@ -468,14 +486,14 @@ void Planner::calculateTrapezoid(Block &block, float entryspeed, float exitspeed
 	//uint32_t plateau_ticks = total_move_ticks - acceleration_ticks - deceleration_ticks;
 
 	// Now we figure out the acceleration value to reach EXACTLY maximum_rate(steps/s) in EXACTLY acceleration_ticks(ticks) amount of time in seconds
-	float acceleration_time = acceleration_ticks / STEP_TICKER_FREQUENCY;  // This can be moved into the operation bellow, separated for clarity, note :Â we need to do this instead of using time_to_accelerate(seconds) directly because time_to_accelerate(seconds) and acceleration_ticks(seconds) do not have the same value anymore due to the rounding
+	float acceleration_time = acceleration_ticks / STEP_TICKER_FREQUENCY;  // This can be moved into the operation below, separated for clarity, note we need to do this instead of using time_to_accelerate(seconds) directly because time_to_accelerate(seconds) and acceleration_ticks(seconds) do not have the same value anymore due to the rounding
 	float deceleration_time = deceleration_ticks / STEP_TICKER_FREQUENCY;
 
-	float  acceleration_in_steps = (acceleration_time > 0.0F ) ? ( block.maximum_rate - initial_rate ) / acceleration_time : 0;
+	float acceleration_in_steps = (acceleration_time > 0.0F ) ? ( block.maximum_rate - initial_rate ) / acceleration_time : 0;
 	float deceleration_in_steps =  (deceleration_time > 0.0F ) ? ( block.maximum_rate - final_rate ) / deceleration_time : 0;
 
 	// Note we use this value for acceleration as well as for deceleration, if that doesn't work, we can also as well compute the deceleration value this way :
-	// float deceleration(steps/sÂ²) = ( final_rate(steps/s) - maximum_rate(steps/s) ) / acceleration_time(s);
+	// float deceleration(steps/s²) = ( final_rate(steps/s) - maximum_rate(steps/s) ) / acceleration_time(s);
 	// and store that in the block and use it for deceleration, which -will- yield better results, but may not be useful. If the moves do not end correctly, try computing this value, adding it to the block, and then using it for deceleration in the step generator
 
 	// Now figure out the two acceleration ramp change events in ticks
@@ -576,7 +594,7 @@ void Planner::dump(std::ostream &o) const
 {
 	for (int i = 0; i < 2; ++i) {
 		Queue_t q = i == 0 ? lookahead_q : ready_q;
-		o << (i == 0 ? "Look ahead Queue:\n" : "Ready Queue\n");
+		o << (i == 0 ? "Look ahead Queue: " : "Ready Queue: ") << q.size() << " \n";
 		for(auto &b : q) {
 			o <<
 			  "Id: " << b.id                         << ", " <<

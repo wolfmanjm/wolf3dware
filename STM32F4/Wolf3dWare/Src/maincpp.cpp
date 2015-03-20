@@ -668,7 +668,7 @@ extern "C" bool commandLineHandler(const char *line)
 	}
 
 	// check for large queue size, stall until it gets smaller
-	const size_t MAX_Q= 50;
+	const size_t MAX_Q= 100;
 	Planner::Queue_t& q= THEKERNEL.getPlanner().getReadyQueue();
 	Lock l(READY_Q_MUTEX);
 	l.lock();
@@ -682,6 +682,7 @@ extern "C" bool commandLineHandler(const char *line)
 
 		// wait for it to empty
 		do{
+			// we need to kick it in case the lookahead is full and ready is empty which can happen in certain cases
 			kickQueue();
 			THEKERNEL.delay(100);
 			l.lock();

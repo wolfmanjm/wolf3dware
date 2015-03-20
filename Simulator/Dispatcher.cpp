@@ -13,9 +13,8 @@ using namespace std;
 //#define LOG_WARNING printf
 #define LOG_WARNING(...)
 
-// NOTE this can be called recursively by commands handlers that need to issue
-// their own commands
-// it can also be called from different threads, so no changing class context, that is why it is const
+// NOTE this can be called recursively by commands handlers that need to issue their own commands
+// it can also be called concurrently from different threads, so no changing class context, that is why it is const
 std::string Dispatcher::dispatch(GCode& gc) const
 {
 	if(gc.hasM() && gc.getCode() == 503) {
@@ -57,7 +56,6 @@ std::string Dispatcher::dispatch(GCode& gc) const
 			result.append("ok\r\n");
 		}
 
-		output_stream.clear(); // save some memory now
 		return result;
 	}
 

@@ -41,6 +41,7 @@ private:
 	Queue_t ready_q;
 
     float previous_unit_vec[3];
+	float previous_nominal_speed{0};
 
     float default_acceleration{2000};
     float junction_deviation{0.05F};

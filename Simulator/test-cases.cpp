@@ -534,6 +534,30 @@ TEST_CASE( "Stream Output", "[streamoutput]" ) {
 	}
 }
 
+TEST_CASE( "Planning circle", "[circle]" ) {
+	// initialize Kernel and its modules
+	THEKERNEL.initialize();
+	GCodeProcessor& gp= THEKERNEL.getGCodeProcessor();
+	GCodeProcessor::GCodes_t gcodes;
+	char buf[132];
+	SECTION("read gcode file and dump") {
+		FILE *fp= fopen("test-circle-jog.g", "r");
+		while(fgets(buf, sizeof(buf)-1, fp)) {
+			bool ok= gp.parse(buf, gcodes);
+			REQUIRE(ok);
+			// dispatch gcode to MotionControl and Planner
+			for(auto i : gcodes) {
+				THEDISPATCHER.dispatch(i);
+			}
+			gcodes.clear();
+		}
+		fclose(fp);
+		// dump planned block queue
+		THEKERNEL.getPlanner().dump(cout);
+	}
+}
+
+
 #include "RingBuffer.hpp"
 TEST_CASE( "RingBuffer", "[ringbuffer]" ) {
 
