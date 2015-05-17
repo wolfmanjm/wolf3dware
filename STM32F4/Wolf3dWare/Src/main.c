@@ -468,7 +468,7 @@ static void cdcThread(void const *argument)
 static char  cmd_line[MAXLINELEN+1];
 static void commandThread(void const *argument)
 {
-	const TickType_t xTicksToWait = pdMS_TO_TICKS( 500 );
+	const TickType_t xTicksToWait = pdMS_TO_TICKS( 100 );
 	T_MEAS  *rptr;
 	osEvent  evt;
 	for (;;) {

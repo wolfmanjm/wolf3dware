@@ -29,7 +29,7 @@ public:
 	std::tuple<bool,uint32_t> stepsToTarget(float target);
 	bool tick(uint32_t current_tick, bool& stepped);
 	char getAxis() const { return axis; }
-	uint32_t getCurrentPositionInSteps() const { return current_step_position; }
+	int32_t getCurrentPositionInSteps() const { return current_step_position; }
 	float getCurrentPositionInmm() const { return steps2mm(current_step_position); }
 	void resetPositionInmm(float mm) { current_step_position= last_milestone_steps= mm2steps(mm); }
 	void resetPositionInSteps(uint32_t s) { current_step_position= last_milestone_steps= s; }

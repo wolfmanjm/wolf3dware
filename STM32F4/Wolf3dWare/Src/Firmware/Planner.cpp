@@ -29,6 +29,7 @@ Planner::Planner()
 void Planner::reset()
 {
 	memset(previous_unit_vec, 0, sizeof(previous_unit_vec));
+	previous_nominal_speed= 0;
 }
 
 void Planner::initialize()
@@ -135,7 +136,7 @@ bool Planner::plan(const float *last_target, const float *target, int n_axis,  A
 	for (int i = 0; i < n_axis; i++) {
 		std::tuple<bool, uint32_t> r = actuators[i].stepsToTarget(target[i]);
 		block.direction.push_back(std::get<0>(r));
-		block.steps_to_move.push_back(labs(std::get<1>(r)));
+		block.steps_to_move.push_back(std::get<1>(r));
 	}
 
 	// Max number of steps, for all axis
@@ -181,6 +182,7 @@ bool Planner::plan(const float *last_target, const float *target, int n_axis,  A
 		// NOTE however it does not take into account independent axis, in most cartesian X and Y and Z are totally independent
 		// and this allows one to stop with little to no decleration in many cases. This is particularly bad on leadscrew based systems that will skip steps.
 
+		// FIXME I don't think this works we really need to get it from the head of the queue, but it last move was not a primary axis move then it needs to be 0
 		if (previous_nominal_speed > 0.0F) {
 			// Compute cosine of angle between previous and current path. (previous_unit_vec is negative)
 			// NOTE: Max junction velocity is computed without sin() or acos() by trig half angle identity.
@@ -303,7 +305,6 @@ float Planner::reversePass(Block &b, float exit_speed)
 		if ((!b.nominal_length_flag) && (b.max_entry_speed > exit_speed)) {
 			float max_entry_speed = maxAllowableSpeed(-b.acceleration, exit_speed, b.millimeters);
 			b.entry_speed = std::min(max_entry_speed, b.max_entry_speed);
-			return b.entry_speed;
 
 		} else {
 			b.entry_speed = b.max_entry_speed;
@@ -400,11 +401,8 @@ void Planner::recalculate()
 			// we pass the exit speed of the previous block
 			// so this block can decide if it's accel or decel limited and update its fields as appropriate
 			exit_speed = forwardPass(*curi, exit_speed);
-			// special case to get around some blocks not getting set properly
-			// if we cleared the recalculate_flag in this pass make sure previous one was too
-			// if(!curi->recalculate_flag) {
-			// 	previ->recalculate_flag = false;
-			// }
+
+			// now do a trapezoid calculation for the previous block, using this blocks entry speed for its exit speed
 			calculateTrapezoid(*previ, previ->entry_speed, curi->entry_speed);
 		}
 

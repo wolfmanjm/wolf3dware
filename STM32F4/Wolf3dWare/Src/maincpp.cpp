@@ -55,6 +55,8 @@ static volatile bool move_issued= false;
 // count of ticks missed while setting up next move
 static volatile uint32_t waiting_ticks= 0;
 static uint32_t overflow= 0;
+static uint32_t lq_kicked= 0, rq_kicked= 0;
+
 // set to true as long as we are processing the queue
 volatile bool running= false;
 
@@ -558,6 +560,7 @@ bool handleCommand(const char *line)
 		oss << "Worst time: " << xdelta << "uS\n";
 		oss << "worst overflow: " << overflow << " ticks\n";
 		oss << "max q size: " << maxqsize << "\n";
+		oss << "kicked lq, rq: " << lq_kicked << ", " << rq_kicked << "\n";
 		oss << "ok\n";
 
 	}else if(strcmp(line, "mem") == 0) {
@@ -613,6 +616,7 @@ extern "C" void kickQueue()
 		if(n > 0) {
 			// we have somethign in the queue we can execute
 			executeNextBlock();
+			rq_kicked++;
 			return;
 		}
 		// check lookahead queue, no need to lock it as it is only manipulated in this thread
@@ -621,6 +625,7 @@ extern "C" void kickQueue()
 			// move it into ready and execute it (probably a single jog command)
 			THEKERNEL.getPlanner().moveAllToReady();
 			executeNextBlock();
+			lq_kicked++;
 		}
 	}
 }
@@ -680,9 +685,9 @@ extern "C" bool commandLineHandler(const char *line)
 		// we force it to start executing and if not currently running we start off the first block
 		if(!execute_mode) execute_mode= true;
 
-		// wait for it to empty
+		// wait for some free space in the queue
 		do{
-			// we need to kick it in case the lookahead is full and ready is empty which can happen in certain cases
+			// we may need to kick it in case the lookahead is full and ready is empty which can happen in certain cases
 			kickQueue();
 			THEKERNEL.delay(100);
 			l.lock();
