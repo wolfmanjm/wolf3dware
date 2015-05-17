@@ -2,14 +2,14 @@
   ******************************************************************************
   * @file    stm32f429i_discovery.h
   * @author  MCD Application Team
-  * @version V2.1.1
-  * @date    10-December-2014
+  * @version V2.1.2
+  * @date    02-March-2015
   * @brief   This file contains definitions for STM32F429I-Discovery Kit LEDs,
   *          push-buttons hardware resources.
   ******************************************************************************
   * @attention
   *
-  * <h2><center>&copy; COPYRIGHT(c) 2014 STMicroelectronics</center></h2>
+  * <h2><center>&copy; COPYRIGHT(c) 2015 STMicroelectronics</center></h2>
   *
   * Redistribution and use in source and binary forms, with or without modification,
   * are permitted provided that the following conditions are met:
@@ -109,8 +109,12 @@ typedef enum
 #define LED4_GPIO_CLK_ENABLE()                  __GPIOG_CLK_ENABLE()  
 #define LED4_GPIO_CLK_DISABLE()                 __GPIOG_CLK_DISABLE()  
 
-#define LEDx_GPIO_CLK_ENABLE(__INDEX__)         (((__INDEX__) == 0) ? LED3_GPIO_CLK_ENABLE() : LED4_GPIO_CLK_ENABLE())
-#define LEDx_GPIO_CLK_DISABLE(__INDEX__)        (((__INDEX__) == 0) ? LED3_GPIO_CLK_DISABLE() : LED4_GPIO_CLK_DISABLE())
+#define LEDx_GPIO_CLK_ENABLE(__INDEX__)  do{if((__INDEX__) == 0) LED3_GPIO_CLK_ENABLE(); else \
+                                            if((__INDEX__) == 1) LED4_GPIO_CLK_ENABLE(); \
+                                            }while(0)
+#define LEDx_GPIO_CLK_DISABLE(__INDEX__) do{if((__INDEX__) == 0) LED3_GPIO_CLK_DISABLE(); else \
+                                            if((__INDEX__) == 1) LED4_GPIO_CLK_DISABLE(); \
+                                            }while(0)
 /**
   * @}
   */ 
@@ -129,8 +133,10 @@ typedef enum
 #define KEY_BUTTON_GPIO_CLK_DISABLE()          __GPIOA_CLK_DISABLE()
 #define KEY_BUTTON_EXTI_IRQn                   EXTI0_IRQn
 
-#define BUTTONx_GPIO_CLK_ENABLE(__INDEX__)      (KEY_BUTTON_GPIO_CLK_ENABLE())
-#define BUTTONx_GPIO_CLK_DISABLE(__INDEX__)     (KEY_BUTTON_GPIO_CLK_DISABLE())
+#define BUTTONx_GPIO_CLK_ENABLE(__INDEX__)     do{if((__INDEX__) == 0) KEY_BUTTON_GPIO_CLK_ENABLE(); \
+                                                 }while(0)
+#define BUTTONx_GPIO_CLK_DISABLE(__INDEX__)    do{if((__INDEX__) == 0) KEY_BUTTON_GPIO_CLK_DISABLE(); \
+                                                 }while(0)
 /**
   * @}
   */

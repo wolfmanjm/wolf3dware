@@ -2,14 +2,14 @@
   ******************************************************************************
   * @file    epd.h
   * @author  MCD Application Team
-  * @version V1.2.1
-  * @date    02-December-2014
+  * @version V2.2.0
+  * @date    09-February-2015
   * @brief   This file contains all the functions prototypes for the 
   *          EPD (E Paper Display) driver.   
   ******************************************************************************
   * @attention
   *
-  * <h2><center>&copy; COPYRIGHT(c) 2014 STMicroelectronics</center></h2>
+  * <h2><center>&copy; COPYRIGHT(c) 2015 STMicroelectronics</center></h2>
   *
   * Redistribution and use in source and binary forms, with or without modification,
   * are permitted provided that the following conditions are met:
@@ -66,8 +66,9 @@
 /** @defgroup EPD_Exported_Types
   * @{
   */
-/**
-  * @brief  EPD driver structure definition
+
+/** @defgroup EPD_Driver_structure  E Paper Display Driver structure
+  * @{
   */
 typedef struct
 {
@@ -84,21 +85,20 @@ typedef struct
   void     (*DrawImage)(uint16_t, uint16_t, uint16_t, uint16_t, uint8_t*);
 }
 EPD_DrvTypeDef;
-
 /**
   * @}
-  */
-
-/** @defgroup EPD_Exported_Constants
-  * @{
   */
 
 /**
   * @}
   */
 
-/** @defgroup EPD_Exported_Functions
-  * @{
+/**
+  * @}
+  */
+
+/**
+  * @}
   */
 
 /**
@@ -111,21 +111,5 @@ EPD_DrvTypeDef;
 #endif
 
 #endif /* EPD_H */
-
-/**
-  * @}
-  */
-
-/**
-  * @}
-  */
-
-/**
-  * @}
-  */
-  
-/**
-  * @}
-  */
 
 /************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/

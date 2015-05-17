@@ -2,14 +2,14 @@
   ******************************************************************************
   * @file    stm32f429i_discovery_sdram.h
   * @author  MCD Application Team
-  * @version V2.1.1
-  * @date    10-December-2014
-  * @brief   This file contains all the functions prototypes for the
+  * @version V2.1.2
+  * @date    02-March-2015
+  * @brief   This file contains all the functions prototypes for the 
   *          stm32f429i_discovery_sdram.c driver.
   ******************************************************************************
   * @attention
   *
-  * <h2><center>&copy; COPYRIGHT(c) 2014 STMicroelectronics</center></h2>
+  * <h2><center>&copy; COPYRIGHT(c) 2015 STMicroelectronics</center></h2>
   *
   * Redistribution and use in source and binary forms, with or without modification,
   * are permitted provided that the following conditions are met:
@@ -34,7 +34,7 @@
   * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
   *
   ******************************************************************************
-  */
+  */   
 
 /* Define to prevent recursive inclusion -------------------------------------*/
 #ifndef __STM32F429I_DISCOVERY_SDRAM_H
@@ -46,20 +46,19 @@
 
 /* Includes ------------------------------------------------------------------*/
 #include "stm32f429i_discovery.h"
-#include "stm32f4xx_ll_fmc.h"
 
 /** @addtogroup BSP
   * @{
   */
-
+  
 /** @addtogroup STM32F429I_DISCOVERY
   * @{
   */
-
+ 
 /** @defgroup STM32F429I_DISCOVERY_SDRAM
   * @{
   */
-
+  
 /** @defgroup STM32F429I_DISCOVERY_SDRAM_Exported_Types
   * @{
   */
@@ -69,40 +68,40 @@
 
 /** @defgroup STM32F429I_DISCOVERY_SDRAM_Exported_Constants
   * @{
-  */
+  */ 
 /**
   * @brief  FMC SDRAM Bank address
-  */
+  */   
 #define SDRAM_DEVICE_ADDR         ((uint32_t)0xD0000000)
 #define SDRAM_DEVICE_SIZE         ((uint32_t)0x800000)  /* SDRAM device size in MBytes */
-
+  
 /**
   * @brief  FMC SDRAM Memory Width
-  */
+  */  
 /* #define SDRAM_MEMORY_WIDTH   FMC_SDRAM_MEM_BUS_WIDTH_8 */
 #define SDRAM_MEMORY_WIDTH      FMC_SDRAM_MEM_BUS_WIDTH_16
 
 /**
   * @brief  FMC SDRAM CAS Latency
-  */
+  */  
 /* #define SDRAM_CAS_LATENCY    FMC_SDRAM_CAS_LATENCY_2 */
-#define SDRAM_CAS_LATENCY       FMC_SDRAM_CAS_LATENCY_3
+#define SDRAM_CAS_LATENCY       FMC_SDRAM_CAS_LATENCY_3 
 
 /**
   * @brief  FMC SDRAM Memory clock period
-  */
+  */  
 #define SDCLOCK_PERIOD          FMC_SDRAM_CLOCK_PERIOD_2    /* Default configuration used with LCD */
 /* #define SDCLOCK_PERIOD       FMC_SDRAM_CLOCK_PERIOD_3 */
 
 /**
   * @brief  FMC SDRAM Memory Read Burst feature
-  */
+  */  
 #define SDRAM_READBURST         FMC_SDRAM_RBURST_DISABLE    /* Default configuration used with LCD */
 /* #define SDRAM_READBURST      FMC_SDRAM_RBURST_ENABLE */
 
 /**
   * @brief  FMC SDRAM Bank Remap
-  */
+  */    
 /* #define SDRAM_BANK_REMAP */
 
 /* Set the refresh rate counter */
@@ -134,13 +133,13 @@
 /**
   * @}
   */
-
+  
 /** @defgroup STM32F429I_DISCOVERY_SDRAM_Exported_Macro
   * @{
   */
 /**
   * @}
-  */
+  */ 
 
 /** @defgroup STM32F429I_DISCOVERY_SDRAM_Exported_Functions
   * @{
@@ -164,7 +163,7 @@ void              BSP_SDRAM_DMA_IRQHandler(void);
 
 /**
   * @}
-  */
+  */   
 
 /**
   * @}

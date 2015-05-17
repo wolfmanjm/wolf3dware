@@ -2,8 +2,8 @@
   ******************************************************************************
   * @file    stmpe811.h
   * @author  MCD Application Team
-  * @version V1.0.2
-  * @date    02-December-2014
+  * @version V2.0.0
+  * @date    15-December-2014
   * @brief   This file contains all the functions prototypes for the
   *          stmpe811.c IO expander driver.
   ******************************************************************************
@@ -228,20 +228,20 @@ void     stmpe811_ClearGlobalIT(uint16_t DeviceAddr, uint8_t Source);
 /** 
   * @brief STMPE811 IO functionalities functions
   */
-void     stmpe811_IO_Start(uint16_t DeviceAddr, uint16_t IO_Pin);
-void     stmpe811_IO_Config(uint16_t DeviceAddr, uint16_t IO_Pin, IO_ModeTypedef IO_Mode);
-void     stmpe811_IO_InitPin(uint16_t DeviceAddr, uint16_t IO_Pin, uint8_t Direction);
-void     stmpe811_IO_EnableAF(uint16_t DeviceAddr, uint16_t IO_Pin);
-void     stmpe811_IO_DisableAF(uint16_t DeviceAddr, uint16_t IO_Pin);
-void     stmpe811_IO_SetEdgeMode(uint16_t DeviceAddr, uint16_t IO_Pin, uint8_t Edge);
-void     stmpe811_IO_WritePin(uint16_t DeviceAddr, uint16_t IO_Pin, uint8_t PinState);
-uint16_t stmpe811_IO_ReadPin(uint16_t DeviceAddr, uint16_t IO_Pin);
+void     stmpe811_IO_Start(uint16_t DeviceAddr, uint32_t IO_Pin);
+uint8_t  stmpe811_IO_Config(uint16_t DeviceAddr, uint32_t IO_Pin, IO_ModeTypedef IO_Mode);
+void     stmpe811_IO_InitPin(uint16_t DeviceAddr, uint32_t IO_Pin, uint8_t Direction);
+void     stmpe811_IO_EnableAF(uint16_t DeviceAddr, uint32_t IO_Pin);
+void     stmpe811_IO_DisableAF(uint16_t DeviceAddr, uint32_t IO_Pin);
+void     stmpe811_IO_SetEdgeMode(uint16_t DeviceAddr, uint32_t IO_Pin, uint8_t Edge);
+void     stmpe811_IO_WritePin(uint16_t DeviceAddr, uint32_t IO_Pin, uint8_t PinState);
+uint32_t stmpe811_IO_ReadPin(uint16_t DeviceAddr, uint32_t IO_Pin);
 void     stmpe811_IO_EnableIT(uint16_t DeviceAddr);
 void     stmpe811_IO_DisableIT(uint16_t DeviceAddr);
-void     stmpe811_IO_EnablePinIT(uint16_t DeviceAddr, uint16_t IO_Pin);
-void     stmpe811_IO_DisablePinIT(uint16_t DeviceAddr, uint16_t IO_Pin);
-uint8_t  stmpe811_IO_ITStatus(uint16_t DeviceAddr, uint16_t IO_Pin);
-void     stmpe811_IO_ClearIT(uint16_t DeviceAddr, uint16_t IO_Pin);
+void     stmpe811_IO_EnablePinIT(uint16_t DeviceAddr, uint32_t IO_Pin);
+void     stmpe811_IO_DisablePinIT(uint16_t DeviceAddr, uint32_t IO_Pin);
+uint32_t stmpe811_IO_ITStatus(uint16_t DeviceAddr, uint32_t IO_Pin);
+void     stmpe811_IO_ClearIT(uint16_t DeviceAddr, uint32_t IO_Pin);
 
 /** 
   * @brief STMPE811 Touch screen functionalities functions

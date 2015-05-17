@@ -2,8 +2,8 @@
   ******************************************************************************
   * @file    stmpe811.c
   * @author  MCD Application Team
-  * @version V1.0.2
-  * @date    02-December-2014
+  * @version V2.0.0
+  * @date    15-December-2014
   * @brief   This file provides a set of functions needed to manage the STMPE811
   *          IO Expander devices.
   ******************************************************************************
@@ -402,7 +402,7 @@ void stmpe811_ClearGlobalIT(uint16_t DeviceAddr, uint8_t Source)
   *   @arg  STMPE811_PIN_x: where x can be from 0 to 7.
   * @retval None
   */
-void stmpe811_IO_Start(uint16_t DeviceAddr, uint16_t IO_Pin)
+void stmpe811_IO_Start(uint16_t DeviceAddr, uint32_t IO_Pin)
 {
   uint8_t mode;
   
@@ -432,10 +432,12 @@ void stmpe811_IO_Start(uint16_t DeviceAddr, uint16_t IO_Pin)
   *   @arg  IO_MODE_IT_FALLING_EDGE
   *   @arg  IO_MODE_IT_LOW_LEVEL
   *   @arg  IO_MODE_IT_HIGH_LEVEL            
-  * @retval None
+  * @retval 0 if no error, IO_Mode if error
   */
-void stmpe811_IO_Config(uint16_t DeviceAddr, uint16_t IO_Pin, IO_ModeTypedef IO_Mode)
+uint8_t stmpe811_IO_Config(uint16_t DeviceAddr, uint32_t IO_Pin, IO_ModeTypedef IO_Mode)
 {
+  uint8_t error_code = 0;
+
   /* Configure IO pin according to selected IO mode */
   switch(IO_Mode)
   {
@@ -478,7 +480,12 @@ void stmpe811_IO_Config(uint16_t DeviceAddr, uint16_t IO_Pin, IO_ModeTypedef IO_
     stmpe811_SetITType(DeviceAddr, STMPE811_TYPE_LEVEL);
     stmpe811_SetITPolarity(DeviceAddr, STMPE811_POLARITY_HIGH);  
     break;    
+
+  default:
+    error_code = (uint8_t) IO_Mode;
+    break;
   } 
+  return error_code;
 }
 
 /**
@@ -490,7 +497,7 @@ void stmpe811_IO_Config(uint16_t DeviceAddr, uint16_t IO_Pin, IO_ModeTypedef IO_
   * @param  Direction: could be STMPE811_DIRECTION_IN or STMPE811_DIRECTION_OUT.      
   * @retval None
   */
-void stmpe811_IO_InitPin(uint16_t DeviceAddr, uint16_t IO_Pin, uint8_t Direction)
+void stmpe811_IO_InitPin(uint16_t DeviceAddr, uint32_t IO_Pin, uint8_t Direction)
 {
   uint8_t tmp = 0;   
   
@@ -519,7 +526,7 @@ void stmpe811_IO_InitPin(uint16_t DeviceAddr, uint16_t IO_Pin, uint8_t Direction
   *   @arg  STMPE811_PIN_x: Where x can be from 0 to 7.        
   * @retval None
   */
-void stmpe811_IO_DisableAF(uint16_t DeviceAddr, uint16_t IO_Pin)
+void stmpe811_IO_DisableAF(uint16_t DeviceAddr, uint32_t IO_Pin)
 {
   uint8_t tmp = 0;
   
@@ -542,7 +549,7 @@ void stmpe811_IO_DisableAF(uint16_t DeviceAddr, uint16_t IO_Pin)
   *   @arg  STMPE811_PIN_x: Where x can be from 0 to 7.       
   * @retval None
   */
-void stmpe811_IO_EnableAF(uint16_t DeviceAddr, uint16_t IO_Pin)
+void stmpe811_IO_EnableAF(uint16_t DeviceAddr, uint32_t IO_Pin)
 {
   uint8_t tmp = 0;
   
@@ -567,7 +574,7 @@ void stmpe811_IO_EnableAF(uint16_t DeviceAddr, uint16_t IO_Pin)
   *         a combination of following values: STMPE811_EDGE_FALLING and STMPE811_EDGE_RISING .
   * @retval None
   */
-void stmpe811_IO_SetEdgeMode(uint16_t DeviceAddr, uint16_t IO_Pin, uint8_t Edge)
+void stmpe811_IO_SetEdgeMode(uint16_t DeviceAddr, uint32_t IO_Pin, uint8_t Edge)
 {
   uint8_t tmp1 = 0, tmp2 = 0;   
   
@@ -607,7 +614,7 @@ void stmpe811_IO_SetEdgeMode(uint16_t DeviceAddr, uint16_t IO_Pin, uint8_t Edge)
   * @param PinState: The new IO pin state.
   * @retval None
   */
-void stmpe811_IO_WritePin(uint16_t DeviceAddr, uint16_t IO_Pin, uint8_t PinState)
+void stmpe811_IO_WritePin(uint16_t DeviceAddr, uint32_t IO_Pin, uint8_t PinState)
 {
   /* Apply the bit value to the selected pin */
   if (PinState != 0)
@@ -630,9 +637,9 @@ void stmpe811_IO_WritePin(uint16_t DeviceAddr, uint16_t IO_Pin, uint8_t PinState
   *   @arg  STMPE811_PIN_x: where x can be from 0 to 7. 
   * @retval IO pin(s) state.
   */
-uint16_t stmpe811_IO_ReadPin(uint16_t DeviceAddr, uint16_t IO_Pin)
+uint32_t stmpe811_IO_ReadPin(uint16_t DeviceAddr, uint32_t IO_Pin)
 {
-  return((uint16_t)(IOE_Read(DeviceAddr, STMPE811_REG_IO_MP_STA) & (uint8_t)IO_Pin));
+  return((uint32_t)(IOE_Read(DeviceAddr, STMPE811_REG_IO_MP_STA) & (uint8_t)IO_Pin));
 }
 
 /**
@@ -673,7 +680,7 @@ void stmpe811_IO_DisableIT(uint16_t DeviceAddr)
   *   @arg  STMPE811_PIN_x: where x can be from 0 to 7.
   * @retval None
   */
-void stmpe811_IO_EnablePinIT(uint16_t DeviceAddr, uint16_t IO_Pin)
+void stmpe811_IO_EnablePinIT(uint16_t DeviceAddr, uint32_t IO_Pin)
 {
   uint8_t tmp = 0;
   
@@ -695,7 +702,7 @@ void stmpe811_IO_EnablePinIT(uint16_t DeviceAddr, uint16_t IO_Pin)
   *   @arg  STMPE811_PIN_x: where x can be from 0 to 7.
   * @retval None
   */
-void stmpe811_IO_DisablePinIT(uint16_t DeviceAddr, uint16_t IO_Pin)
+void stmpe811_IO_DisablePinIT(uint16_t DeviceAddr, uint32_t IO_Pin)
 {
   uint8_t tmp = 0;
   
@@ -716,7 +723,7 @@ void stmpe811_IO_DisablePinIT(uint16_t DeviceAddr, uint16_t IO_Pin)
   *   @arg  STMPE811_PIN_x Where x can be from 0 to 7.             
   * @retval Status of the checked IO pin(s).
   */
-uint8_t stmpe811_IO_ITStatus(uint16_t DeviceAddr, uint16_t IO_Pin)
+uint32_t stmpe811_IO_ITStatus(uint16_t DeviceAddr, uint32_t IO_Pin)
 {
   /* Get the Interrupt status */
   return(IOE_Read(DeviceAddr, STMPE811_REG_IO_INT_STA) & (uint8_t)IO_Pin); 
@@ -729,7 +736,7 @@ uint8_t stmpe811_IO_ITStatus(uint16_t DeviceAddr, uint16_t IO_Pin)
   *   @arg  STMPE811_PIN_x: Where x can be from 0 to 7.            
   * @retval None
   */
-void stmpe811_IO_ClearIT(uint16_t DeviceAddr, uint16_t IO_Pin)
+void stmpe811_IO_ClearIT(uint16_t DeviceAddr, uint32_t IO_Pin)
 {
   /* Clear the global IO IT pending bit */
   stmpe811_ClearGlobalIT(DeviceAddr, STMPE811_GIT_IO);
