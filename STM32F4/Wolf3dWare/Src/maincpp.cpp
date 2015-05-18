@@ -29,7 +29,7 @@ using namespace std;
 //#define USE_PANEL
 
 #ifdef PRINTER3D
-#include "Firmware/Tools/TemperatureControl.h"
+#include "Firmware/Tools/TemperatureCoyntrol.h"
 #include "Firmware/Tools/Thermistor.h"
 #include "Firmware/Tools/Extruder.h"
 #endif
@@ -83,6 +83,8 @@ using E_EnbPin  = GPIO(D, 4,INVERTPIN); // PD4   P1-39
 using LED3Pin   = GPIO(G,13);           // PG13  LED3
 using LED4Pin   = GPIO(G,14);           // PG14  LED4
 
+using ButtonPin = GPIO(A,0);            // PA0 Button
+
 using TriggerPin= GPIO(D, 5);           // PD5
 // 11 Spare
 // PC3   P2-15 - ADC1-IN13 adc channel13 DMA channel 0 stream 0 or 4
@@ -120,6 +122,7 @@ using E_EnbPin  = GPIO(B,14,INVERTPIN); // 2-18
 
 using LED3Pin   = GPIO(C,12);           // PC12 LED3
 using LED4Pin   = GPIO(C,1);            // PC1 LED4
+using ButtonPin = GPIO(A,0);            // PA0 Button
 
 using TriggerPin= GPIO(C,2);            // PC2
 
@@ -185,6 +188,7 @@ using E_EnbPin  = GPIO(B,15,INVERTPIN); //
 
 using LED3Pin   = GPIO(C,0);            // PC0 LED3
 using LED4Pin   = GPIO(C,1);            // PC1 LED4
+using ButtonPin = GPIO(A,0);            // PA0 Button
 
 using TriggerPin= GPIO(C,2);            // PC2
 /*
@@ -283,6 +287,9 @@ static void initializePins()
 	E_StepPin::output(false);
 	E_DirPin::output(false);
 	E_EnbPin::output(false);
+
+	// pullup, IRQ, rising, low priority
+	ButtonPin::input(true, true);
 
 	TriggerPin::output(false);
 

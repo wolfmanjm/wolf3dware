@@ -4,7 +4,7 @@
   * @author  MCD Application Team
   * @version V2.1.2
   * @date    02-March-2015
-  * @brief   This file contains all the functions prototypes for the 
+  * @brief   This file contains all the functions prototypes for the
   *          stm32f429i_discovery_lcd.c driver.
   ******************************************************************************
   * @attention
@@ -42,15 +42,15 @@
 
 #ifdef __cplusplus
  extern "C" {
-#endif 
+#endif
 
 /* Includes ------------------------------------------------------------------*/
 #include "stm32f429i_discovery.h"
 /* Include SDRAM Driver */
 #include "stm32f429i_discovery_sdram.h"
-#include "../../../Utilities/Fonts/fonts.h"
+#include "../Fonts/fonts.h"
 /* Include LCD component driver */
-#include "../Components/ili9341/ili9341.h"   
+#include "../Components/ili9341/ili9341.h"
 
 /** @addtogroup BSP
   * @{
@@ -58,63 +58,63 @@
 
 /** @addtogroup STM32F429I_DISCOVERY
   * @{
-  */ 
-    
+  */
+
 /** @defgroup STM32F429I_DISCOVERY_LCD
   * @{
-  */ 
+  */
 
 /** @defgroup STM32F429I_DISCOVERY_LCD_Exported_Types
   * @{
   */
-typedef enum 
+typedef enum
 {
   LCD_OK = 0,
   LCD_ERROR = 1,
   LCD_TIMEOUT = 2
 }LCD_StatusTypeDef;
 
-typedef struct 
-{ 
-  uint32_t  TextColor; 
-  uint32_t  BackColor;  
+typedef struct
+{
+  uint32_t  TextColor;
+  uint32_t  BackColor;
   sFONT     *pFont;
 }LCD_DrawPropTypeDef;
-   
-typedef struct 
+
+typedef struct
 {
   int16_t X;
   int16_t Y;
-} Point, * pPoint;	 
-	 
-/** 
-  * @brief  Line mode structures definition  
-  */ 
+} Point, * pPoint;
+
+/**
+  * @brief  Line mode structures definition
+  */
 typedef enum
 {
   CENTER_MODE             = 0x01,    /* center mode */
-  RIGHT_MODE              = 0x02,    /* right mode  */     
-  LEFT_MODE               = 0x03,    /* left mode   */                                                                               
+  RIGHT_MODE              = 0x02,    /* right mode  */
+  LEFT_MODE               = 0x03,    /* left mode   */
 }Text_AlignModeTypdef;
 /**
   * @}
-  */ 
+  */
 
 /** @defgroup STM32F429I_DISCOVERY_LCD_Exported_Constants
   * @{
-  */ 
+  */
 #define LCD_LayerCfgTypeDef    LTDC_LayerCfgTypeDef
 
-/** 
-  * @brief  LCD status structure definition  
-  */     
+/**
+  * @brief  LCD status structure definition
+  */
 #define MAX_LAYER_NUMBER       2
 #define LCD_FRAME_BUFFER       ((uint32_t)0xD0000000)
-#define BUFFER_OFFSET          ((uint32_t)0x50000) 
+#define BUFFER_OFFSET          ((uint32_t)0x50000)
 
-/** 
-  * @brief  LCD color  
-  */ 
+/**
+  * @brief  LCD color
+  */
 #define LCD_COLOR_BLUE          0xFF0000FF
 #define LCD_COLOR_GREEN         0xFF00FF00
 #define LCD_COLOR_RED           0xFFFF0000
@@ -141,42 +141,42 @@ typedef enum
 #define LCD_COLOR_BROWN         0xFFA52A2A
 #define LCD_COLOR_ORANGE        0xFFFFA500
 #define LCD_COLOR_TRANSPARENT   0xFF000000
-/** 
-  * @brief LCD default font 
-  */ 
+/**
+  * @brief LCD default font
+  */
 #define LCD_DEFAULT_FONT         Font24
 
-/** 
-  * @brief  LCD Layer  
-  */ 
+/**
+  * @brief  LCD Layer
+  */
 #define LCD_BACKGROUND_LAYER     0x0000
 #define LCD_FOREGROUND_LAYER     0x0001
 
 /**
   * @}
-  */ 
+  */
 
 /** @defgroup STM32F429I_DISCOVERY_LCD_Exported_Macros
   * @{
-  */ 
-/** 
-  * @brief LCD Pixel format 
-  */  
+  */
+/**
+  * @brief LCD Pixel format
+  */
 #define LCD_PIXEL_FORMAT_ARGB8888         LTDC_PIXEL_FORMAT_ARGB8888
-#define LCD_PIXEL_FORMAT_RGB888           LTDC_PIXEL_FORMAT_RGB888        
-#define LCD_PIXEL_FORMAT_RGB565           LTDC_PIXEL_FORMAT_RGB565                
-#define LCD_PIXEL_FORMAT_ARGB1555         LTDC_PIXEL_FORMAT_ARGB1555        
-#define LCD_PIXEL_FORMAT_ARGB4444         LTDC_PIXEL_FORMAT_ARGB4444        
-#define LCD_PIXEL_FORMAT_L8               LTDC_PIXEL_FORMAT_L8        
-#define LCD_PIXEL_FORMAT_AL44             LTDC_PIXEL_FORMAT_AL44        
+#define LCD_PIXEL_FORMAT_RGB888           LTDC_PIXEL_FORMAT_RGB888
+#define LCD_PIXEL_FORMAT_RGB565           LTDC_PIXEL_FORMAT_RGB565
+#define LCD_PIXEL_FORMAT_ARGB1555         LTDC_PIXEL_FORMAT_ARGB1555
+#define LCD_PIXEL_FORMAT_ARGB4444         LTDC_PIXEL_FORMAT_ARGB4444
+#define LCD_PIXEL_FORMAT_L8               LTDC_PIXEL_FORMAT_L8
+#define LCD_PIXEL_FORMAT_AL44             LTDC_PIXEL_FORMAT_AL44
 #define LCD_PIXEL_FORMAT_AL88             LTDC_PIXEL_FORMAT_AL88
 /**
   * @}
-  */ 
+  */
 
 /** @defgroup STM32F429I_DISCOVERY_LCD_Exported_Functions
   * @{
-  */ 
+  */
 uint8_t  BSP_LCD_Init(void);
 uint32_t BSP_LCD_GetXSize(void);
 uint32_t BSP_LCD_GetYSize(void);
@@ -226,20 +226,20 @@ void     BSP_LCD_DisplayOn(void);
 
 /**
   * @}
-  */ 
-
-/**
-  * @}
-  */ 
-
-/**
-  * @}
-  */ 
+  */
 
 /**
   * @}
   */
-  
+
+/**
+  * @}
+  */
+
+/**
+  * @}
+  */
+
 #ifdef __cplusplus
 }
 #endif

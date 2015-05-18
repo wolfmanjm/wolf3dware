@@ -168,7 +168,9 @@ int main(void)
 	/* Configure LED3 and LED4 */
 	BSP_LED_Init(LED3);
 	BSP_LED_Init(LED4);
+	#if 0
 	BSP_PB_Init(BUTTON_KEY, BUTTON_MODE_EXTI);
+	#endif
 
 	/* Configure the system clock */
 	SystemClock_Config();
