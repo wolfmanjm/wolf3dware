@@ -116,6 +116,7 @@ extern volatile uint32_t adc_ave_time;
 extern volatile bool running;
 
 #define BUTTON_BIT 0x01
+#define BUTTON_BIT2 0x04
 #define MOVE_BIT 0x02
 
 
@@ -294,6 +295,16 @@ static void mainThread(void const *argument)
 				//LCD_UsrLog("stepticker: %lu us\n", delta_time);
 				//LCD_UsrLog("\nADC time: %lu\n", adc_ave_time);
 				BSP_LCD_Clear(LCD_COLOR_WHITE);
+				#endif
+			}
+
+			if( ulNotifiedValue & 0x70 ) {
+				#ifdef USE_STM32F429I_DISCO
+				char buf[16];
+				snprintf(buf, sizeof(buf), "%c Limit hit", (ulNotifiedValue&0x10) ? 'X' : (ulNotifiedValue&0x20) ? 'Y' : 'Z');
+				BSP_LCD_DisplayStringAtLine(6, (uint8_t*)buf);
+				#else
+				// call the endstop handler NOTE may want to halt the stepticker from the interrupt to avoid delay
 				#endif
 			}
 
@@ -684,6 +695,8 @@ static void Timer_Config()
 
 }
 
+// pins defined for these functions set in maincpp.cpp
+extern uint16_t xendstop, yendstop, zendstop;
 /**
   * @brief EXTI line detection callbacks
   * @param GPIO_Pin: Specifies the pins connected EXTI line
@@ -696,6 +709,15 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 		//BSP_LED_Toggle(LED3);
 		BaseType_t xHigherPriorityTaskWoken= pdFALSE;
 		xTaskNotifyFromISR( MainThreadHandle, BUTTON_BIT, eSetBits, &xHigherPriorityTaskWoken );
+		portYIELD_FROM_ISR( xHigherPriorityTaskWoken );
+		return;
+	}
+
+	// Endstops
+	uint32_t bit= (GPIO_Pin==xendstop) ? 0x10 : (GPIO_Pin==yendstop) ? 0x20 : (GPIO_Pin==zendstop) ? 0x40 : 0;
+	if(bit != 0) {
+		BaseType_t xHigherPriorityTaskWoken= pdFALSE;
+		xTaskNotifyFromISR( MainThreadHandle, bit, eSetBits, &xHigherPriorityTaskWoken );
 		portYIELD_FROM_ISR( xHigherPriorityTaskWoken );
 	}
 }

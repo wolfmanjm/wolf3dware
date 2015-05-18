@@ -53,7 +53,7 @@ public:
         HAL_GPIO_Init((GPIO_TypeDef *)Port, &GPIO_InitStruct);
         set(s);
     }
-    static void input(bool pullup=true, bool irq=false, bool rising=true, uint32_t pri=0x0F)
+    static uint16_t input(bool pullup=true, bool irq=false, bool rising=true, uint32_t pri=0x0F)
     {
         /* Configure the GPIO pin for input and possibly generate an interrupt, and pullup */
         RCC->AHB1ENR |= Clk_enable; // enable the clock
@@ -78,6 +78,7 @@ public:
             HAL_NVIC_SetPriority(getIRQ(), pri, 0x00);
             HAL_NVIC_EnableIRQ(getIRQ());
         }
+        return Pin;
     }
 /*
 	returns the IRQn needed for the Pin

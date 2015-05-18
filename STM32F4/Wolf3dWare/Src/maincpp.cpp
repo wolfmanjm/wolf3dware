@@ -45,7 +45,7 @@ SemaphoreHandle_t READY_Q_MUTEX;
 SemaphoreHandle_t TEMPERATURE_MUTEX;
 
 uint32_t xdelta= 0;
-
+uint16_t xendstop, yendstop, zendstop;
 
 // local
 
@@ -84,6 +84,9 @@ using LED3Pin   = GPIO(G,13);           // PG13  LED3
 using LED4Pin   = GPIO(G,14);           // PG14  LED4
 
 using ButtonPin = GPIO(A,0);            // PA0 Button
+using XEndstopPin = GPIO(G,2);        // PG2 Button
+using YEndstopPin = GPIO(G,3);        // PG3 Button
+using ZEndstopPin = GPIO(G,9);        // PG9 Button
 
 using TriggerPin= GPIO(D, 5);           // PD5
 // 11 Spare
@@ -124,11 +127,15 @@ using LED3Pin   = GPIO(C,12);           // PC12 LED3
 using LED4Pin   = GPIO(C,1);            // PC1 LED4
 using ButtonPin = GPIO(A,0);            // PA0 Button
 
-using TriggerPin= GPIO(C,2);            // PC2
+using XEndstopPin = GPIO(C,0);        	// 1-19
+using YEndstopPin = GPIO(C,1);        	// 1-20
+using ZEndstopPin = GPIO(C,2);        	// 2-2
+
+using TriggerPin= GPIO(A,1);            // 2-8
 
 /*
 pinout
-https://gist.github.com/wolfmanjm/91c2149ed15ae8e2d434
+https://gist.github.com/wolfmanjm/e536a8b6edb3a1c38c45
 
 A0  			: button
 A1  	 		:free
@@ -288,8 +295,13 @@ static void initializePins()
 	E_DirPin::output(false);
 	E_EnbPin::output(false);
 
-	// pullup, IRQ, rising, low priority
-	ButtonPin::input(true, true);
+	// no pullup, IRQ, rising, low priority
+	ButtonPin::input(false, true);
+
+	// endstops IRQ on rising edge, Normally Closed to Ground
+	xendstop= XEndstopPin::input(true, true, true);
+	yendstop= YEndstopPin::input(true, true, true);
+	zendstop= ZEndstopPin::input(true, true, true);
 
 	TriggerPin::output(false);
 
