@@ -11,7 +11,7 @@ Uses the STM32F4xxx HAL by STM, there are no plans to make it portable to other 
 Uses FreeRTOS as the kernel.
 
 Initial prototype is running on an Olimex STM32-H405 https://www.olimex.com/Products/ARM/ST/STM32-H405/
-
+With a STM32F405RGT6 
 
 Status
 ------
