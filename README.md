@@ -10,7 +10,8 @@ improved Motion Control from SmoothieWare created by Arthur Wolf.
 Uses the STM32F4xxx HAL by STM, there are no plans to make it portable to other architectures. However the HAL is abstracted with std::function calls.
 Uses FreeRTOS as the kernel.
 
-Initial prototype is on a STM32F4-discovery board.
+Initial prototype is running on an Olimex STM32-H405 https://www.olimex.com/Products/ARM/ST/STM32-H405/
+
 
 Status
 ------
