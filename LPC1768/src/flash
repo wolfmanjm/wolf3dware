@@ -1,0 +1,1 @@
+dfu-util -R -d 1d50:6015 -D LPC1768/wolf3dware.bin
