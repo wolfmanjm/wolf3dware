@@ -308,14 +308,18 @@ static void mainThread(void const *argument)
 				#endif
 			}
 
+			#ifdef USE_STM32F429I_DISCO
+			static float lx= 0, ly= 0;
 			if(ulNotifiedValue & MOVE_BIT) {
-				// int x, y;
-				// getPosition(&x, &y);
-				// if(lx != x || ly != y){
-				// 	BSP_LCD_DrawLine(lx, ly, x, y);
-				// 	lx= x; ly= y;
-				// }
+				// 240x320, use bottom 240x240
+				float x, y;
+				getPosition(&x, &y, NULL, NULL);
+				if(lx != x || ly != y){
+					BSP_LCD_DrawLine(lx+120, ly+120+80, x+120, y+120+80);
+					lx= x; ly= y;
+				}
 			}
+			#endif
 
 		} else {
 
@@ -329,13 +333,13 @@ static void mainThread(void const *argument)
 			getPosition(&x, &y, &z, &e);
 			char buf[16];
 			snprintf(buf, sizeof(buf), "X %8.4f", x);
-			BSP_LCD_DisplayStringAtLine(2, (uint8_t*)buf);
+			BSP_LCD_DisplayStringAtLine(0, (uint8_t*)buf);
 			snprintf(buf, sizeof(buf), "Y %8.4f", y);
-			BSP_LCD_DisplayStringAtLine(3, (uint8_t*)buf);
+			BSP_LCD_DisplayStringAtLine(1, (uint8_t*)buf);
 			snprintf(buf, sizeof(buf), "Z %8.4f", z);
-			BSP_LCD_DisplayStringAtLine(4, (uint8_t*)buf);
+			BSP_LCD_DisplayStringAtLine(2, (uint8_t*)buf);
 			snprintf(buf, sizeof(buf), "E %8.4f", e);
-			BSP_LCD_DisplayStringAtLine(5, (uint8_t*)buf);
+			BSP_LCD_DisplayStringAtLine(3, (uint8_t*)buf);
 			#endif
 
 

@@ -320,8 +320,8 @@ extern "C" void getPosition(float *x, float *y, float *z, float *e)
 {
 	*x= THEKERNEL.getMotionControl().getActuator('X').getCurrentPositionInmm();
 	*y= THEKERNEL.getMotionControl().getActuator('Y').getCurrentPositionInmm();
-	*z= THEKERNEL.getMotionControl().getActuator('Z').getCurrentPositionInmm();
-	*e= THEKERNEL.getMotionControl().getActuator('E').getCurrentPositionInmm();
+	if(z != NULL) *z= THEKERNEL.getMotionControl().getActuator('Z').getCurrentPositionInmm();
+	if(e != NULL) *e= THEKERNEL.getMotionControl().getActuator('E').getCurrentPositionInmm();
 }
 extern "C" osThreadId MainThreadHandle;
 
@@ -475,8 +475,10 @@ void executeNextBlock()
 		l.unlock();
 		running= false;
 	}
+	#ifdef USE_STM32F429I_DISCO
 	// this lets main thread know we moved to plot the movements
-	//xTaskNotify( MainThreadHandle, 0x02, eSetBits);
+	xTaskNotify( MainThreadHandle, 0x02, eSetBits);
+	#endif
 }
 
 // TODO add a task to write responses to host as different tasks may need access
