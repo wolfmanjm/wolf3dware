@@ -9,7 +9,7 @@
 extern SemaphoreHandle_t READY_Q_MUTEX;
 extern SemaphoreHandle_t TEMPERATURE_MUTEX;
 
-// locks a global mutex and releases when out of scope
+// locks/unlocks a global mutex
 class Lock
 {
 public:

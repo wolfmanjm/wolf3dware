@@ -1,45 +1,46 @@
 #include "mbed.h"
 #include "rtos.h"
-#include "USBSerial.h"
+#include "us_ticker_api.h"
 
-//Virtual serial port over USB
-USBSerial serial;
+extern int setup();
+extern int commsSetup();
+
+extern void stage2_setup();
+extern void setLed(int, bool);
+
+static osThreadId mainThreadID;
 
 
-void serial_thread(void const *args) {
-
-	serial.printf("I am a virtual serial port\r\n");
-	while(1)
-	{
-		char buf[128];
-		if(serial.available() > 0){
-			serial.gets(buf, sizeof(buf)-1);
-			serial.printf("%s\n", buf);
-		}else{
-			Thread::wait(100);
-		}
-	}
+uint32_t start_time()
+{
+    return us_ticker_read();
 }
 
-DigitalOut led1(LED1);
-DigitalOut led2(LED2);
+uint32_t stop_time()
+{
+    return us_ticker_read();
+}
 
-void led2_thread(void const *args) {
-	while (true) {
-		led2 = !led2;
+void mainThread()
+{
+	// call any init stuff that has to happen after RTOS is started
+	stage2_setup();
+
+	// just toggle a led to show we are alive
+	bool toggle= false;
+	mainThreadID= osThreadGetId();
+	osThreadSetPriority(mainThreadID, osPriorityIdle);
+	while(1) {
+		setLed(1, toggle);
+		toggle= !toggle;
 		Thread::wait(1000);
 	}
 }
 
-extern int setup();
 int main() {
-	Thread thread1(led2_thread);
-	Thread thread2(serial_thread);
-	
+	//HAL_NVIC_SetPriorityGrouping( NVIC_PRIORITYGROUP_4 );
+
+	commsSetup();
 	setup();
-	
-	while (true) {
-		led1 = !led1;
-		Thread::wait(500);
-	}
+	mainThread();
 }

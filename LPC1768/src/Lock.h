@@ -3,24 +3,32 @@
 #include "mbed.h"
 #include "rtos.h"
 
-typedef Mutex SemaphoreHandle_t;
+#include <mutex>
 
-extern SemaphoreHandle_t READY_Q_MUTEX;
-extern SemaphoreHandle_t TEMPERATURE_MUTEX;
-// locks a global mutex and releases when out of scope
+// MBED Mutex
+using GenericMutex= Mutex;
+
+extern GenericMutex READY_Q_MUTEX;
+extern GenericMutex TEMPERATURE_MUTEX;
+
+// wrapper around RTOS specific mutex
 class Lock
 {
 	public:
-		Lock(SemaphoreHandle_t xSemaphore) : xSemaphore(xSemaphore){}
+		Lock(GenericMutex mutex) : the_mutex(mutex){}
 		void lock()
 		{
-		//xSemaphoreTake(xSemaphore, portMAX_DELAY);
+			the_mutex.lock();
 		}
 		void unlock()
 		{
-		//xSemaphoreGive( xSemaphore );
-		};
+			the_mutex.unlock();
+		}
 
 	private:
-		SemaphoreHandle_t xSemaphore;
+		GenericMutex the_mutex;
 };
+
+// locks a global mutex and releases when out of scope
+// just an alias for the std::lock_guard RAII-style lock
+using AutoLock = std::lock_guard<Lock>;

@@ -17,6 +17,10 @@ GCC4MBED_DIR    := /datadisk/aux/Stuff/reprap/gcc4mbed
 NO_FLOAT_SCANF  := 1
 NO_FLOAT_PRINTF := 1
 MBED_LIBS       := rtos USBDevice
+GCC4MBED_TYPE   := Debug
+MRI_BREAK_ON_INIT := 1
+MRI_UART        := MRI_UART_0
+MRI_UART_BAUD   := 115200
 
 include $(GCC4MBED_DIR)/build/gcc4mbed.mk
 
