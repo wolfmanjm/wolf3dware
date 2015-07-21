@@ -65,6 +65,21 @@ void setLed(int led, bool on);
 // forward references
 void kickQueue();
 
+// Prepares and executes a watchdog reset for dfu or reboot
+void systemReset( bool dfu )
+{
+    if(dfu) {
+        LPC_WDT->WDCLKSEL = 0x1;                // Set CLK src to PCLK
+        uint32_t clk = SystemCoreClock / 16;    // WD has a fixed /4 prescaler, PCLK default is /4
+        LPC_WDT->WDTC = 1 * (float)clk;         // Reset in 1 second
+        LPC_WDT->WDMOD = 0x3;                   // Enabled and Reset
+        LPC_WDT->WDFEED = 0xAA;                 // Kick the dog!
+        LPC_WDT->WDFEED = 0x55;
+    } else {
+        NVIC_SystemReset();
+    }
+}
+
 void initControl()
 {
 	move_issued= false;
@@ -274,6 +289,14 @@ static bool handleCommand(const char *line)
 	}else if(strcmp(line, "mem") == 0) {
 		free_memory(oss);
 
+	}else if(strcmp(line, "reset") == 0) {
+		Thread::wait(5000);
+		systemReset(false);
+
+	}else if(strcmp(line, "dfu") == 0) {
+		Thread::wait(2000);
+		systemReset(true);
+
 	}else if(strcmp(line, "adc") == 0) {
 		for (int i = 0; i < 10; ++i) {
 			uint16_t adc= readADC();
@@ -443,11 +466,11 @@ static bool issueTicks()
 	// a move was issued to the actuators, tick them until all moves are done
 	uint32_t yst= start_time();
 	bool all_moves_finished= !mc.issueTicks(++current_tick);
-	{
-		uint32_t yet= stop_time();
-		uint32_t d= yet-yst;
-		if(d > ydelta) ydelta= d;
-	}
+		{
+			uint32_t yet= stop_time();
+			uint32_t d= yet-yst;
+			if(d > ydelta) ydelta= d;
+		}
 	if(mc.isStepped()) {
 		// if a step or steps were set then start the unstep ticker
 		startUnstepTicker();

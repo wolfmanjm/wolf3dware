@@ -73,6 +73,7 @@ static void cdcThread(void const *argument)
 				toggle= !toggle;
 			}
 			if(ev.value.signals & 0x02) {
+				Thread::wait(100);
 				usb_serial->puts("Welcome to Wolf3DWare\r\nok\r\n");
 			}
 
