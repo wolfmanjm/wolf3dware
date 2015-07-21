@@ -215,6 +215,10 @@ static void free_memory(std::ostringstream& oss)
     unsigned long m = (uint32_t)__get_MSP() - heapEnd;
     oss << "Unused Heap: " << m << " bytes\r\n";
     oss << "Stack size: " << 0x10008000 - (uint32_t)__get_MSP() << "\n";
+	#if 0
+    oss << "Free AHB0: " << AHB0.free();
+    oss << " Free AHB1: " << AHB1.free() << "\n";
+	#endif
 }
 #endif
 

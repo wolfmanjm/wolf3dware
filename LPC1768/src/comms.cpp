@@ -42,8 +42,8 @@ int commsSetup(void)
 	// setup USB CDC
 	usb_serial->attach(serialReceived);
 	usb_serial->attach(serialConnected);
-	// start communication threads
-	CDCThreadHandle = new Thread(cdcThread, nullptr,  osPriorityNormal, 1024*2);
+	// start communication thread, stick the Stack in ETH RAM (AHB1)
+	CDCThreadHandle = new Thread(cdcThread, nullptr,  osPriorityNormal, 1024*2, (unsigned char *)0x20080000);
 
 	return 1;
 }
