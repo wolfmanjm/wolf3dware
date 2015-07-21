@@ -133,8 +133,8 @@ void Actuator::step()
     hal_functions[SET_STEP](true);
 
     // keep track of real time position in steps
-    uint32_t dir= direction?1:-1;
-    current_step_position += dir;
+    if(direction) current_step_position++;
+    else current_step_position--;
 
     stepped= true;
 }

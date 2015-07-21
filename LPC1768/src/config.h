@@ -1,0 +1,9 @@
+#pragma once
+
+//#define STEP_TICKER_FREQUENCY 100000.0F
+#define STEP_TICKER_FREQUENCY 36000.0F
+
+#define SMOOTHIEBOARD
+
+//#define PRINTER3D
+//#define USE_PANEL

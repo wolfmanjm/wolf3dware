@@ -290,13 +290,18 @@ bool MotionControl::handleConfigurations(GCode& gc)
 // M114, M114.1
 bool MotionControl::handleGetPosition(GCode& gc)
 {
-	bool raw= (gc.getSubcode() == 1);
+	bool real_time= (gc.getSubcode() == 1);
+	bool raw= (gc.getSubcode() == 2);
 	gc.getOS().printf("C: ");
 	for (size_t i = 0; i < actuators.size(); ++i) {
 		char c= actuator_axis_lut[i];
-		gc.getOS().printf("%c:%1.3f", c, raw ? actuators[i].getCurrentPositionInSteps() : fromMillimeters(last_milestone[i]));
-		if(!raw && actuators[i].getScale() != 1.0F) {
-			gc.getOS().printf("(%1.3f)", fromMillimeters(last_milestone[i])/actuators[i].getScale());
+		if(raw) {
+			gc.getOS().printf("%c:%d", c, actuators[i].getCurrentPositionInSteps());
+		}else{
+			gc.getOS().printf("%c:%1.3f", c, real_time ? actuators[i].getCurrentPositionInmm() : fromMillimeters(last_milestone[i]));
+			if(!real_time && actuators[i].getScale() != 1.0F) {
+				gc.getOS().printf("(%1.3f)", fromMillimeters(last_milestone[i])/actuators[i].getScale());
+			}
 		}
 		gc.getOS().printf(" ");
 	}

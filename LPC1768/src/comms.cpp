@@ -21,24 +21,29 @@ extern void setLed(int, bool);
 static void serialReceived()
 {
 	if(CDCThreadHandle != nullptr){
-		CDCThreadHandle->signal_set(0x1);
+		CDCThreadHandle->signal_set(0x01);
 	}
 }
 
-/**
-  * @brief  Main program
-  * @param  None
-  * @retval None
-  */
+static void serialConnected(bool connected)
+{
+	setLed(3, connected);
+	if(connected){
+		CDCThreadHandle->signal_set(0x02);
+	}else{
+		setLed(2, 0);
+	}
+}
+
 int commsSetup(void)
 {
-	usb_serial= new USBSerial();
+	usb_serial= new USBSerial(0x1f00, 0x2012, 0x0001, false);
 
 	// setup USB CDC
 	usb_serial->attach(serialReceived);
-
-	// start coomunication threads
-	CDCThreadHandle = new Thread(cdcThread, nullptr,  osPriorityNormal);
+	usb_serial->attach(serialConnected);
+	// start communication threads
+	CDCThreadHandle = new Thread(cdcThread, nullptr,  osPriorityNormal, 1024*2);
 
 	return 1;
 }
@@ -61,8 +66,19 @@ static void cdcThread(void const *argument)
 	for (;;) {
 
 		// TODO handle timeout and kick queue every now and then
-		Thread::signal_wait(0x1);
-		setLed(2, toggle); toggle= !toggle;
+		osEvent ev= Thread::signal_wait(0);
+		if(ev.status == osEventSignal) {
+			if(ev.value.signals & 0x01) {
+				setLed(2, toggle);
+				toggle= !toggle;
+			}
+			if(ev.value.signals & 0x02) {
+				usb_serial->puts("Welcome to Wolf3DWare\r\nok\r\n");
+			}
+
+		}else{
+			continue;
+		}
 
 		while(usb_serial->available() > 0) {
 			c= usb_serial->_getc();
@@ -82,7 +98,7 @@ static void cdcThread(void const *argument)
 			}else if(c == 8 || c == 127) { // BS or DEL
 				if(cnt > 0) --cnt;
 
-			}else if(cnt >= sizeof(line)) {
+			}else if(cnt >= sizeof(line)-1) {
 				// discard the excess of long lines
 				continue;
 

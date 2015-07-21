@@ -23,6 +23,8 @@ uint32_t stop_time()
 
 void mainThread()
 {
+	printf("mainThread starting...\n");
+
 	// call any init stuff that has to happen after RTOS is started
 	stage2_setup();
 
@@ -38,7 +40,11 @@ void mainThread()
 }
 
 int main() {
-	//HAL_NVIC_SetPriorityGrouping( NVIC_PRIORITYGROUP_4 );
+	// we need to set the baud rate on the uart, otherwise we seem to get some unknown baudrate
+	Serial pc(USBTX, USBRX);
+	pc.baud(115200);
+
+	printf("Starting setup of Wolf3DWare...\n");
 
 	commsSetup();
 	setup();

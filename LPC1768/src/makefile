@@ -14,19 +14,23 @@
 PROJECT         := wolf3dware
 DEVICES         := LPC1768
 GCC4MBED_DIR    := /datadisk/aux/Stuff/reprap/gcc4mbed
-NO_FLOAT_SCANF  := 1
-NO_FLOAT_PRINTF := 1
+NO_FLOAT_SCANF  := 0
+NO_FLOAT_PRINTF := 0
 MBED_LIBS       := rtos USBDevice
 GCC4MBED_TYPE   := Debug
-MRI_BREAK_ON_INIT := 1
-MRI_UART        := MRI_UART_0
+MRI_BREAK_ON_INIT := 0
 MRI_UART_BAUD   := 115200
+#MRI_UART        := MRI_UART_0
+MRI_UART        := MRI_UART_MBED_USB MRI_UART_SHARE
+MRI_SEMIHOST_STDIO := 0
+MRI_ENABLE      := 1
+NEWLIB_NANO     := 1
 
 include $(GCC4MBED_DIR)/build/gcc4mbed.mk
 
 .PHONY: upload
 
-upload: ./LPC1768/$(PROJECT).bin
-        dfu-util -R -d 1d50:6015 -D $<
+upload:
+	dfu-util -R -d 1d50:6015 -D ./LPC1768/$(PROJECT).bin
 
 

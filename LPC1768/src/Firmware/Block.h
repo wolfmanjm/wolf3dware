@@ -1,10 +1,8 @@
 #pragma once
+#include "config.h"
 
 #include <bitset>
 #include <vector>
-
-#define STEP_TICKER_FREQUENCY 100000.0F
-#define STEP_TICKER_FREQUENCY_2 (STEP_TICKER_FREQUENCY*STEP_TICKER_FREQUENCY)
 
 struct Block {
 	uint32_t id{0};

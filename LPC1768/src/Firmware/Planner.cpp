@@ -1,10 +1,12 @@
 /**
-	Most of the Planner is taken direct from Smoothie,with inlky minor changes
+	Most of the Planner is taken direct from Smoothie, with only minor changes
 	https://github.com/Smoothieware/Smoothieware/blob/edge/src/modules/robot/Planner.cpp
 
 	calculateTrapezoid() was designed by Arthur Wolf for Smoothie
 	https://gist.github.com/arthurwolf/ed8cc3bce15ac395d8e7
 */
+#include "config.h"
+
 #include "Kernel.h"
 #include "Planner.h"
 #include "Dispatcher.h"
@@ -20,6 +22,8 @@
 #include <tuple>
 #include <iostream>
 #include <string.h>
+
+static const float STEP_TICKER_FREQUENCY_2 = (STEP_TICKER_FREQUENCY*STEP_TICKER_FREQUENCY);
 
 Planner::Planner()
 {

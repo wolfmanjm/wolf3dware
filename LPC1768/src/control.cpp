@@ -1,3 +1,5 @@
+#include "config.h"
+
 #include "Firmware/Kernel.h"
 #include "Firmware/GCodeProcessor.h"
 #include "Firmware/Dispatcher.h"
@@ -43,7 +45,10 @@ volatile bool running= false;
 
 static size_t maxqsize= 0;
 static uint32_t xdelta= 0;
+static uint32_t ydelta= 0;
 static Thread *moveCompletedThreadHandle= nullptr;
+static void setupTimers();
+static void moveCompletedThread(void const *argument);
 
 uint16_t readADC();
 void setPWM(uint8_t channel, float percent);
@@ -57,8 +62,6 @@ void startUnstepTicker();
 bool serial_reply(const char*, size_t);
 void setLed(int led, bool on);
 
-
-
 // forward references
 void kickQueue();
 
@@ -67,6 +70,10 @@ void initControl()
 	move_issued= false;
 	waiting_ticks= 0;
 	running= false;
+	moveCompletedThreadHandle = new Thread(moveCompletedThread, nullptr, osPriorityRealtime);
+
+	// setup tick and untick timers
+	setupTimers();
 }
 
 static void executeNextBlock()
@@ -82,15 +89,14 @@ static void executeNextBlock()
 		// sets up the move with all the actuators involved in this block
 		move_issued= THEKERNEL.getMotionControl().issueMove(block);
 		running= true;
+		setLed(5, true); // play led on
 
 	}else{
+
 		l.unlock();
 		running= false;
+		setLed(5, false); // play led off
 	}
-	#ifdef USE_STM32F429I_DISCO
-	// this lets main thread know we moved to plot the movements
-	xTaskNotify( MainThreadHandle, 0x02, eSetBits);
-	#endif
 }
 
 // TODO add a task to write responses to host as different tasks may need access
@@ -113,6 +119,8 @@ static void sendReply(const std::string& str)
 	}
 }
 
+#if 0
+// for newlib
 extern "C" char __end__;
 extern "C" caddr_t _sbrk(int incr);
 static void free_memory(std::ostringstream& oss)
@@ -138,6 +146,7 @@ static void free_memory(std::ostringstream& oss)
 		chunk_curr= chunk_next;
 		chunk_number++;
 	}
+
 	uint32_t sp= (uint32_t)__get_MSP();
 	oss << "Used malloc: " << used_space << " bytes\n";
 	oss << "Free malloc: " << free_space << " bytes\n";
@@ -146,7 +155,70 @@ static void free_memory(std::ostringstream& oss)
 	oss << "Total free: " << (sp - heap_end) + free_space << " bytes\n";
 }
 
-// runs in the dcd thread context
+#else
+
+// for newlib-nano
+extern "C" uint32_t  __end__;
+extern "C" uint32_t  __malloc_free_list;
+extern "C" uint32_t  _sbrk(int size);
+static void free_memory(std::ostringstream& oss)
+{
+    uint32_t chunkNumber = 1;
+    // The __end__ linker symbol points to the beginning of the heap.
+    uint32_t chunkCurr = (uint32_t)&__end__;
+    // __malloc_free_list is the head pointer to newlib-nano's link list of free chunks.
+    uint32_t freeCurr = __malloc_free_list;
+    // Calling _sbrk() with 0 reserves no more memory but it returns the current top of heap.
+    uint32_t heapEnd = _sbrk(0);
+    // accumulate totals
+    uint32_t freeSize = 0;
+    uint32_t usedSize = 0;
+
+    oss << "Used Heap Size: " << heapEnd - chunkCurr << "\n";
+
+    // Walk through the chunks until we hit the end of the heap.
+    while (chunkCurr < heapEnd) {
+        // Assume the chunk is in use.  Will update later.
+        int      isChunkFree = 0;
+        // The first 32-bit word in a chunk is the size of the allocation.  newlib-nano over allocates by 8 bytes.
+        // 4 bytes for this 32-bit chunk size and another 4 bytes to allow for 8 byte-alignment of returned pointer.
+        uint32_t chunkSize = *(uint32_t *)chunkCurr;
+        // The start of the next chunk is right after the end of this one.
+        uint32_t chunkNext = chunkCurr + chunkSize;
+
+        // The free list is sorted by address.
+        // Check to see if we have found the next free chunk in the heap.
+        if (chunkCurr == freeCurr) {
+            // Chunk is free so flag it as such.
+            isChunkFree = 1;
+            // The second 32-bit word in a free chunk is a pointer to the next free chunk (again sorted by address).
+            freeCurr = *(uint32_t *)(freeCurr + 4);
+        }
+
+        // Skip past the 32-bit size field in the chunk header.
+        chunkCurr += 4;
+        // 8-byte align the data pointer.
+        chunkCurr = (chunkCurr + 7) & ~7;
+        // newlib-nano over allocates by 8 bytes, 4 bytes for the 32-bit chunk size and another 4 bytes to allow for 8
+        // byte-alignment of the returned pointer.
+        chunkSize -= 8;
+        // if (verbose)
+        //     stream->printf("  Chunk: %lu  Address: 0x%08lX  Size: %lu  %s\n", chunkNumber, chunkCurr, chunkSize, isChunkFree ? "CHUNK FREE" : "");
+
+        if (isChunkFree) freeSize += chunkSize;
+        else usedSize += chunkSize;
+
+        chunkCurr = chunkNext;
+        chunkNumber++;
+    }
+    oss << "Allocated: " << usedSize << ", Free: " << freeSize << "\n";
+    unsigned long m = (uint32_t)__get_MSP() - heapEnd;
+    oss << "Unused Heap: " << m << " bytes\r\n";
+    oss << "Stack size: " << 0x10008000 - (uint32_t)__get_MSP() << "\n";
+}
+#endif
+
+// runs in the cdc thread context
 static bool handleCommand(const char *line)
 {
 	bool handled= true;
@@ -177,15 +249,20 @@ static bool handleCommand(const char *line)
 		execute_mode= false;
 		oss << "ok\n";
 
+	}else if(strcmp(line, "br") == 0) {
+		__debugbreak();
+
 	}else if(strcmp(line, "kill") == 0) {
 		execute_mode= false;
 		THEKERNEL.getPlanner().purge();
 		THEKERNEL.getMotionControl().resetAxisPositions();
 		running= false;
+		setLed(5, false); // play led off
 		oss << "ok\n";
 
 	}else if(strcmp(line, "stats") == 0) {
-		oss << "Worst time: " << xdelta << "uS\n";
+		oss << "Worst step time: " << xdelta << "uS\n";
+		oss << "Worst issuetick time: " << ydelta << "uS\n";
 		oss << "worst overflow: " << overflow << " ticks\n";
 		oss << "max q size: " << maxqsize << "\n";
 		oss << "ok\n";
@@ -229,30 +306,6 @@ static bool handleCommand(const char *line)
 	sendReply(oss.str());
 
 	return handled;
-}
-
-// we have not recieved any commands for a while see if we can kickstart the queue running
-void kickQueue()
-{
-	if(execute_mode && !running) {
-		Planner::Queue_t& q= THEKERNEL.getPlanner().getReadyQueue();
-		Lock l(READY_Q_MUTEX);
-		l.lock();
-		size_t n=  q.size();
-		l.unlock();
-		if(n > 0) {
-			// we have somethign in the queue we can execute
-			executeNextBlock();
-			return;
-		}
-		// check lookahead queue, no need to lock it as it is only manipulated in this thread
-		Planner::Queue_t& lq= THEKERNEL.getPlanner().getLookAheadQueue();
-		if(lq.size() > 0) {
-			// move it into ready and execute it (probably a single jog command)
-			THEKERNEL.getPlanner().moveAllToReady();
-			executeNextBlock();
-		}
-	}
 }
 
 // gets called for each received line from USB serial port
@@ -323,8 +376,33 @@ bool commandLineHandler(const char *line)
 	return true;
 }
 
+// we have not recieved any commands for a while see if we can kickstart the queue running
+void kickQueue()
+{
+	if(execute_mode && !running) {
+		Planner::Queue_t& q= THEKERNEL.getPlanner().getReadyQueue();
+		Lock l(READY_Q_MUTEX);
+		l.lock();
+		size_t n=  q.size();
+		l.unlock();
+		if(n > 0) {
+			// we have somethign in the queue we can execute
+			executeNextBlock();
+			return;
+		}
+		// check lookahead queue, no need to lock it as it is only manipulated in this thread
+		Planner::Queue_t& lq= THEKERNEL.getPlanner().getLookAheadQueue();
+		if(lq.size() > 0) {
+			// move it into ready and execute it (probably a single jog command)
+			THEKERNEL.getPlanner().moveAllToReady();
+			executeNextBlock();
+		}
+	}
+}
 
-uint32_t xst, xet;
+static uint32_t xst, xet;
+//static uint32_t yst, yet;
+uint32_t start_time();
 uint32_t stop_time();
 
 // run ticks in tick ISR
@@ -349,7 +427,7 @@ static bool issueTicks()
 	while(waiting_ticks > 1) {
 		// we issue the number of ticks we missed while setting up the next move
 		if(!mc.issueTicks(++current_tick)){
-			// too many waiting ticks, we finished all the moves
+			// too many waiting ticks, we finished all the moves,
 			move_issued= false;
 			current_tick= 0;
 			waiting_ticks= 1;
@@ -359,9 +437,13 @@ static bool issueTicks()
 	}
 
 	// a move was issued to the actuators, tick them until all moves are done
-
+	uint32_t yst= start_time();
 	bool all_moves_finished= !mc.issueTicks(++current_tick);
-
+	{
+		uint32_t yet= stop_time();
+		uint32_t d= yet-yst;
+		if(d > ydelta) ydelta= d;
+	}
 	if(mc.isStepped()) {
 		// if a step or steps were set then start the unstep ticker
 		startUnstepTicker();
@@ -385,94 +467,52 @@ static bool issueTicks()
 	return moves_left;
 }
 
-static void issueUnstep()
-{
-	THEKERNEL.getMotionControl().issueUnsteps();
-}
-
 // run the block change in this thread when signaled
 static void moveCompletedThread(void const *argument)
 {
 	for(;;) {
 		// wait until we have something to process
-		uint32_t ulNotifiedValue= 0; // ulTaskNotifyTake( pdTRUE, portMAX_DELAY);
-		if(ulNotifiedValue > 0) {
-			// get next block, and setup the next move
-			executeNextBlock();
+		Thread::signal_wait(0x01);
 
-			if(!move_issued) {
-				// no moves were setup so disable the waiting tick count
-				// if a move was issued then waiting_ticks would have been keeping count of how many we missed
-				waiting_ticks= 0;
-			}
-			setLed(10, false); // trigger pin low
+		// get next block, and setup the next move
+		executeNextBlock();
+
+		if(!move_issued) {
+			// no moves were setup so disable the waiting tick count
+			// if a move was issued then waiting_ticks would have been keeping count of how many we missed
+			waiting_ticks= 0;
 		}
+
+		setLed(10, false); // trigger pin low
 	}
 }
-/*
-uint32_t xst, xet;
-void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
-{
-	// this is the step ticker
-	if(htim->Instance == STEPTICKER_TIMx) {
-		// handle stepticker
-		xst= start_time();
-		if(!issueTicks()) {
-			// signal the next block to start, handled in moveCompletedThread
-			BaseType_t xHigherPriorityTaskWoken = pdFALSE;
-			vTaskNotifyGiveFromISR( moveCompletedThreadHandle, &xHigherPriorityTaskWoken );
-			portYIELD_FROM_ISR( xHigherPriorityTaskWoken );
-		}
 
-	}else if(htim->Instance == UNSTEPTICKER_TIMx) {
-		// handle unstep ticker
-		issueUnstep();
-		// stop the timer
-		HAL_TIM_Base_Stop_IT(&UnStepTickerTimHandle);
-		// reset the count for next time
-		__HAL_TIM_SET_COUNTER(&UnStepTickerTimHandle, 0);
-		// Or this apparently will stop interrupts and reset counter
-		//UnStepTickerTimHandle.Instance->CR1 |= (TIM_CR1_UDIS);
-		//UnStepTickerTimHandle.Instance->EGR |= (TIM_EGR_UG);
+static void steptick_isr()
+{
+	xst= start_time();
+	if(!issueTicks()) {
+		// signal the next block to start, handled in moveCompletedThread
+		moveCompletedThreadHandle->signal_set(0x01);
 	}
+}
+
+static Ticker step_ticker;
+static void setupTimers()
+{
+	uint32_t us= roundf(1000000.0F/STEP_TICKER_FREQUENCY);
+    step_ticker.attach_us(steptick_isr, us);
+}
+
+static void unsteptick_isr()
+{
+	THEKERNEL.getMotionControl().issueUnsteps();
 }
 
 // this will start the unstep ticker
+static Timeout unstep_ticker;
 void startUnstepTicker()
 {
-	HAL_TIM_Base_Start_IT(&UnStepTickerTimHandle);
-	// Or this apparently will restart interrupts
-	//UnStepTickerTimHandle.Instance->CR1 &= ~(TIM_CR1_UDIS);
+    unstep_ticker.attach_us(unsteptick_isr, 1);
 }
-
-*/
-#include "Firmware/Kernel.h"
-#include "Firmware/GCodeProcessor.h"
-#include "Firmware/Dispatcher.h"
-#include "Firmware/GCode.h"
-#include "Firmware/MotionControl.h"
-#include "Firmware/Block.h"
-#include "Firmware/Planner.h"
-#include "Firmware/Actuator.h"
-
-#include "mbed.h"
-#include "rtos.h"
-
-#include "Lock.h"
-
-#include "mri.h"
-
-#include <map>
-#include <vector>
-#include <iostream>
-#include <stdint.h>
-#include <ctype.h>
-#include <cmath>
-#include <assert.h>
-#include <malloc.h>
-#include <string.h>
-#include <algorithm>
-
-using namespace std;
 
 

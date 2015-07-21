@@ -1,3 +1,5 @@
+#include "config.h"
+
 #include "Firmware/Kernel.h"
 #include "Firmware/GCodeProcessor.h"
 #include "Firmware/Dispatcher.h"
@@ -16,12 +18,6 @@
 
 // externals
 void initControl();
-
-
-#define SMOOTHIEBOARD
-
-//#define PRINTER3D
-//#define USE_PANEL
 
 #ifdef PRINTER3D
 #include "Firmware/Tools/TemperatureCoyntrol.h"
@@ -108,7 +104,7 @@ static void initializePins()
 	LED2Pin= 0;
 	LED3Pin= 0;
 	LED4Pin= 0;
-	PLAY_LED= 0;
+	PLAY_LED= 1;
 }
 
 #if 0
@@ -134,7 +130,7 @@ void setLed(int led, bool on)
 		case 2: LED2Pin= on?1:0; break;
 		case 3: LED3Pin= on?1:0; break;
 		case 4: LED4Pin= on?1:0; break;
-		case 5: PLAY_LED= on?1:0; break;
+		case 5: PLAY_LED= on?0:1; break;
 		case 10: TriggerPin= on?1:0; break;
 	}
 }
@@ -168,11 +164,6 @@ static size_t readFlash(void *, size_t, uint32_t)
 
 int setup()
 {
-	// TODO setup high priority thread
-	//moveCompletedThreadHandle = new Thread(moveCompletedThread, nullptr, osPriorityRealtime);
-
-	// TODO setup tick and untick timers
-
 	// creates Kernel singleton and other singletons and Initializes MotionControl
 	MotionControl& mc= THEKERNEL.getMotionControl();
 
