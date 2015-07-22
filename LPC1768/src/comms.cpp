@@ -10,9 +10,9 @@
 static USBSerial *usb_serial= nullptr;
 
 // reads lines from CDC and dispatched full lines to parser
-static Thread *CDCThreadHandle= nullptr;
+static Thread *SerialThreadHandle= nullptr;
 
-static void cdcThread(void const *argument);
+static void serialThread(void const *argument);
 
 extern bool commandLineHandler(const char*);
 extern void kickQueue();
@@ -20,30 +20,34 @@ extern void setLed(int, bool);
 
 static void serialReceived()
 {
-	if(CDCThreadHandle != nullptr){
-		CDCThreadHandle->signal_set(0x01);
-	}
+	SerialThreadHandle->signal_set(0x01);
 }
 
 static void serialConnected(bool connected)
 {
 	setLed(3, connected);
 	if(connected){
-		CDCThreadHandle->signal_set(0x02);
+		SerialThreadHandle->signal_set(0x02);
 	}else{
 		setLed(2, 0);
 	}
+}
+
+void commsDisconnect()
+{
+	usb_serial->disconnect();
 }
 
 int commsSetup(void)
 {
 	usb_serial= new USBSerial(0x1f00, 0x2012, 0x0001, false);
 
+	// start communication thread, stick the Stack in ETH RAM (AHB1)
+	SerialThreadHandle = new Thread(serialThread, nullptr,  osPriorityNormal, 1024*2, (unsigned char *)0x20080000);
+
 	// setup USB CDC
 	usb_serial->attach(serialReceived);
 	usb_serial->attach(serialConnected);
-	// start communication thread, stick the Stack in ETH RAM (AHB1)
-	CDCThreadHandle = new Thread(cdcThread, nullptr,  osPriorityNormal, 1024*2, (unsigned char *)0x20080000);
 
 	return 1;
 }
@@ -59,7 +63,7 @@ bool serial_reply(const char *buf, size_t len)
 static char line[MAXLINELEN];
 static uint16_t cnt = 0;
 
-static void cdcThread(void const *argument)
+static void serialThread(void const *argument)
 {
 	bool toggle= false;
 	uint8_t c;
@@ -73,7 +77,7 @@ static void cdcThread(void const *argument)
 				toggle= !toggle;
 			}
 			if(ev.value.signals & 0x02) {
-				Thread::wait(100);
+				Thread::wait(100); // seems to be some sort of race condition so wait a bit
 				usb_serial->puts("Welcome to Wolf3DWare\r\nok\r\n");
 			}
 
@@ -81,6 +85,7 @@ static void cdcThread(void const *argument)
 			continue;
 		}
 
+		// process each character
 		while(usb_serial->available() > 0) {
 			c= usb_serial->_getc();
 

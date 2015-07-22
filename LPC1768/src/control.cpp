@@ -55,6 +55,7 @@ void setPWM(uint8_t channel, float percent);
 uint16_t* getADC(uint8_t ch);
 void InitializePWM();
 void InitializeADC();
+extern void commsDisconnect();
 
 void startUnstepTicker();
 
@@ -290,11 +291,13 @@ static bool handleCommand(const char *line)
 		free_memory(oss);
 
 	}else if(strcmp(line, "reset") == 0) {
+		sendReply("Reset in 5 seconds...\n");
 		Thread::wait(5000);
 		systemReset(false);
 
 	}else if(strcmp(line, "dfu") == 0) {
-		Thread::wait(2000);
+		commsDisconnect();
+		Thread::wait(1000);
 		systemReset(true);
 
 	}else if(strcmp(line, "adc") == 0) {
