@@ -14,4 +14,3 @@
 //#define AZTEEGX5_MINI
 
 //#define PRINTER3D
-//#define USE_PANEL

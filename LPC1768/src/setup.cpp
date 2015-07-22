@@ -25,12 +25,6 @@ void initControl();
 #include "Firmware/Tools/Extruder.h"
 #endif
 
-#ifdef USE_PANEL
-#include "Firmware/Panels/Viki.h"
-#include "Firmware/Panels/StatusScreen.h"
-static StatusScreen *pstatus_screen;
-#endif
-
 
 // local
 
@@ -221,24 +215,6 @@ int setup()
 	ex.initialize();
 #endif
 
-#ifdef USE_PANEL
-	// setup an external LCD panel (Not the one on the discovery board)
-	BSP_Init_Encoder();
-
-	static Viki viki; // old I2C based one
-	viki.assignHALFunction(Viki::INIT_I2C, [](uint8_t addr, void *buf, uint8_t size){ I2Cx_Init(); return 0; });
-	viki.assignHALFunction(Viki::WRITE_I2C, [](uint8_t addr, uint8_t *buf, uint16_t size){ return(I2Cx_WriteData(addr, buf, size) ? 1 : 0); });
-	viki.assignHALFunction(Viki::READ_I2C, [](uint8_t addr, uint8_t *buf, uint16_t size){ return(I2Cx_ReadData(addr, buf, size) ? 1 : 0); });
-	viki.assignHALFunction(Viki::READ_ENCODER, [](uint8_t addr, uint8_t *buf, uint16_t size){ uint16_t c= BSP_Read_Encoder(); memcpy(buf, &c, size); return 0; });
-	//viki.assignHALFunction(Viki::READ_BUTTONS, [](uint8_t addr, void *buf, uint8_t size){ /*TBD*/ return 0; });
-
-	// one screen to show the status (basic DRO)
-	pstatus_screen= new StatusScreen(viki);
-
-	// this needs to be done once RTOS is running
-	//sc.init();
-#endif
-
 	initControl();
 
 	// load configuration from non volatile storage
@@ -251,10 +227,6 @@ int setup()
 // called from main thread after RTOS is started
 void stage2_setup()
 {
-	#ifdef USE_PANEL
-	// this needs to be done after RTOS started as it calls delay() and RTOS stuff
-	pstatus_screen->init();
-	#endif
 }
 
 void tests()
