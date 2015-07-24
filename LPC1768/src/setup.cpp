@@ -16,8 +16,13 @@
 
 #include "mri.h"
 
+#include <algorithm>
+
 // externals
-void initControl();
+extern void initControl();
+extern uint16_t* getADC(uint8_t ch);
+extern void InitializeADC(int sample_rate);
+extern void startADC();
 
 #ifdef PRINTER3D
 #include "Firmware/Tools/TemperatureCoyntrol.h"
@@ -129,21 +134,19 @@ void setLed(int led, bool on)
 	}
 }
 
-// example of reading the DMA filled ADC buffer and taking the 4 middle values as average
-uint16_t readADC()
+#ifdef PRINTER3D
+// Hack to kick the ADC DMA every second read
+static uint16_t* getADCX(uint8_t ch)
 {
-	// uint16_t *adc_buf= getADC(0);
-	// // grab the dma buffer
-	// std::deque<uint16_t> buf(adc_buf, adc_buf+8);
-	// // sort
-	// std::sort (buf.begin(), buf.end());
-	// // eliminate first and last two
-	// buf.pop_back(); buf.pop_back();
-	// buf.pop_front(); buf.pop_front();
-	// uint16_t sum= std::accumulate(buf.begin(), buf.end(), 0);
-	// return roundf(sum/4.0F); // return the average
-	return 0;
+	static int cnt= 0;
+	uint16_t *a= getADC(ch);
+	if(cnt++ >= 1) {
+		getADC(255); // starts new sample
+		cnt= 0;
+	}
+	return a;
 }
+#endif
 
 // TODO use sdcard
 static size_t writeFlash(void *, size_t, uint32_t)
@@ -189,6 +192,10 @@ int setup()
 	mc.getActuator('E').assignHALFunction(Actuator::SET_DIR, [](bool on)   { E_DirPin= on; });
 	mc.getActuator('E').assignHALFunction(Actuator::SET_ENABLE, [](bool on){ E_EnbPin= on;  });
 
+	// TEST setup ADC
+	InitializeADC(OVERSAMPLE_SAMPLERATE); // ADC control
+
+
 #ifdef PRINTER3D
 	// needed for hotend
 	InitializePWM(); // PWM control
@@ -196,10 +203,10 @@ int setup()
 
 	// Setup the Temperature Control and sensors
 	static Thermistor thermistor0(0);
-	thermistor0.assignHALFunction(Thermistor::GET_ADC, getADC);
+	thermistor0.assignHALFunction(Thermistor::GET_ADC, getADCX);
 
 	// static Thermistor thermistor1(1);
-	// thermistor1.assignHALFunction(Thermistor::GET_ADC, getADC);
+	// thermistor1.assignHALFunction(Thermistor::GET_ADC, getADCX);
 
 	static TemperatureControl tc("T", 0, thermistor0);
 	tc.assignHALFunction(TemperatureControl::SET_PWM, setPWM);

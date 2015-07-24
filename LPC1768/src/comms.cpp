@@ -43,7 +43,7 @@ int commsSetup(void)
 	usb_serial= new USBSerial(0x1f00, 0x2012, 0x0001, false);
 
 	// start communication thread, stick the Stack in ETH RAM (AHB1)
-	SerialThreadHandle = new Thread(serialThread, nullptr,  osPriorityNormal, 1024*2, (unsigned char *)0x20080000);
+	SerialThreadHandle = new Thread(serialThread, nullptr,  osPriorityNormal, 1024*2, (unsigned char *)0x20080000); // Assign to ETH RAM AHB1
 
 	// setup USB CDC
 	usb_serial->attach(serialReceived);

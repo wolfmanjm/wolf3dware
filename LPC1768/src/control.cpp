@@ -50,21 +50,66 @@ static Thread *moveCompletedThreadHandle= nullptr;
 static void setupTimers();
 static void moveCompletedThread(void const *argument);
 
-uint16_t readADC();
-void setPWM(uint8_t channel, float percent);
-uint16_t* getADC(uint8_t ch);
-void InitializePWM();
-void InitializeADC();
+extern void startADC();
+extern void setPWM(uint8_t channel, float percent);
 extern void commsDisconnect();
 
-void startUnstepTicker();
-
 // external references
-bool serial_reply(const char*, size_t);
-void setLed(int led, bool on);
+extern bool serial_reply(const char*, size_t);
+extern void setLed(int led, bool on);
 
 // forward references
 void kickQueue();
+void startUnstepTicker();
+
+extern uint16_t* getADC(uint8_t ch);
+extern uint32_t adc_t1, adc_t2;
+extern uint32_t adc_actual_sample_rate;
+
+#ifndef OVERSAMPLE_ADC
+// example of reading the DMA filled ADC buffer and taking the 4 middle values as average
+// This version gives about 0.2% variation
+static uint16_t readADC(int channel, bool verbose= false)
+{
+	uint16_t *adc_buf= getADC(channel);
+
+	// grab the dma buffer
+	std::deque<uint16_t> buf(adc_buf, adc_buf+32);
+	// sort
+	std::sort (buf.begin(), buf.end());
+	// eliminate first and last 8, and take average of mid 16
+	uint16_t sum= std::accumulate(buf.begin()+8, buf.end()-8, 0);
+	return roundf((float)sum / (buf.size()-16)); // return the average
+}
+
+#else
+
+// to oversample to get 4 extra bits (16bits from 12bit ADC) you need to sample 4^4 = 256 samples,
+// sum them then shift right 4 bits to get the 16bit result
+// we sort the samples and eliminate the top and bottom6 128 and use the rest
+static uint16_t readADC(int channel, bool verbose= false)
+{
+	int samples= OVERSAMPLE_SAMPLES; // the number of samples required
+	uint32_t acc= 0;
+	uint16_t *adc_buf= getADC(channel);
+	// sort the buffer
+	std::sort(adc_buf, adc_buf+samples);
+	if(verbose) {
+		for (int i = 0; i < samples; ++i) {
+			printf("%u, ", adc_buf[i]);
+			if((i % 32) == 0) printf("\n");
+		}
+		printf("\n");
+	}
+	// eliminate the top and bottom 128 (OVERSAMPLE_SAMPLES/4)
+	for (int i = 128; i < samples-128; ++i) {
+		// accumulate the samples
+		acc += adc_buf[i];
+	}
+
+	return acc >> OVERSAMPLE_ADC; // return the 16bit result
+}
+#endif
 
 // Prepares and executes a watchdog reset for dfu or reboot
 void systemReset( bool dfu )
@@ -301,12 +346,22 @@ static bool handleCommand(const char *line)
 		systemReset(true);
 
 	}else if(strcmp(line, "adc") == 0) {
+		oss << "Actual sample rate= " << adc_actual_sample_rate << "\n";
+		uint16_t max= 0, min= 0xFFFF;
 		for (int i = 0; i < 10; ++i) {
-			uint16_t adc= readADC();
-			oss << adc << ", ";
-			THEKERNEL.delay(50);
+			getADC(255); // kicks off DMA
+			Thread::wait(50); // give it some time (simulate 20hz)
+			uint16_t a1= readADC(0);
+			uint16_t a2= readADC(1, true);
+			if(a2 > max) max= a2;
+			if(a2 < min) min= a2;
+			oss << "ADC0: " << a1 << ", ADC1: " << a2 << "\n";
+			oss << "took: " << adc_t2-adc_t1 << "uS\n";
+			sendReply(oss.str());
+			oss.str(""); oss.clear();
 		}
-		oss << "\n";
+		float d= (max-min);
+		oss << "Variation: " << d << ", " << d*100/max << "%\n";
 
 	}else if(strncmp(line, "parse", 5) == 0) {
 		GCodeProcessor& gp= THEKERNEL.getGCodeProcessor();

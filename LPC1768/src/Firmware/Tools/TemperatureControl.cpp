@@ -47,7 +47,7 @@ TemperatureControl::~TemperatureControl()
 
 void TemperatureControl::initialize()
 {
-	const uint32_t readings_per_second= 20;
+	const uint32_t readings_per_second= 20; // we read the temp 20 times/sec.
 	PIDdt = 1.0F / readings_per_second;
 
 	// PID P22.0000 I1.0800 D114.0000
@@ -83,7 +83,6 @@ void TemperatureControl::initialize()
 	 	read_temperature_timer_handle= t;
 		#endif
 	}
-
 }
 
 // static required so we can marshall the method for the callback

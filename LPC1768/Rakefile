@@ -6,3 +6,6 @@ task :default do
   sh "make"
 end
 
+task :upload do
+  sh "make upload"
+end

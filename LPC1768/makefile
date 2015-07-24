@@ -36,6 +36,10 @@ all: $(DIRS)
 
 clean: $(DIRSCLEAN)
 
+upload:
+	@echo Uploading
+	$(Q) ${MAKE} -C src upload
+
 $(DIRS):
 	@echo Building $@
 	$(Q) $(MAKE) -C $@ all
@@ -44,4 +48,4 @@ $(DIRSCLEAN): %.clean:
 	@echo Cleaning $*
 	$(Q) $(MAKE) -C $*  clean
 
-.PHONY: all clean $(DIRS) $(DIRSCLEAN)
+.PHONY: all clean $(DIRS) $(DIRSCLEAN) upload
