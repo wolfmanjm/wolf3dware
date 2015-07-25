@@ -138,15 +138,11 @@ void setLed(int led, bool on)
 }
 
 #ifdef PRINTER3D
-static uint16_t last_adc[2]{0, 0};
-static uint16_t getLastADC(uint8_t ch)
-{
-	return last_adc[ch];
-}
-
+static uint16_t last_adc[2][4]{{0, 0, 0, 0}, {0, 0, 0, 0}};
 // to oversample the ADC to get 4 extra bits (16bits from 12bit ADC) you need to sample 4^4 = 256 samples,
 // sum them then shift right 4 bits to get the 16bit result
 // we eliminate the top and bottom 128 after sorting to get rid of spikes and some noise
+// sampling @ 40Khz takes 23602uS to complete the sample for two channels
 static uint16_t sampleADC(int channel, bool verbose= false)
 {
 	int samples= OVERSAMPLE_SAMPLES; // the number of samples required
@@ -173,9 +169,23 @@ static uint16_t sampleADC(int channel, bool verbose= false)
 static RtosTimer *adcReadTimer;
 static void readADCTimer(void const *)
 {
-	last_adc[0]= sampleADC(0);
-	//last_adc[1]= sampleADC(1);
+	// handle a running average, each read goes into the queue pushing the oldest out
+	last_adc[0][3]= last_adc[0][2];
+	last_adc[0][2]= last_adc[0][1];
+	last_adc[0][1]= last_adc[0][0];
+	last_adc[0][0]= sampleADC(0);
+
+	last_adc[1][3]= last_adc[1][2];
+	last_adc[1][2]= last_adc[1][1];
+	last_adc[1][1]= last_adc[1][0];
+	last_adc[1][0]= sampleADC(1);
 	getADC(255); // start DMA for next read
+}
+
+// take the running average of the last 4 samples
+uint16_t getLastADC(uint8_t ch)
+{
+	return ((uint32_t)last_adc[ch][0]+last_adc[ch][1]+last_adc[ch][2]+last_adc[ch][3])/4;
 }
 
 void InitializePWM()
@@ -244,6 +254,11 @@ int setup()
 	// needed for hotend
 	InitializePWM(); // PWM control
 	InitializeADC(OVERSAMPLE_SAMPLERATE); // ADC control
+	Thread::wait(50);
+
+	// timer that reads the ADC at a regular interval
+	adcReadTimer= new RtosTimer(readADCTimer, osTimerPeriodic, (void *)0);
+	adcReadTimer->start(1000/25); // 25Hz slightly faster than temperature control
 
 	// Setup the Temperature Control and sensors
 	static Thermistor thermistor0(0, 4095*16);
@@ -264,6 +279,7 @@ int setup()
 	// specify which axis is the extruder
 	static Extruder ex('E', 0);
 	ex.initialize();
+
 #endif
 
 	initControl();
@@ -273,16 +289,6 @@ int setup()
 	//sendReply(THEDISPATCHER.getResult());
 
 	return 0;
-}
-
-// called from main thread after RTOS is started
-void stage2_setup()
-{
-#ifdef	PRINTER3D
-	// timer that reads the ADC at a regular interval
-	adcReadTimer= new RtosTimer(readADCTimer, osTimerPeriodic, (void *)0);
-	adcReadTimer->start(1000/25); // 25Hz slightly faster than temperature control
-#endif
 }
 
 void tests()

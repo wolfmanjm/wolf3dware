@@ -53,6 +53,7 @@ static void moveCompletedThread(void const *argument);
 extern void startADC();
 extern void setPWM(uint8_t channel, float percent);
 extern void commsDisconnect();
+extern uint16_t getLastADC(uint8_t ch);
 
 // external references
 extern bool serial_reply(const char*, size_t);
@@ -66,74 +67,6 @@ extern uint16_t* getADC(uint8_t ch);
 extern uint32_t adc_t1, adc_t2;
 extern uint32_t adc_actual_sample_rate;
 
-#ifndef OVERSAMPLE_ADC
-// example of reading the DMA filled ADC buffer and taking the 4 middle values as average
-// This version gives about 0.2% variation
-static uint16_t readADC(int channel, bool verbose= false)
-{
-	uint16_t *adc_buf= getADC(channel);
-
-	// grab the dma buffer
-	std::deque<uint16_t> buf(adc_buf, adc_buf+32);
-	// sort
-	std::sort (buf.begin(), buf.end());
-	// eliminate first and last 8, and take average of mid 16
-	uint16_t sum= std::accumulate(buf.begin()+8, buf.end()-8, 0);
-	return roundf((float)sum / (buf.size()-16)); // return the average
-}
-
-#else
-
-// to oversample to get 4 extra bits (16bits from 12bit ADC) you need to sample 4^4 = 256 samples,
-// sum them then shift right 4 bits to get the 16bit result
-#if 0
-// we sort the samples and average the two sets
-static uint16_t readADC(int channel, bool verbose= false)
-{
-	int samples= OVERSAMPLE_SAMPLES; // the number of samples required
-	uint32_t acc= 0;
-	uint16_t *adc_buf= getADC(channel);
-	// get oversampled 16 bit value
-	uint16_t a, b;
-	for (int i = 0; i < samples/2; ++i) {
-		// accumulate the samples
-		acc += adc_buf[i];
-	}
-	a= acc >> OVERSAMPLE_ADC;
-	for (int i = samples/2; i < samples; ++i) {
-		// accumulate the samples
-		acc += adc_buf[i];
-	}
-	b= acc >> OVERSAMPLE_ADC;
-
-	return (a+b)/2; // return the 16bit result
-}
-#else
-// we eliminate the top and bottom 128 after sorting
-static uint16_t readADC(int channel, bool verbose= false)
-{
-	int samples= OVERSAMPLE_SAMPLES; // the number of samples required
-	uint32_t acc= 0;
-	uint16_t *adc_buf= getADC(channel);
-	// sort the buffer
-	std::sort(adc_buf, adc_buf+samples);
-	if(verbose) {
-		for (int i = 0; i < samples; ++i) {
-			printf("%u, ", adc_buf[i]);
-			if((i % 32) == 0) printf("\n");
-		}
-		printf("\n");
-	}
-	// eliminate the top and bottom 128 (OVERSAMPLE_SAMPLES/4)
-	for (int i = 128; i < samples-128; ++i) {
-		// accumulate the samples
-		acc += adc_buf[i];
-	}
-
-	return acc >> OVERSAMPLE_ADC; // return the 16bit result
-}
-#endif
-#endif
 // Prepares and executes a watchdog reset for dfu or reboot
 void systemReset( bool dfu )
 {
@@ -370,19 +303,17 @@ static bool handleCommand(const char *line)
 
 	}else if(strcmp(line, "adc") == 0) {
 		oss << "Actual sample rate= " << adc_actual_sample_rate << "\n";
-		for (int j = 0; j < 100; ++j) {
+		for (int j = 0; j < 20; ++j) {
 			uint16_t max= 0, min= 0xFFFF;
 			for (int i = 0; i < 10; ++i) {
-				getADC(255); // kicks off DMA
-				Thread::wait(50); // give it some time (simulate 20hz)
-				uint16_t a1= readADC(0);
-				//uint16_t a2= readADC(1);
+				uint16_t a1= getLastADC(0);
+				uint16_t a2= getLastADC(1);
 				if(a1 > max) max= a1;
 				if(a1 < min) min= a1;
-				// oss << "ADC0: " << a1 << ", ADC1: " << a2 << "\n";
-				// oss << "took: " << adc_t2-adc_t1 << "uS\n";
+				oss << "ADC0: " << a1 << ", ADC1: " << a2 << "\n";
 				sendReply(oss.str());
 				oss.str(""); oss.clear();
+				Thread::wait(50); // give it some time (simulate 20hz)
 			}
 			float d= (max-min);
 			oss << "Variation: " << d << ", " << d*100/max << "%\n";

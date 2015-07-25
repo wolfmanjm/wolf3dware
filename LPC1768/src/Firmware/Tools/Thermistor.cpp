@@ -129,7 +129,7 @@ void Thermistor::getRaw(GCode& gc)
     }
 
     int adc_value= newThermistorReading();
-    if((adc_value >= max_adc) || (adc_value <= 0)) {
+    if(adc_value == 0) {
         gc.getOS().printf("not a valid ADC reading\n");
         return;
     }
@@ -153,12 +153,13 @@ void Thermistor::getRaw(GCode& gc)
 
 float Thermistor::adcValueToTemperature(int adc_value)
 {
-    if ((adc_value >= max_adc) || (adc_value <= 0))
+    if ((adc_value >= max_adc-100) || (adc_value <= 0))
         return infinityf();
 
     // resistance of the thermistor in ohms
     float r = r2 / ((max_adc / adc_value) - 1.0F);
     if (r1 > 0.0F) r = (r1 * r) / (r1 - r);
+    if(r > 400000) return infinityf(); // probably open circuit
 
     float t;
     if(use_steinhart_hart) {

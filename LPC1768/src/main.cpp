@@ -1,6 +1,7 @@
 #include "mbed.h"
 #include "rtos.h"
 #include "us_ticker_api.h"
+#include "mri.h"
 
 extern int setup();
 extern int commsSetup();
@@ -21,12 +22,14 @@ uint32_t stop_time()
     return us_ticker_read();
 }
 
+extern "C" void mbed_die(void)
+{
+	__debugbreak();
+}
+
 void mainThread()
 {
 	printf("mainThread starting...\n");
-
-	// call any init stuff that has to happen after RTOS is started
-	stage2_setup();
 
 	// just toggle a led to show we are alive
 	bool toggle= false;
