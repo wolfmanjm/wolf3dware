@@ -8,7 +8,6 @@
     it will be filtered and averaged later
 */
 
-// we want 32 byte samples (so we can do 16x oversampling and reject top 8 and bottom 8)
 // we multiply by two as we are sampling two channels
 #define SAMPLE_BUFFER_LENGTH OVERSAMPLE_SAMPLES*2
 
@@ -65,11 +64,9 @@ void TC0_callback(void)
     dma.Disable( (MODDMA::CHANNELS)config->channelNum() );
 
  	// copy results into result buffer
-    for (int i = 0; i < SAMPLE_BUFFER_LENGTH/2; i++) {
-        //int channel = (adcInputBuffer[i] >> 24) & 0x7; // not used as unreliable
-        int si= i*2;
-        adc_buffer[0][i] = (adcInputBuffer[si] >> 4) & 0xFFF; // channel 0
-        adc_buffer[1][i] = (adcInputBuffer[si+1] >> 4) & 0xFFF; // channel 1
+    for (int i = 0; i < SAMPLE_BUFFER_LENGTH; i++) {
+        int channel = (adcInputBuffer[i] >> 24) & 0x7;
+        adc_buffer[channel][i>>1] = (adcInputBuffer[i] >> 4) & 0xFFF; // channel 0
     }
 
     // Clear DMA IRQ flags.

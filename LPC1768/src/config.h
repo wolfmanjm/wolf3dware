@@ -21,4 +21,4 @@
 #define SMOOTHIEBOARD
 //#define AZTEEGX5_MINI
 
-//#define PRINTER3D
+#define PRINTER3D

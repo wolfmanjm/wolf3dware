@@ -24,8 +24,10 @@ extern uint16_t* getADC(uint8_t ch);
 extern void InitializeADC(int sample_rate);
 extern void startADC();
 
+#include "Firmware/Tools/TemperatureControl.h"
+#include "Firmware/Tools/Thermistor.h"
 #ifdef PRINTER3D
-#include "Firmware/Tools/TemperatureCoyntrol.h"
+#include "Firmware/Tools/TemperatureControl.h"
 #include "Firmware/Tools/Thermistor.h"
 #include "Firmware/Tools/Extruder.h"
 #endif
@@ -135,17 +137,46 @@ void setLed(int led, bool on)
 }
 
 #ifdef PRINTER3D
-// Hack to kick the ADC DMA every second read
-static uint16_t* getADCX(uint8_t ch)
+static uint16_t last_adc[2]{0, 0};
+static uint16_t getLastADC(uint8_t ch)
 {
-	static int cnt= 0;
-	uint16_t *a= getADC(ch);
-	if(cnt++ >= 1) {
-		getADC(255); // starts new sample
-		cnt= 0;
-	}
-	return a;
+	return last_adc[ch];
 }
+
+// to oversample the ADC to get 4 extra bits (16bits from 12bit ADC) you need to sample 4^4 = 256 samples,
+// sum them then shift right 4 bits to get the 16bit result
+// we eliminate the top and bottom 128 after sorting to get rid of spikes and some noise
+static uint16_t sampleADC(int channel, bool verbose= false)
+{
+	int samples= OVERSAMPLE_SAMPLES; // the number of samples required
+	uint32_t acc= 0;
+	uint16_t *adc_buf= getADC(channel);
+	// sort the buffer
+	std::sort(adc_buf, adc_buf+samples);
+	if(verbose) {
+		for (int i = 0; i < samples; ++i) {
+			printf("%u, ", adc_buf[i]);
+			if((i % 32) == 0) printf("\n");
+		}
+		printf("\n");
+	}
+	// eliminate the top and bottom 128 (OVERSAMPLE_SAMPLES/4)
+	for (int i = 128; i < samples-128; ++i) {
+		// accumulate the samples
+		acc += adc_buf[i];
+	}
+
+	return acc >> OVERSAMPLE_ADC; // return the 16bit result
+}
+
+static RtosTimer *adcReadTimer;
+static void readADCTimer(void const *)
+{
+	last_adc[0]= sampleADC(0);
+	//last_adc[1]= sampleADC(1);
+	getADC(255); // start DMA for next read
+}
+
 #endif
 
 // TODO use sdcard
@@ -192,29 +223,26 @@ int setup()
 	mc.getActuator('E').assignHALFunction(Actuator::SET_DIR, [](bool on)   { E_DirPin= on; });
 	mc.getActuator('E').assignHALFunction(Actuator::SET_ENABLE, [](bool on){ E_EnbPin= on;  });
 
-	// TEST setup ADC
-	InitializeADC(OVERSAMPLE_SAMPLERATE); // ADC control
-
 
 #ifdef PRINTER3D
 	// needed for hotend
 	InitializePWM(); // PWM control
-	InitializeADC(); // ADC control
+	InitializeADC(OVERSAMPLE_SAMPLERATE); // ADC control
 
 	// Setup the Temperature Control and sensors
-	static Thermistor thermistor0(0);
-	thermistor0.assignHALFunction(Thermistor::GET_ADC, getADCX);
+	static Thermistor thermistor0(0, 4095*16);
+	thermistor0.assignHALFunction(Thermistor::GET_ADC, getLastADC);
 
-	// static Thermistor thermistor1(1);
-	// thermistor1.assignHALFunction(Thermistor::GET_ADC, getADCX);
+	static Thermistor thermistor1(1, 4095*16);
+	thermistor1.assignHALFunction(Thermistor::GET_ADC, getLastADC);
 
 	static TemperatureControl tc("T", 0, thermistor0);
 	tc.assignHALFunction(TemperatureControl::SET_PWM, setPWM);
 	tc.initialize();
 
-	// static TemperatureControl bc("B", 1, thermistor1);
-	// bc.assignHALFunction(TemperatureControl::SET_PWM, setPWM);
-	// bc.initialize();
+	static TemperatureControl bc("B", 1, thermistor1);
+	bc.assignHALFunction(TemperatureControl::SET_PWM, setPWM);
+	bc.initialize();
 
 	// use same index as the associated temperature control
 	// specify which axis is the extruder
@@ -234,6 +262,11 @@ int setup()
 // called from main thread after RTOS is started
 void stage2_setup()
 {
+#ifdef	PRINTER3D
+	// timer that reads the ADC at a regular interval
+	adcReadTimer= new RtosTimer(readADCTimer, osTimerPeriodic, (void *)0);
+	adcReadTimer->start(1000/25); // 25Hz slightly faster than temperature control
+#endif
 }
 
 void tests()

@@ -16,12 +16,13 @@
 #include <deque>
 #include <string.h>
 
-Thermistor::Thermistor(uint8_t index)
+Thermistor::Thermistor(uint8_t index, float max_adc)
 {
     pool_index= index;
     bad_config = false;
     use_steinhart_hart= false;
     beta= 0.0F; // not used by default
+    this->max_adc= max_adc;
 }
 
 Thermistor::~Thermistor()
@@ -128,13 +129,13 @@ void Thermistor::getRaw(GCode& gc)
     }
 
     int adc_value= newThermistorReading();
-    if(adc_value == 0) {
+    if((adc_value >= max_adc) || (adc_value <= 0)) {
         gc.getOS().printf("not a valid ADC reading\n");
         return;
     }
 
     // resistance of the thermistor in ohms
-    float r = r2 / ((4095.0F / adc_value) - 1.0F);
+    float r = r2 / ((max_adc / adc_value) - 1.0F);
     if (r1 > 0.0F) r = (r1 * r) / (r1 - r);
 
     gc.getOS().printf("adc= %d, resistance= %f\n", adc_value, r);
@@ -152,11 +153,11 @@ void Thermistor::getRaw(GCode& gc)
 
 float Thermistor::adcValueToTemperature(int adc_value)
 {
-    if ((adc_value == 4095) || (adc_value == 0))
+    if ((adc_value >= max_adc) || (adc_value <= 0))
         return infinityf();
 
     // resistance of the thermistor in ohms
-    float r = r2 / ((4095.0F / adc_value) - 1.0F);
+    float r = r2 / ((max_adc / adc_value) - 1.0F);
     if (r1 > 0.0F) r = (r1 * r) / (r1 - r);
 
     float t;
@@ -171,26 +172,11 @@ float Thermistor::adcValueToTemperature(int adc_value)
     return t;
 }
 
-// reading the DMA filled ADC buffer of 8 readings and taking the 4 middle values as average
+// reading the last valid reading of the ADC
 int Thermistor::newThermistorReading()
 {
-    uint16_t *dma_bufb= getADC(pool_index); // get a pointer to the copy of the DMA buffer
-    if(dma_bufb == nullptr) {
-        // not setup for this channel
-        return 0;
-    }
-    // grab the buffer
-    uint16_t b[8];
-    memcpy(b, dma_bufb, sizeof(b));
-    std::deque<uint16_t> buf(b, b+8);
-
-    // sort
-    std::sort (buf.begin(), buf.end());
-    // eliminate first and last two
-    buf.pop_back(); buf.pop_back();
-    buf.pop_front(); buf.pop_front();
-    uint16_t sum= std::accumulate(buf.begin(), buf.end(), 0);
-    return roundf(sum/4.0F); // return the average
+    uint16_t adc= getADC(pool_index);
+    return adc;
 }
 
 bool Thermistor::setOptional(const sensor_options_t& options) {

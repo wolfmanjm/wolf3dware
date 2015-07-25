@@ -86,7 +86,30 @@ static uint16_t readADC(int channel, bool verbose= false)
 
 // to oversample to get 4 extra bits (16bits from 12bit ADC) you need to sample 4^4 = 256 samples,
 // sum them then shift right 4 bits to get the 16bit result
-// we sort the samples and eliminate the top and bottom6 128 and use the rest
+#if 0
+// we sort the samples and average the two sets
+static uint16_t readADC(int channel, bool verbose= false)
+{
+	int samples= OVERSAMPLE_SAMPLES; // the number of samples required
+	uint32_t acc= 0;
+	uint16_t *adc_buf= getADC(channel);
+	// get oversampled 16 bit value
+	uint16_t a, b;
+	for (int i = 0; i < samples/2; ++i) {
+		// accumulate the samples
+		acc += adc_buf[i];
+	}
+	a= acc >> OVERSAMPLE_ADC;
+	for (int i = samples/2; i < samples; ++i) {
+		// accumulate the samples
+		acc += adc_buf[i];
+	}
+	b= acc >> OVERSAMPLE_ADC;
+
+	return (a+b)/2; // return the 16bit result
+}
+#else
+// we eliminate the top and bottom 128 after sorting
 static uint16_t readADC(int channel, bool verbose= false)
 {
 	int samples= OVERSAMPLE_SAMPLES; // the number of samples required
@@ -110,7 +133,7 @@ static uint16_t readADC(int channel, bool verbose= false)
 	return acc >> OVERSAMPLE_ADC; // return the 16bit result
 }
 #endif
-
+#endif
 // Prepares and executes a watchdog reset for dfu or reboot
 void systemReset( bool dfu )
 {
@@ -347,21 +370,23 @@ static bool handleCommand(const char *line)
 
 	}else if(strcmp(line, "adc") == 0) {
 		oss << "Actual sample rate= " << adc_actual_sample_rate << "\n";
-		uint16_t max= 0, min= 0xFFFF;
-		for (int i = 0; i < 10; ++i) {
-			getADC(255); // kicks off DMA
-			Thread::wait(50); // give it some time (simulate 20hz)
-			uint16_t a1= readADC(0);
-			uint16_t a2= readADC(1, true);
-			if(a2 > max) max= a2;
-			if(a2 < min) min= a2;
-			oss << "ADC0: " << a1 << ", ADC1: " << a2 << "\n";
-			oss << "took: " << adc_t2-adc_t1 << "uS\n";
-			sendReply(oss.str());
-			oss.str(""); oss.clear();
+		for (int j = 0; j < 100; ++j) {
+			uint16_t max= 0, min= 0xFFFF;
+			for (int i = 0; i < 10; ++i) {
+				getADC(255); // kicks off DMA
+				Thread::wait(50); // give it some time (simulate 20hz)
+				uint16_t a1= readADC(0);
+				//uint16_t a2= readADC(1);
+				if(a1 > max) max= a1;
+				if(a1 < min) min= a1;
+				// oss << "ADC0: " << a1 << ", ADC1: " << a2 << "\n";
+				// oss << "took: " << adc_t2-adc_t1 << "uS\n";
+				sendReply(oss.str());
+				oss.str(""); oss.clear();
+			}
+			float d= (max-min);
+			oss << "Variation: " << d << ", " << d*100/max << "%\n";
 		}
-		float d= (max-min);
-		oss << "Variation: " << d << ", " << d*100/max << "%\n";
 
 	}else if(strncmp(line, "parse", 5) == 0) {
 		GCodeProcessor& gp= THEKERNEL.getGCodeProcessor();

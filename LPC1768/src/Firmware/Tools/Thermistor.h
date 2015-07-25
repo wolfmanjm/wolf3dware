@@ -13,7 +13,7 @@
 class Thermistor : public TempSensor
 {
     public:
-        Thermistor(uint8_t);
+        Thermistor(uint8_t, float);
         ~Thermistor();
         void initialize();
 
@@ -26,7 +26,7 @@ class Thermistor : public TempSensor
         {
             GET_ADC
         };
-        using HAL_function_t = std::function<uint16_t*(uint8_t)>;
+        using HAL_function_t = std::function<uint16_t(uint8_t)>;
         void assignHALFunction(HAL_FUNCTION_INDEX i, HAL_function_t fnc) { if(i == GET_ADC) getADC= fnc; }
 
     private:
@@ -44,6 +44,7 @@ class Thermistor : public TempSensor
         // on board resistor settings
         int r1;
         int r2;
+        float max_adc;
 
         union {
             // this saves memory as we only use either beta or SHH
