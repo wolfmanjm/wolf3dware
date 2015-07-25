@@ -24,8 +24,6 @@ extern uint16_t* getADC(uint8_t ch);
 extern void InitializeADC(int sample_rate);
 extern void startADC();
 
-#include "Firmware/Tools/TemperatureControl.h"
-#include "Firmware/Tools/Thermistor.h"
 #ifdef PRINTER3D
 #include "Firmware/Tools/TemperatureControl.h"
 #include "Firmware/Tools/Thermistor.h"
@@ -66,6 +64,9 @@ static DigitalIn YEndstopPin(P1_26);
 static DigitalIn ZEndstopPin(P1_28);
 
 static DigitalOut TriggerPin(P1_22);
+
+static PwmOut HotendHeater(P2_5);
+static PwmOut BedHeater(P1_23); // #rd large mosfet on 5 driver
 
 #elif AZTEEGX5_MINI
 
@@ -177,6 +178,21 @@ static void readADCTimer(void const *)
 	getADC(255); // start DMA for next read
 }
 
+void InitializePWM()
+{
+ 	HotendHeater.period_us(1000); // 1KHz period
+ 	HotendHeater= 0;
+ 	HotendHeater.period_us(1000);
+ 	BedHeater= 0;
+}
+
+void setPWM(uint8_t channel, float percent)
+{
+	switch(channel) {
+		case 0: HotendHeater= percent/100.0F; break;
+		case 1: BedHeater= percent/100.0F; break;
+	}
+}
 #endif
 
 // TODO use sdcard
