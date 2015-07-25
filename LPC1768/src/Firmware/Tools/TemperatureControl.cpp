@@ -47,7 +47,7 @@ TemperatureControl::~TemperatureControl()
 
 void TemperatureControl::initialize()
 {
-	const uint32_t readings_per_second= 20; // we read the temp 20 times/sec.
+	const uint32_t readings_per_second= TEMP_READINGS_PER_SECOND; // we read the temp 20 times/sec.
 	PIDdt = 1.0F / readings_per_second;
 
 	// PID P22.0000 I1.0800 D114.0000

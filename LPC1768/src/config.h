@@ -10,6 +10,7 @@
 //#define STEP_TICKER_FREQUENCY 100000.0F
 #define STEP_TICKER_FREQUENCY 20000.0F
 
+#define TEMP_READINGS_PER_SECOND 5 // 20 slow down for testing
 #define OVERSAMPLE_ADC 4 // number of bits of extra resolution required
 #define OVERSAMPLE_SAMPLES (256+256) // the number of samples required is 4^OVERSAMPLE_ADC double it to filter out spikes
 #define OVERSAMPLE_SAMPLERATE 40000 // sample rate for ADC

@@ -313,7 +313,7 @@ static bool handleCommand(const char *line)
 				oss << "ADC0: " << a1 << ", ADC1: " << a2 << "\n";
 				sendReply(oss.str());
 				oss.str(""); oss.clear();
-				Thread::wait(50); // give it some time (simulate 20hz)
+				Thread::wait(1000); // give it some time (simulate 20hz)
 			}
 			float d= (max-min);
 			oss << "Variation: " << d << ", " << d*100/max << "%\n";
@@ -427,7 +427,7 @@ void kickQueue()
 		size_t n=  q.size();
 		l.unlock();
 		if(n > 0) {
-			// we have somethign in the queue we can execute
+			// we have something in the queue we can execute
 			executeNextBlock();
 			return;
 		}

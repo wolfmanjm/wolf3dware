@@ -15,17 +15,25 @@
 static uint16_t adc_buffer[2][SAMPLE_BUFFER_LENGTH/2] __attribute__ ((section ("AHBSRAM0")));
 static MODDMA dma;
 static MODDMA_Config *conf;
+static volatile bool adc_running= true;
 
 // two channels are interleaved, 32 bits each channel
 static uint32_t adcInputBuffer[SAMPLE_BUFFER_LENGTH] __attribute__ ((section ("AHBSRAM0")));
 
 extern uint32_t start_time();
 extern uint32_t stop_time();
+
 uint32_t adc_t1, adc_t2;
 uint32_t adc_actual_sample_rate;
 
+bool isADCReady()
+{
+    return !adc_running;
+}
+
 void startADC()
 {
+    adc_running= true;
     adc_t1= start_time();
     // Schedule another grab.
     dma.Setup( conf );
@@ -48,7 +56,6 @@ uint16_t *getADC(uint8_t ch)
     return p;
 }
 
-
 // Configuration callback on TC
 void TC0_callback(void)
 {
@@ -63,15 +70,19 @@ void TC0_callback(void)
     dma.haltAndWaitChannelComplete( (MODDMA::CHANNELS)config->channelNum());
     dma.Disable( (MODDMA::CHANNELS)config->channelNum() );
 
- 	// copy results into result buffer
-    for (int i = 0; i < SAMPLE_BUFFER_LENGTH; i++) {
-        int channel = (adcInputBuffer[i] >> 24) & 0x7;
-        adc_buffer[channel][i>>1] = (adcInputBuffer[i] >> 4) & 0xFFF; // channel 0
-    }
-
     // Clear DMA IRQ flags.
     if (dma.irqType() == MODDMA::TcIrq) dma.clearTcIrq();
     if (dma.irqType() == MODDMA::ErrIrq) dma.clearErrIrq();
+
+ 	// copy results into result buffer
+    for (int i = 0; i < SAMPLE_BUFFER_LENGTH; i++) {
+        int channel = (adcInputBuffer[i] >> 24) & 0x7;
+        if(channel >= 0 && channel <= 1) {
+            adc_buffer[channel][i>>1] = (adcInputBuffer[i] >> 4) & 0xFFF;
+        }
+    }
+
+    adc_running= false;
 }
 
 // Configuration callback on Error

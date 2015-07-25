@@ -11,6 +11,7 @@
 
 #include "mbed.h"
 #include "rtos.h"
+#include "PinDetect.h"
 
 #include "Lock.h"
 
@@ -23,6 +24,7 @@ extern void initControl();
 extern uint16_t* getADC(uint8_t ch);
 extern void InitializeADC(int sample_rate);
 extern void startADC();
+extern bool isADCReady();
 
 #ifdef PRINTER3D
 #include "Firmware/Tools/TemperatureControl.h"
@@ -68,6 +70,8 @@ static DigitalOut TriggerPin(P1_22);
 static PwmOut HotendHeater(P2_5);
 static PwmOut BedHeater(P1_23); // #rd large mosfet on 5 driver
 
+static PinDetect ISPPin(P2_10); // the ISP button causes a break
+
 #elif AZTEEGX5_MINI
 
 #else
@@ -75,6 +79,11 @@ static PwmOut BedHeater(P1_23); // #rd large mosfet on 5 driver
 #error "need to define the board"
 
 #endif
+
+static void ISPPressed( void )
+{
+	__debugbreak();
+}
 
 static void initializePins()
 {
@@ -94,6 +103,10 @@ static void initializePins()
 
  	// no pullup, IRQ, rising, low priority
  	ButtonPin.mode(PullNone);
+
+ 	ISPPin.mode(PullNone);
+ 	ISPPin.attach_deasserted( &ISPPressed );
+	ISPPin.setSampleFrequency(); // Defaults to 20ms.
 
  	// endstops IRQ on rising edge, Normally Closed to Ground
 //  	xendstop= XEndstopPin::input(true, true, true);
@@ -169,6 +182,11 @@ static uint16_t sampleADC(int channel, bool verbose= false)
 static RtosTimer *adcReadTimer;
 static void readADCTimer(void const *)
 {
+	// avoid reading the adc while the DMA is running
+	while(!isADCReady()) {
+		Thread::wait(10);
+	}
+
 	// handle a running average, each read goes into the queue pushing the oldest out
 	last_adc[0][3]= last_adc[0][2];
 	last_adc[0][2]= last_adc[0][1];
@@ -249,6 +267,8 @@ int setup()
 	mc.getActuator('E').assignHALFunction(Actuator::SET_DIR, [](bool on)   { E_DirPin= on; });
 	mc.getActuator('E').assignHALFunction(Actuator::SET_ENABLE, [](bool on){ E_EnbPin= on;  });
 
+	// initialize the control threads and step tickers etc
+	initControl();
 
 #ifdef PRINTER3D
 	// needed for hotend
@@ -256,9 +276,12 @@ int setup()
 	InitializeADC(OVERSAMPLE_SAMPLERATE); // ADC control
 	Thread::wait(50);
 
+	//initialize the averaging buffer
+	readADCTimer(0); readADCTimer(0); readADCTimer(0); readADCTimer(0);
+
 	// timer that reads the ADC at a regular interval
 	adcReadTimer= new RtosTimer(readADCTimer, osTimerPeriodic, (void *)0);
-	adcReadTimer->start(1000/25); // 25Hz slightly faster than temperature control
+	adcReadTimer->start(1000 / TEMP_READINGS_PER_SECOND+2); // slightly faster than temperature control
 
 	// Setup the Temperature Control and sensors
 	static Thermistor thermistor0(0, 4095*16);
@@ -282,7 +305,6 @@ int setup()
 
 #endif
 
-	initControl();
 
 	// load configuration from non volatile storage
 	//THEDISPATCHER.loadConfiguration(); // same as M501
