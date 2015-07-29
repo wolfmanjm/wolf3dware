@@ -38,12 +38,14 @@ void commsDisconnect()
 	usb_serial->disconnect();
 }
 
+#define COMMS_THREAD_STACK_SIZE 2048
+static uint8_t comms_thread_stack[COMMS_THREAD_STACK_SIZE] __attribute__ ((section ("AHBSRAM1"))); // Assign to ETH RAM AHB1
 int commsSetup(void)
 {
 	usb_serial= new USBSerial(0x1d50, 0x6015, 0x0001, false);
 
 	// start communication thread, stick the Stack in ETH RAM (AHB1)
-	SerialThreadHandle = new Thread(serialThread, nullptr,  osPriorityNormal, 1024*2, (unsigned char *)0x20080000); // Assign to ETH RAM AHB1
+	SerialThreadHandle = new Thread(serialThread, nullptr,  osPriorityNormal, COMMS_THREAD_STACK_SIZE, comms_thread_stack);
 
 	// setup USB CDC
 	usb_serial->attach(serialReceived);
