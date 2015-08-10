@@ -13,6 +13,24 @@ Uses FreeRTOS as the kernel.
 Initial prototype is running on an Olimex STM32-H405 https://www.olimex.com/Products/ARM/ST/STM32-H405/
 With a STM32F405RGT6 
 
+
+Install
+-------
+You need...
+1. arm eabi gcc toolchain.. 
+   a windows version is here http://gnutoolchains.com/arm-eabi/
+   linux is here https://launchpad.net/gcc-arm-embedded
+2. openocd and a JTAG adapter (I use the Bus Blaster)
+3. Ruby and the Rake gem
+4. Then just type rake at the top level, and it will build.
+
+There are various options that select which platform you are building for
+
+Pins can be reassigned in Src/maincpp.cpp it is suggested you create a new #define for the target board
+
+
+
+
 Status
 ------
 
@@ -26,4 +44,5 @@ Status
 
 Todo
 ----
-Test
+Tested for motion
+Needs more testing
