@@ -10,19 +10,24 @@ improved Motion Control from SmoothieWare created by Arthur Wolf.
 Uses the STM32F4xxx HAL by STM, there are no plans to make it portable to other architectures. However the HAL is abstracted with std::function calls.
 Uses FreeRTOS as the kernel.
 
-Initial prototype is running on an Olimex STM32-H405 https://www.olimex.com/Products/ARM/ST/STM32-H405/
-With a STM32F405RGT6 
+Initial prototype is on a STM32F4-discovery board.
 
 
 Install
 -------
 You need...
+
 1. arm eabi gcc toolchain.. 
    a windows version is here http://gnutoolchains.com/arm-eabi/
    linux is here https://launchpad.net/gcc-arm-embedded
+
 2. openocd and a JTAG adapter (I use the Bus Blaster)
+
 3. Ruby and the Rake gem
-4. Then just type rake at the top level, and it will build.
+
+4. set ARMTOOLS environment variabel to the arm tools you installed above
+
+5. Then just type rake at the top level, and it will build.
 
 There are various options that select which platform you are building for
 
