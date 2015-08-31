@@ -88,7 +88,7 @@ load 'rakefile.defaults' if File.exists?('rakefile.defaults')
 #puts "#{BUILDTYPE} build"
 
 # include and exclude different files depending on the build target
-excludes= F405 ? ["BSP/", "Components/", "Fonts/", "lcd*", "TimingTests.cpp", "startup_stm32f429xx.s"] : ["startup_stm32f407xx.s", "STM32F405-BSP.c"]
+excludes= F405 ? ["BSP/", "Components/", "Fonts/", "lcd*", "TimingTests.cpp", "startup_stm32f429xx.s"] : ["startup_stm32f405xx.s", "STM32F405-BSP.c"]
 SRC = FileList[PROG + '/**/*.{c,cpp,s}']
 SRC.exclude(/#{excludes.join('|')}/) unless excludes.empty?
 $using_cpp= SRC.find { |i| File.extname(i) == ".cpp" }.nil? ? false : true
