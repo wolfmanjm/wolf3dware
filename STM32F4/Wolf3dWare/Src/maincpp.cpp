@@ -120,13 +120,12 @@ using Z_DirPin  = GPIO(C,3,INVERTPIN);  // 2-9
 using E_StepPin = GPIO(A,7,INVERTPIN);  // 1-22
 using E_DirPin  = GPIO(A,6,INVERTPIN);  // 1-14
 
-using X_EnbPin  = GPIO(B,11,INVERTPIN); // 2-15
-using Y_EnbPin  = GPIO(B,13,INVERTPIN); // 2-16
-using Z_EnbPin  = GPIO(B,12,INVERTPIN); // 2-17
-using E_EnbPin  = GPIO(B,14,INVERTPIN); // 2-18
+using X_EnbPin  = GPIO(B,11,true); // 2-15
+using Y_EnbPin  = GPIO(B,13,true); // 2-16
+using Z_EnbPin  = GPIO(B,12,true); // 2-17
+using E_EnbPin  = GPIO(B,14,true); // 2-18
 
 using LED3Pin   = GPIO(C,12);           // PC12 LED3
-using LED4Pin   = GPIO(C,1);            // PC1 LED4
 using ButtonPin = GPIO(A,0);            // PA0 Button
 
 using XEndstopPin = GPIO(C,0);        	// 1-19
@@ -306,16 +305,6 @@ static void initializePins()
 	zendstop= ZEndstopPin::input(true, true, true);
 
 	TriggerPin::output(false);
-
-	//LED4Pin::output(false);
-}
-
-extern "C" bool testGpio()
-{
-	static bool tog= false;
-	LED4Pin::set(tog);
-	tog= !tog;
-	return LED4Pin::get();
 }
 
 extern "C" void getPosition(float *x, float *y, float *z, float *e)
