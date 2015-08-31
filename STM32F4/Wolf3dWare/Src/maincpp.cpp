@@ -29,7 +29,7 @@ using namespace std;
 //#define USE_PANEL
 
 #ifdef PRINTER3D
-#include "Firmware/Tools/TemperatureControl.h"
+#include "Firmware/Tools/TemperatureCoyntrol.h"
 #include "Firmware/Tools/Thermistor.h"
 #include "Firmware/Tools/Extruder.h"
 #endif
@@ -45,7 +45,7 @@ SemaphoreHandle_t READY_Q_MUTEX;
 SemaphoreHandle_t TEMPERATURE_MUTEX;
 
 uint32_t xdelta= 0;
-
+uint16_t xendstop, yendstop, zendstop;
 
 // local
 
@@ -85,6 +85,11 @@ using E_EnbPin  = GPIO(D, 4,INVERTPIN); // PD4   P1-39
 using LED3Pin   = GPIO(G,13);           // PG13  LED3
 using LED4Pin   = GPIO(G,14);           // PG14  LED4
 
+using ButtonPin = GPIO(A,0);            // PA0 Button
+using XEndstopPin = GPIO(G,2);        // PG2 Button
+using YEndstopPin = GPIO(G,3);        // PG3 Button
+using ZEndstopPin = GPIO(G,9);        // PG9 Button
+
 using TriggerPin= GPIO(D, 5);           // PD5
 // 11 Spare
 // PC3   P2-15 - ADC1-IN13 adc channel13 DMA channel 0 stream 0 or 4
@@ -122,12 +127,17 @@ using E_EnbPin  = GPIO(B,14,INVERTPIN); // 2-18
 
 using LED3Pin   = GPIO(C,12);           // PC12 LED3
 using LED4Pin   = GPIO(C,1);            // PC1 LED4
+using ButtonPin = GPIO(A,0);            // PA0 Button
 
-using TriggerPin= GPIO(C,2);            // PC2
+using XEndstopPin = GPIO(C,0);        	// 1-19
+using YEndstopPin = GPIO(C,1);        	// 1-20
+using ZEndstopPin = GPIO(C,2);        	// 2-2
+
+using TriggerPin= GPIO(A,1);            // 2-8
 
 /*
 pinout
-https://gist.github.com/wolfmanjm/91c2149ed15ae8e2d434
+https://gist.github.com/wolfmanjm/e536a8b6edb3a1c38c45
 
 A0  			: button
 A1  	 		:free
@@ -187,6 +197,7 @@ using E_EnbPin  = GPIO(B,15,INVERTPIN); //
 
 using LED3Pin   = GPIO(C,0);            // PC0 LED3
 using LED4Pin   = GPIO(C,1);            // PC1 LED4
+using ButtonPin = GPIO(A,0);            // PA0 Button
 
 using TriggerPin= GPIO(C,2);            // PC2
 /*
@@ -286,6 +297,14 @@ static void initializePins()
 	E_DirPin::output(false);
 	E_EnbPin::output(false);
 
+	// no pullup, IRQ, rising, low priority
+	ButtonPin::input(false, true);
+
+	// endstops IRQ on rising edge, Normally Closed to Ground
+	xendstop= XEndstopPin::input(true, true, true);
+	yendstop= YEndstopPin::input(true, true, true);
+	zendstop= ZEndstopPin::input(true, true, true);
+
 	TriggerPin::output(false);
 
 	//LED4Pin::output(false);
@@ -303,8 +322,8 @@ extern "C" void getPosition(float *x, float *y, float *z, float *e)
 {
 	*x= THEKERNEL.getMotionControl().getActuator('X').getCurrentPositionInmm();
 	*y= THEKERNEL.getMotionControl().getActuator('Y').getCurrentPositionInmm();
-	*z= THEKERNEL.getMotionControl().getActuator('Z').getCurrentPositionInmm();
-	*e= THEKERNEL.getMotionControl().getActuator('E').getCurrentPositionInmm();
+	if(z != NULL) *z= THEKERNEL.getMotionControl().getActuator('Z').getCurrentPositionInmm();
+	if(e != NULL) *e= THEKERNEL.getMotionControl().getActuator('E').getCurrentPositionInmm();
 }
 extern "C" osThreadId MainThreadHandle;
 
@@ -458,8 +477,10 @@ void executeNextBlock()
 		l.unlock();
 		running= false;
 	}
+	#ifdef USE_STM32F429I_DISCO
 	// this lets main thread know we moved to plot the movements
-	//xTaskNotify( MainThreadHandle, 0x02, eSetBits);
+	xTaskNotify( MainThreadHandle, 0x02, eSetBits);
+	#endif
 }
 
 // TODO add a task to write responses to host as different tasks may need access

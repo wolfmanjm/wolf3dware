@@ -82,11 +82,10 @@ void NMI_Handler(void)
   */
 void HardFault_Handler(void)
 {
-  /* Go to infinite loop when Hard Fault exception occurs */
-  __debugbreak();
-  while (1)
-  {
-  }
+    /* Go to infinite loop when Hard Fault exception occurs */
+    __debugbreak();
+    while (1) {
+    }
 }
 
 /**
@@ -96,11 +95,10 @@ void HardFault_Handler(void)
   */
 void MemManage_Handler(void)
 {
-  /* Go to infinite loop when Memory Manage exception occurs */
-  __debugbreak();
-  while (1)
-  {
-  }
+    /* Go to infinite loop when Memory Manage exception occurs */
+    __debugbreak();
+    while (1) {
+    }
 }
 
 /**
@@ -110,11 +108,10 @@ void MemManage_Handler(void)
   */
 void BusFault_Handler(void)
 {
-  /* Go to infinite loop when Bus Fault exception occurs */
-  __debugbreak();
-  while (1)
-  {
-  }
+    /* Go to infinite loop when Bus Fault exception occurs */
+    __debugbreak();
+    while (1) {
+    }
 }
 
 /**
@@ -124,11 +121,10 @@ void BusFault_Handler(void)
   */
 void UsageFault_Handler(void)
 {
-  /* Go to infinite loop when Usage Fault exception occurs */
-  __debugbreak();
-  while (1)
-  {
-  }
+    /* Go to infinite loop when Usage Fault exception occurs */
+    __debugbreak();
+    while (1) {
+    }
 }
 
 /**
@@ -148,8 +144,8 @@ void DebugMon_Handler(void)
   */
 void SysTick_Handler(void)
 {
-  osSystickHandler();
-  HAL_IncTick();
+    osSystickHandler();
+    HAL_IncTick();
 }
 
 /******************************************************************************/
@@ -166,7 +162,53 @@ void SysTick_Handler(void)
   */
 void EXTI0_IRQHandler(void)
 {
-  HAL_GPIO_EXTI_IRQHandler(KEY_BUTTON_PIN);
+    HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_0);
+}
+void EXTI1_IRQHandler(void)
+{
+    HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_1);
+}
+void EXTI2_IRQHandler(void)
+{
+    HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_2);
+}
+void EXTI3_IRQHandler(void)
+{
+    HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_3);
+}
+void EXTI4_IRQHandler(void)
+{
+    HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_4);
+}
+void EXTI9_5_IRQHandler(void)
+{
+    // select which pin caused the interrupt
+    if(__HAL_GPIO_EXTI_GET_IT(GPIO_PIN_5) != RESET)
+        HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_5);
+    else if(__HAL_GPIO_EXTI_GET_IT(GPIO_PIN_6) != RESET)
+        HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_6);
+    else if(__HAL_GPIO_EXTI_GET_IT(GPIO_PIN_7) != RESET)
+        HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_7);
+    else if(__HAL_GPIO_EXTI_GET_IT(GPIO_PIN_8) != RESET)
+        HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_8);
+    else if(__HAL_GPIO_EXTI_GET_IT(GPIO_PIN_9) != RESET)
+        HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_9);
+}
+void EXTI15_10_IRQHandler(void)
+{
+    // select which pin caused the interrupt
+    if(__HAL_GPIO_EXTI_GET_IT(GPIO_PIN_10) != RESET)
+        HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_10);
+    else if(__HAL_GPIO_EXTI_GET_IT(GPIO_PIN_11) != RESET)
+        HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_11);
+    else if(__HAL_GPIO_EXTI_GET_IT(GPIO_PIN_12) != RESET)
+        HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_12);
+    else if(__HAL_GPIO_EXTI_GET_IT(GPIO_PIN_13) != RESET)
+        HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_13);
+    else if(__HAL_GPIO_EXTI_GET_IT(GPIO_PIN_14) != RESET)
+        HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_14);
+    else if(__HAL_GPIO_EXTI_GET_IT(GPIO_PIN_15) != RESET)
+        HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_15);
 }
 
 /**
@@ -192,7 +234,7 @@ void OTG_FS_IRQHandler(void)
 
 void OTG_HS_IRQHandler(void)
 {
-   HAL_PCD_IRQHandler(&hpcd);
+    HAL_PCD_IRQHandler(&hpcd);
 }
 
 /**
@@ -202,12 +244,12 @@ void OTG_HS_IRQHandler(void)
   */
 void STEPTICKER_TIMx_IRQHandler(void)
 {
-  HAL_TIM_IRQHandler(&StepTickerTimHandle);
+    HAL_TIM_IRQHandler(&StepTickerTimHandle);
 }
 
 void UNSTEPTICKER_TIMx_IRQHandler(void)
 {
-  HAL_TIM_IRQHandler(&UnStepTickerTimHandle);
+    HAL_TIM_IRQHandler(&UnStepTickerTimHandle);
 }
 
 
