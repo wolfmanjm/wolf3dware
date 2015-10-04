@@ -650,6 +650,20 @@ extern "C" bool commandLineHandler(const char *line)
 		return true;
 	}
 
+	if(strncmp(line, "M1000 ", 6) == 0) {
+		// M1000 means the rest of the line a command not gcode
+		char buf[132];
+		char *d= buf;
+		const char *s= &line[6];
+		while(*s != 0) {
+			// we need to lowercase the command as many hosts uppercase everything
+			*d++ = tolower(*s++);
+		}
+		*d= '\0';
+		handleCommand(buf);
+		return true;
+	}
+
 	// Handle Gcode
 	GCodeProcessor& gp= THEKERNEL.getGCodeProcessor();
 	GCodeProcessor::GCodes_t gcodes;
