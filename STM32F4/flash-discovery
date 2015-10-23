@@ -1,1 +1,1 @@
-/datadisk/aux/Stuff/reprap/Firmwares/stm32l100discovery/stlink-texane/st-flash write $1 0x08000000
+./st-flash write ./Wolf3dWare_STM32F429/Wolf3dWare.bin  0x08000000
