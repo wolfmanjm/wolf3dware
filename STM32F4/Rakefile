@@ -67,7 +67,7 @@ end
 Rake.application.add_loader('d', DfileLoader.new)
 
 #TOOLSDIR = '/home/morris/work/reprap/Smoothie/gcc-arm-none-eabi/bin'
-TOOLSDIR = ENV['ARMTOOLS'].nil? ? '/datadisk/aux/Stuff/reprap/Firmwares/gcc-arm-none-eabi-4_9-2014q4/bin' :  ENV['ARMTOOLS']
+TOOLSDIR = ENV['ARMTOOLS'].nil? ? '/usr/bin' :  ENV['ARMTOOLS']
 TOOLSBIN = "#{TOOLSDIR}/arm-none-eabi-"
 CC = "#{TOOLSBIN}gcc"
 CCPP = "#{TOOLSBIN}g++"
@@ -141,7 +141,7 @@ CFLAGS = DEPFLAGS + " -mthumb -mcpu=cortex-m4 -mthumb-interwork -g3 " + (DEBUG ?
     "-ffunction-sections -fdata-sections -fno-math-errno " +
     "-g -Wall " +
     "-mfloat-abi=softfp -mfpu=fpv4-sp-d16 "
-CPPFLAGS = CFLAGS + ' -fno-rtti -fno-exceptions -std=gnu++11'
+CPPFLAGS = CFLAGS + ' -fno-rtti -fno-exceptions -std=gnu++14'
 
 #arm-atollic-eabi-gcc Example\Utilities\lcd_log.o Example\User\ts_calibration.o Example\User\touchscreen.o #Example\User\stm32f4xx_it.o Example\User\mems.o Example\User\main.o Example\User\log.o Example\User\lcd.o Example\TrueSTUDIO\syscalls.o Example\TrueSTUDIO\startup_stm32f429xx.o Drivers\STM32F4xx_HAL_Driver\stm32f4xx_ll_fmc.o Drivers\STM32F4xx_HAL_Driver\stm32f4xx_hal_spi.o Drivers\STM32F4xx_HAL_Driver\stm32f4xx_hal_sdram.o Drivers\STM32F4xx_HAL_Driver\stm32f4xx_hal_rcc_ex.o Drivers\STM32F4xx_HAL_Driver\stm32f4xx_hal_rcc.o Drivers\STM32F4xx_HAL_Driver\stm32f4xx_hal_pwr_ex.o Drivers\STM32F4xx_HAL_Driver\stm32f4xx_hal_pwr.o Drivers\STM32F4xx_HAL_Driver\stm32f4xx_hal_pcd.o Drivers\STM32F4xx_HAL_Driver\stm32f4xx_hal_ltdc.o Drivers\STM32F4xx_HAL_Driver\stm32f4xx_hal_i2c_ex.o Drivers\STM32F4xx_HAL_Driver\stm32f4xx_hal_i2c.o Drivers\STM32F4xx_HAL_Driver\stm32f4xx_hal_hcd.o Drivers\STM32F4xx_HAL_Driver\stm32f4xx_hal_gpio.o Drivers\STM32F4xx_HAL_Driver\stm32f4xx_hal_flash_ex.o Drivers\STM32F4xx_HAL_Driver\stm32f4xx_hal_flash.o Drivers\STM32F4xx_HAL_Driver\stm32f4xx_hal_dma2d.o Drivers\STM32F4xx_HAL_Driver\stm32f4xx_hal_dma.o Drivers\STM32F4xx_HAL_Driver\stm32f4xx_hal_cortex.o Drivers\STM32F4xx_HAL_Driver\stm32f4xx_hal.o Drivers\CMSIS\system_stm32f4xx.o Drivers\BSP\STM32F429I-Discovery\stm32f429i_discovery_ts.o Drivers\BSP\STM32F429I-Discovery\stm32f429i_discovery_sdram.o Drivers\BSP\STM32F429I-Discovery\stm32f429i_discovery_lcd.o Drivers\BSP\STM32F429I-Discovery\stm32f429i_discovery_io.o Drivers\BSP\STM32F429I-Discovery\stm32f429i_discovery_gyroscope.o Drivers\BSP\STM32F429I-Discovery\stm32f429i_discovery_eeprom.o Drivers\BSP\STM32F429I-Discovery\stm32f429i_discovery.o Drivers\BSP\Components\stmpe811.o Drivers\BSP\Components\l3gd20.o Drivers\BSP\Components\ili9341.o -o STM32F429I-Discovery+EEPROM.elf -mthumb -mcpu=cortex-m4 -mfpu=fpv4-sp-d16 -T..\STM32F429ZI_FLASH.ld -Wl,--start-group -lc -lm -Wl,--end-group -static -Wl,-cref,-u,Reset_Handler -Wl,-Map=STM32F429I-Discovery+EEPROM.map -Wl,--gc-sections -Wl,--defsym=malloc_getpagesize_P=0x1000
 

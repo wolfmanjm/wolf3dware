@@ -12,6 +12,8 @@
 
 #include <fastmath.h>
 #include <algorithm>
+#include <numeric>
+
 #include <string>
 #include <deque>
 #include <string.h>

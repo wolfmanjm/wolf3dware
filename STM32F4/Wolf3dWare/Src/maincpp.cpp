@@ -22,6 +22,7 @@
 #include <malloc.h>
 #include <string.h>
 #include <algorithm>
+#include <numeric>
 
 using namespace std;
 

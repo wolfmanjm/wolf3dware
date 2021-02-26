@@ -6,40 +6,38 @@
 */
 #include "stm32f4xx_hal.h"
 
-
-// needed to get around weird compiler errors
-#define GPIO_PORT_A ((uint32_t)GPIOA)
-#define GPIO_PORT_B ((uint32_t)GPIOB)
-#define GPIO_PORT_C ((uint32_t)GPIOC)
-#define GPIO_PORT_D ((uint32_t)GPIOD)
-
-#ifdef USE_STM32F429I_DISCO
-#define GPIO_PORT_E ((uint32_t)GPIOE)
-#define GPIO_PORT_F ((uint32_t)GPIOF)
-#define GPIO_PORT_G ((uint32_t)GPIOG)
-#define GPIO_PORT_H ((uint32_t)GPIOH)
-#define GPIO_PORT_I ((uint32_t)GPIOI)
-#define GPIO_PORT_J ((uint32_t)GPIOJ)
-#define GPIO_PORT_K ((uint32_t)GPIOK)
-#endif
+enum class GPIO_PORT : uint32_t {
+    A = GPIOA_BASE,
+    B = GPIOB_BASE,
+    C = GPIOC_BASE,
+    D = GPIOD_BASE,
+    #ifdef USE_STM32F429I_DISCO
+    E = GPIOE_BASE,
+    F = GPIOF_BASE,
+    G = GPIOG_BASE,
+    H = GPIOH_BASE,
+    I = GPIOI_BASE,
+    J = GPIOJ_BASE,
+    K = GPIOK_BASE,
+    #endif
+};
 
 // defines a pin with the port and pin mask
 // NOTE relies on pointer types being 32 bits
 // Pin must be initialized using the output() or input() calls
-template <uint32_t TPort, uint16_t TPin, uint32_t TClkEnable, bool inv = false>
+template <GPIO_PORT TPort, uint16_t TPin, uint32_t TClkEnable, bool inv = false>
 class GPIOPin
 {
 public:
-    static const uint32_t Port = TPort;
     static const uint16_t Pin = TPin;
     static const uint32_t Clk_enable = TClkEnable;
     static void set(bool set)
     {
-        ((GPIO_TypeDef *)Port)->BSRR = ((set != inv) ? Pin : (Pin << 16));
+        ((GPIO_TypeDef *)TPort)->BSRR = ((set != inv) ? Pin : (Pin << 16));
     }
     static bool get(void)
     {
-        return ((((GPIO_TypeDef *)Port)->IDR & Pin) != 0);
+        return ((((GPIO_TypeDef *)TPort)->IDR & Pin) != 0);
     }
     static void output(bool s)
     {
@@ -50,7 +48,7 @@ public:
         GPIO_InitStruct.Pull = GPIO_PULLUP;
         GPIO_InitStruct.Speed = GPIO_SPEED_FAST;
         GPIO_InitStruct.Pin = Pin;
-        HAL_GPIO_Init((GPIO_TypeDef *)Port, &GPIO_InitStruct);
+        HAL_GPIO_Init((GPIO_TypeDef *)TPort, &GPIO_InitStruct);
         set(s);
     }
     static uint16_t input(bool pullup=true, bool irq=false, bool rising=true, uint32_t pri=0x0F)
@@ -64,14 +62,14 @@ public:
             GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
             GPIO_InitStruct.Pull = pullup?GPIO_PULLUP:GPIO_NOPULL;
             GPIO_InitStruct.Speed = GPIO_SPEED_FAST;
-            HAL_GPIO_Init((GPIO_TypeDef *)Port, &GPIO_InitStruct);
+            HAL_GPIO_Init((GPIO_TypeDef *)TPort, &GPIO_InitStruct);
 
         }else{
             /* Configure pin as input with External interrupt */
             GPIO_InitStruct.Pin = Pin;
             GPIO_InitStruct.Pull = pullup?GPIO_PULLUP:GPIO_NOPULL;
             GPIO_InitStruct.Mode = rising?GPIO_MODE_IT_RISING:GPIO_MODE_IT_FALLING;
-            HAL_GPIO_Init((GPIO_TypeDef *)Port, &GPIO_InitStruct);
+            HAL_GPIO_Init((GPIO_TypeDef *)TPort, &GPIO_InitStruct);
 
             /* Enable and set Button EXTI Interrupt to the specified priority */
             // TODO need to map the pin to the EXTIn_IRQn
@@ -117,4 +115,4 @@ public:
 // Use this macro to define a pin, Port is A-G pin is 0-15, the
 // optional 3rd parameter is true to invert the pin, default is false not
 // inverted
-#define GPIO(PORT,PIN,...) GPIOPin<GPIO_PORT_##PORT, GPIO_PIN_##PIN, RCC_AHB1ENR_GPIO##PORT##EN, ##__VA_ARGS__>;
+#define GPIO(PORT,PIN,...) GPIOPin<GPIO_PORT::PORT, GPIO_PIN_##PIN, RCC_AHB1ENR_GPIO##PORT##EN, ##__VA_ARGS__>;
